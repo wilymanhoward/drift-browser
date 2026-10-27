@@ -1,6 +1,6 @@
 # Drift shell
 
-Phases 1 and 2 follow the user's calm, nearly invisible browser brief.
+Phases 1 through 3 follow the user's calm, nearly invisible browser brief.
 Reading this as a personal desktop browser with a soft neutral interface.
 ENERGY 1 / RHYTHM 1 / MOTION 1.
 
@@ -14,4 +14,8 @@ ENERGY 1 / RHYTHM 1 / MOTION 1.
 - Panel width updates immediately alongside native content bounds, keeping the web page aligned without a CSS-only animation. Broader motion polish belongs to Phase 7.
 - The native tab menu exposes secondary actions without filling the rail with extra buttons. Arrow keys, keyboard resizing, and Alt+Up/Down provide alternatives to pointer gestures.
 - Only the Drift label is draggable: keeping the controls and their approach area outside Electron's drag region prevents false pointer exits. A 300ms collapse delay tolerates brief pointer departures without moving buttons out from under the user.
+- The domain pill opens a centered command dialog, keeping URL entry and suggestions out of the rail. One shadow separates this temporary input surface from the captured page beneath it.
+- The internal new tab uses a clock, search field, and real saved favorites as its only focal elements; no feed or fabricated content competes with browsing.
+- Dialog search fields receive focus only after an explicit user action opens the dialog. Native dialog semantics keep keyboard focus inside it, and Escape returns focus to the page.
+- Named bookmark folders use simple section headings and rows because titles/URLs must remain scannable and editable; they do not need decorative cards.
 - Light, dark, and system theme controls belong to Phase 5 as specified in the phased request.

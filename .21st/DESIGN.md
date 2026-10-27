@@ -41,3 +41,4 @@ Generated from project sources at 2026-10-27T05:34:51.812Z.
 - Preserve DESIGN.md: warm neutral chrome, forest-green selection, Segoe UI, Lucide navigation icons.
 - Use a 48px collapsed rail, 150ms hover expansion, and 220-360px resizable pinned panel.
 - Reuse local React/CSS controls. Catalog search required authentication; no external components were retrieved.
+- Use a centered native dialog over a temporary captured page for command entry; use the existing neutral/green palette for the local clock/search/favorites page.
