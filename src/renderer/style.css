@@ -1,0 +1,156 @@
+:root {
+  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
+  color: #303833;
+  background: #eeede9;
+  font-synthesis: none;
+  --accent: #466a55;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+aside {
+  width: 224px;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 14px 18px;
+}
+header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  -webkit-app-region: drag;
+}
+.wordmark {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+button:hover {
+  background: #dedfd9;
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+  background: transparent;
+}
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.window-controls {
+  display: flex;
+}
+.window-controls button {
+  width: 27px;
+  height: 28px;
+}
+.window-controls .close:hover {
+  background: #ac302c;
+  color: white;
+}
+nav {
+  display: flex;
+  gap: 4px;
+  margin: 6px 0 16px;
+}
+form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid #c6ccc4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8f8f5;
+}
+form svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+}
+input::placeholder {
+  color: #58635a;
+  opacity: 1;
+}
+.current-page {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 24px;
+  padding: 12px 10px;
+  border-radius: 8px;
+  background: #dce4da;
+  font-size: 13px;
+}
+.current-page svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.current-page span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.error {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #8d2e25;
+  overflow-wrap: anywhere;
+}
+footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #535f55;
+  font-size: 11px;
+  padding: 12px 8px 0;
+}
+.status-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
