@@ -31,6 +31,7 @@
     "avoid": []
   },
   "decisions": [
+    "Keep the sidebar footer to Settings and Shields. Put secondary browser tools and zoom in a collapsible Settings section, and show workspace icons only when multiple workspaces exist, as requested by the user.",
     "Preserve DESIGN.md: warm neutral chrome, forest-green selection, Segoe UI, Lucide navigation icons.",
     "Use a 48px collapsed rail, 150ms hover expansion, and 220-360px resizable pinned panel.",
     "Reuse local React/CSS controls. Catalog search required authentication; no external components were retrieved.",

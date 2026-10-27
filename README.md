@@ -2,6 +2,8 @@
 
 Phases 1 through 7 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
 
+The sidebar footer contains only Settings and Shields. Open **Settings → Browser tools** for history, bookmarks, downloads, workspace management, find, print, compact/split/fullscreen controls, reopening a tab, and page zoom. Workspace icons appear only when more than one workspace exists. All keyboard shortcuts remain available.
+
 ## Run
 
 Use Node.js 22.12+ or a current supported release and npm.
@@ -56,8 +58,8 @@ Validation: [Phase 1](PHASE-1.md), [Phase 2](PHASE-2.md), [Phase 3](PHASE-3.md).
 - Ctrl+L opens the command bar with the current address selected. Ctrl+T creates an internal new tab and opens the bar in new-tab mode; Escape leaves the new tab open.
 - Enter browses a URL or searches Google. Down/Up chooses a fuzzy match from open tabs, history, bookmarks, and implemented commands; Enter activates it. Click a result to select it directly. Escape or the close button restores the page and its focus.
 - Commands include new/reopen tab, history, bookmarks, pin/unpin sidebar, reload, settings, workspaces, downloads, compact mode, and split view.
-- Ctrl+H or the History icon opens searchable history. Clear history removes the stored list. The library keeps the latest 5,000 unique web URLs with titles, timestamps, and visit counts; internal pages are excluded.
-- Ctrl+Shift+B or the Bookmarks icon opens bookmarks. Choose Bookmark this page, edit its title/address/folder, or remove an entry. Up to 2,000 bookmarks are stored in flat named folders. Changing a saved address preserves the bookmark's identity.
+- Ctrl+H or Settings → Browser tools → History opens searchable history. Clear history removes the stored list. The library keeps the latest 5,000 unique web URLs with titles, timestamps, and visit counts; internal pages are excluded.
+- Ctrl+Shift+B or Settings → Browser tools → Bookmarks opens bookmarks. Choose Bookmark this page, edit its title/address/folder, or remove an entry. Up to 2,000 bookmarks are stored in flat named folders. Changing a saved address preserves the bookmark's identity.
 - `drift://newtab/` shows a local clock/date, a URL/search field, and up to six saved favorites. It loads only bundled resources, has its own strict CSP, and receives no preload bridge or Node access. Its form shares the same URL/search resolver as the command bar.
 - History and bookmarks persist in `library.json` beside `session.json`. Writes use electron-store's atomic storage, autosave after 250ms, and flush on window close. Unreadable or malformed files remain untouched while the app reports unavailable storage.
 - The command bar and library dialogs hide native page views while showing a local captured frame behind the dialog. Pages stay alive. Captures exist in memory only and are discarded when the dialog closes.
@@ -96,7 +98,7 @@ Validation and UI gate: [Phase 6](PHASE-6.md).
 ## Phase 7 and Windows builds
 
 - Find in page uses Ctrl+F, with next/previous matches, counts and Escape to return to the page. The native page stays interactive below the find bar.
-- Ctrl+= / Ctrl+- / Ctrl+0 adjust/reset zoom. Zoom is stored per web origin; private windows keep changes in memory. Controls also appear in the expanded sidebar and command bar.
+- Ctrl+= / Ctrl+- / Ctrl+0 adjust/reset zoom. Zoom is stored per web origin; private windows keep changes in memory. Controls also appear in Settings → Browser tools and the command bar.
 - Ctrl+P opens the native print dialog. Page context menus provide editable-field actions, open/copy link, save image, find, print and inspect.
 - F11 toggles window fullscreen. HTML fullscreen content fills the native view, hiding the sidebar until exit. Fullscreen follows Chromium's user-gesture rule; camera, microphone, location and notification access retain permission prompts.
 - Restored background tabs start dormant; only active and pinned pages load immediately. Selecting a dormant tab loads it. This reduces startup activity for large sessions. Find stops on navigation/tab changes.

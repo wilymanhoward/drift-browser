@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { chromeWindow } from './helpers';
+import { chromeWindow, openBrowserTool } from './helpers';
 
 async function launch(profile: string) {
   const env = Object.fromEntries(
@@ -169,7 +169,7 @@ test('tabs retain state, reorder, close/reopen, and survive restart and crash', 
       .toEqual([first, third, second]);
     await shortcut(app, 'w');
     await expect(chrome.getByRole('tab')).toHaveCount(2);
-    await chrome.getByLabel('Reopen closed tab', { exact: true }).click();
+    await openBrowserTool(chrome, 'Reopen closed tab');
     await expect(chrome.getByRole('tab')).toHaveCount(3);
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'Third tab',

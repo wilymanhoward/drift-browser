@@ -182,7 +182,11 @@ async function createWindow(privateWindow = false) {
   );
   tabs.restore(settings.value.startup === 'restore' ? saved : null);
   function runPageAction(action: PageAction) {
-    if (tabs.state.overlay) tabs.closeOverlay();
+    if (
+      tabs.state.overlay &&
+      !(tabs.state.overlay === 'settings' && action.startsWith('zoom-'))
+    )
+      tabs.closeOverlay();
     pageTools.action(action);
   }
   if (saved) settings.value.expandedWidth = saved.sidebar.width;

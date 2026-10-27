@@ -15,10 +15,28 @@ test('settings apply live, export/import, and survive restart', async () => {
   let app = await launch();
   try {
     let chrome = await chromeWindow(app);
+    const initial = await chrome.evaluate(() => window.drift.getState());
+    await expect(chrome.locator('aside footer button')).toHaveCount(2);
+    await expect(chrome.locator('.workspace-switcher')).toHaveCount(0);
     await chrome.evaluate(() => window.drift.action('show-settings'));
     await expect(
       chrome.getByRole('dialog', { name: 'Settings', exact: true }),
     ).toBeVisible();
+    expect(
+      (await chrome.evaluate(() => window.drift.getState())).activeTabId,
+    ).toBe(initial.activeTabId);
+    expect(
+      (await chrome.evaluate(() => window.drift.getState())).tabs,
+    ).toHaveLength(initial.tabs.length);
+    await chrome.getByText('Browser tools', { exact: true }).click();
+    await expect(
+      chrome.getByRole('button', { name: 'Downloads', exact: true }),
+    ).toBeVisible();
+    await expect(
+      chrome.getByRole('button', { name: 'Workspaces', exact: true }),
+    ).toBeVisible();
+    await chrome.screenshot({ path: 'test-results/minimal-settings.png' });
+    await chrome.getByText('Browser tools', { exact: true }).click();
     await chrome.getByLabel('Theme', { exact: true }).selectOption('dark');
     await expect
       .poll(() =>

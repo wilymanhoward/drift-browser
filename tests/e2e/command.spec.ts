@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { chromeWindow } from './helpers';
+import { chromeWindow, openBrowserTool } from './helpers';
 const state = (chrome: Page) => chrome.evaluate(() => window.drift.getState());
 async function nativeShortcut(app: ElectronApplication, key: string) {
   await app.evaluate(({ BrowserWindow }, key) => {
@@ -106,9 +106,7 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
       'Quiet harbor',
     );
     await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
-    await chrome
-      .getByRole('button', { name: 'Bookmarks', exact: true })
-      .click();
+    await openBrowserTool(chrome, 'Bookmarks');
     await chrome
       .getByRole('button', { name: 'Bookmark this page', exact: true })
       .click();
@@ -288,15 +286,13 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
     expect(saved.history.some((item) => item.url.startsWith('drift:'))).toBe(
       false,
     );
-    await chrome
-      .getByRole('button', { name: 'Bookmarks', exact: true })
-      .click();
+    await openBrowserTool(chrome, 'Bookmarks');
     await chrome.getByLabel('Remove Harbor reference', { exact: true }).click();
     await expect(
       chrome.getByText('Save a page to begin your bookmarks.'),
     ).toBeVisible();
     await chrome.getByLabel('Close dialog', { exact: true }).click();
-    await chrome.getByRole('button', { name: 'History', exact: true }).click();
+    await openBrowserTool(chrome, 'History');
     await chrome
       .getByRole('button', { name: 'Clear history', exact: true })
       .click();

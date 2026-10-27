@@ -25,3 +25,4 @@ ENERGY 1 / RHYTHM 1 / MOTION 1.
 - Find reserves one narrow row above native content so highlights remain visible and the page stays interactive. Search/printer/magnifier icons map to find, print and zoom actions.
 - A 160ms dialog entry marks a temporary surface after an explicit action; reduced motion disables it. Sidebar width changes remain synchronized with native bounds.
 - The active tab is the rail's keyboard tab stop; arrows move between tabs. Inputs, selects, textareas and draggable separators retain visible focus.
+- The user's minimal-sidebar revision keeps only Settings and Shields in the footer. Secondary tools and zoom live inside a collapsed Browser tools section in Settings; workspace icons appear only with multiple workspaces. Loading status remains available to assistive technology without a visible Ready label. Settings opens over the current page so tool actions retain their browsing target.

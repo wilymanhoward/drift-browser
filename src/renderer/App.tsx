@@ -12,24 +12,13 @@ import {
   Plus,
   PanelLeftOpen,
   PanelLeftClose,
-  Undo2,
   Volume2,
   VolumeX,
   CircleAlert,
-  History,
-  Bookmark,
   Shield,
   Settings as SettingsIcon,
-  Download,
-  PanelsTopLeft,
-  Columns2,
-  Minimize2,
   Pin,
   Moon,
-  Search,
-  Printer,
-  ZoomIn,
-  ZoomOut,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -501,99 +490,29 @@ export default function App() {
               <CircleAlert size={17} />
             </button>
           ))}
-        <div className="workspace-switcher" aria-label="Workspaces">
-          {state.workspaces.map((w) => (
-            <button
-              key={w.id}
-              title={w.name}
-              aria-label={`Workspace ${w.name}`}
-              aria-pressed={w.id === workspace.id}
-              style={{
-                borderBottom:
-                  w.id === workspace.id
-                    ? `3px solid ${w.accent}`
-                    : '3px solid transparent',
-              }}
-              onClick={() => {
-                void window.drift
-                  .workspace({ type: 'select', id: w.id })
-                  .catch(report);
-              }}
-            >
-              {w.icon}
-            </button>
-          ))}
-          <button
-            aria-label="Manage workspaces"
-            title="Manage workspaces"
-            onClick={() => action('show-workspaces')}
-          >
-            <PanelsTopLeft size={16} />
-          </button>
-        </div>
-        <div className="power-tools">
-          <button
-            aria-label="Find in page"
-            title={`Find (${state.settings.shortcuts.find})`}
-            onClick={() => action('find')}
-          >
-            <Search size={16} />
-          </button>
-          <button
-            aria-label="Print page"
-            title={`Print (${state.settings.shortcuts.print})`}
-            onClick={() => action('print')}
-          >
-            <Printer size={16} />
-          </button>
-          <button
-            aria-label="Toggle compact mode"
-            title={`Compact mode (${state.settings.shortcuts.compact})`}
-            aria-pressed={state.compact}
-            onClick={() => action('compact')}
-          >
-            <Minimize2 size={16} />
-          </button>
-          <button
-            aria-label="Toggle split view"
-            title={`Split view (${state.settings.shortcuts.split})`}
-            disabled={visibleTabs.length < 2}
-            aria-pressed={!!state.split}
-            onClick={() => action('split')}
-          >
-            <Columns2 size={16} />
-          </button>
-          <button
-            aria-label="Downloads"
-            title={`Downloads (${state.settings.shortcuts['show-downloads']})`}
-            onClick={() => action('show-downloads')}
-          >
-            <Download size={16} />
-          </button>
-        </div>
-        {expanded && (
-          <div className="zoom-tools" aria-label="Page zoom">
-            <button
-              aria-label="Zoom out"
-              disabled={state.zoomPercent <= 25}
-              onClick={() => action('zoom-out')}
-            >
-              <ZoomOut size={16} />
-            </button>
-            <button
-              className="zoom-value"
-              aria-label={`Reset zoom (${state.zoomPercent}%)`}
-              onClick={() => action('zoom-reset')}
-            >
-              {state.zoomPercent}%
-            </button>
-            <button
-              aria-label="Zoom in"
-              disabled={state.zoomPercent >= 300}
-              onClick={() => action('zoom-in')}
-            >
-              <ZoomIn size={16} />
-            </button>
+        {state.workspaces.length > 1 && (
+          <div className="workspace-switcher" aria-label="Workspaces">
+            {state.workspaces.map((w) => (
+              <button
+                key={w.id}
+                title={w.name}
+                aria-label={`Workspace ${w.name}`}
+                aria-pressed={w.id === workspace.id}
+                style={{
+                  borderBottom:
+                    w.id === workspace.id
+                      ? `3px solid ${w.accent}`
+                      : '3px solid transparent',
+                }}
+                onClick={() => {
+                  void window.drift
+                    .workspace({ type: 'select', id: w.id })
+                    .catch(report);
+                }}
+              >
+                {w.icon}
+              </button>
+            ))}
           </div>
         )}
         <footer>
@@ -611,36 +530,14 @@ export default function App() {
           >
             <Shield size={16} />
           </button>
-          <button
-            aria-label="Reopen closed tab"
-            title={`Reopen closed tab (${state.settings.shortcuts['reopen-tab']})`}
-            disabled={!state.canReopen}
-            onClick={() => action('reopen-tab')}
-          >
-            <Undo2 size={16} />
-          </button>
-          <button
-            aria-label="History"
-            title={`History (${state.settings.shortcuts['show-history']})`}
-            onClick={() => action('show-history')}
-          >
-            <History size={16} />
-          </button>
-          <button
-            aria-label="Bookmarks"
-            title={`Bookmarks (${state.settings.shortcuts['show-bookmarks']})`}
-            onClick={() => action('show-bookmarks')}
-          >
-            <Bookmark size={16} />
-          </button>
-          <span role="status">
-            {state.loading
-              ? 'Loading page…'
-              : state.error
-                ? 'Unable to load page'
-                : 'Ready'}
-          </span>
         </footer>
+        <span role="status" className="sr-only">
+          {state.loading
+            ? 'Loading page…'
+            : state.error
+              ? 'Unable to load page'
+              : 'Ready'}
+        </span>
         {expanded && (
           <div
             role="separator"

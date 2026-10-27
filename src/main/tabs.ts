@@ -580,9 +580,6 @@ export class TabManager {
         tab.view.webContents.reload();
   }
   openSettings() {
-    const existing = this.tabs.find((tab) => tab.state.url === SETTINGS_URL);
-    if (existing) this.select(existing.state.id);
-    else this.create(SETTINGS_URL);
     return this.openOverlay('settings');
   }
   workspace(command: WorkspaceCommand) {

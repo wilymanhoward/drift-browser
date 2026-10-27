@@ -68,6 +68,28 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
     expect(
       (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
     ).toBe(110);
+    await chrome.getByRole('button', { name: 'Settings', exact: true }).click();
+    await chrome.getByText('Browser tools', { exact: true }).click();
+    await chrome.getByRole('button', { name: 'Zoom in', exact: true }).click();
+    await expect
+      .poll(() =>
+        chrome.evaluate(() =>
+          window.drift.getState().then((s) => s.zoomPercent),
+        ),
+      )
+      .toBe(120);
+    await expect(
+      chrome.getByRole('dialog', { name: 'Settings', exact: true }),
+    ).toBeVisible();
+    await chrome.getByRole('button', { name: 'Zoom out', exact: true }).click();
+    await expect
+      .poll(() =>
+        chrome.evaluate(() =>
+          window.drift.getState().then((s) => s.zoomPercent),
+        ),
+      )
+      .toBe(110);
+    await chrome.getByLabel('Close dialog', { exact: true }).click();
     await chrome.evaluate((url) => window.drift.navigate(url), origin + '/two');
     expect(
       (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
@@ -168,6 +190,8 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
       ] as const) {
         await chrome.evaluate((action) => window.drift.action(action), action);
         await expect(chrome.getByRole('dialog')).toBeVisible();
+        if (action === 'show-settings')
+          await chrome.getByText('Browser tools', { exact: true }).click();
         const results = await new AxeBuilder({ page: chrome })
           .setLegacyMode()
           .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
@@ -182,6 +206,9 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
       }
     }
     await chrome.screenshot({ path: 'test-results/phase7-chrome.png' });
+    await chrome
+      .locator('aside')
+      .screenshot({ path: 'test-results/minimal-sidebar.png' });
     // Test a small supported window with both the native content and chrome present.
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 440),

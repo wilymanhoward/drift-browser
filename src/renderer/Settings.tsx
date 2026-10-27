@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react';
-import type { BrowserState } from '../shared/browser';
+import type { BrowserState, BrowserAction } from '../shared/browser';
 import type { Settings as Preferences } from '../shared/settings';
 export default function Settings({ state }: { state: BrowserState }) {
   const [draft, setDraft] = useState(state.settings);
   const [error, setError] = useState('');
   const signature = JSON.stringify(state.settings);
+  const tool = async (action: BrowserAction) => {
+    try {
+      if (!action.startsWith('zoom-')) await window.drift.closeOverlay();
+      await window.drift.action(action);
+    } catch {
+      setError('The browser action could not be completed.');
+    }
+  };
   useEffect(() => setDraft(state.settings), [signature]);
   const update = async (patch: Partial<Preferences>) => {
     const next = { ...draft, ...patch };
@@ -35,6 +43,71 @@ export default function Settings({ state }: { state: BrowserState }) {
           {error}
         </p>
       )}
+      <details className="browser-tools">
+        <summary>Browser tools</summary>
+        <div className="browser-tool-actions">
+          {(
+            [
+              ['History', 'show-history'],
+              ['Bookmarks', 'show-bookmarks'],
+              ['Downloads', 'show-downloads'],
+              ['Workspaces', 'show-workspaces'],
+              ['Find in page', 'find'],
+              ['Print page', 'print'],
+              ['Reopen closed tab', 'reopen-tab'],
+              ['Toggle compact mode', 'compact'],
+              ['Toggle split view', 'split'],
+              ['Toggle fullscreen', 'fullscreen'],
+            ] as const
+          ).map(([label, action]) => (
+            <button
+              key={action}
+              className="text-button"
+              disabled={
+                (action === 'reopen-tab' && !state.canReopen) ||
+                (action === 'split' &&
+                  state.tabs.filter(
+                    (t) => t.workspaceId === state.activeWorkspaceId,
+                  ).length < 2)
+              }
+              aria-pressed={
+                action === 'compact'
+                  ? state.compact
+                  : action === 'split'
+                    ? !!state.split
+                    : undefined
+              }
+              onClick={() => void tool(action)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="zoom-tools" aria-label="Page zoom">
+          <span>Page zoom</span>
+          <button
+            aria-label="Zoom out"
+            disabled={state.zoomPercent <= 25}
+            onClick={() => void tool('zoom-out')}
+          >
+            −
+          </button>
+          <button
+            className="zoom-value"
+            aria-label={`Reset zoom (${state.zoomPercent}%)`}
+            onClick={() => void tool('zoom-reset')}
+          >
+            {state.zoomPercent}%
+          </button>
+          <button
+            aria-label="Zoom in"
+            disabled={state.zoomPercent >= 300}
+            onClick={() => void tool('zoom-in')}
+          >
+            +
+          </button>
+        </div>
+      </details>
       <h2>Appearance</h2>
       <label>
         Theme

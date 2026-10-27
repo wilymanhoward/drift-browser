@@ -23,6 +23,7 @@ try {
   await chrome.waitForFunction(
     () => typeof window.drift?.getState === 'function',
   );
+  await expect(chrome.locator('aside footer button')).toHaveCount(2);
   await expect
     .poll(() =>
       chrome.evaluate(() => window.drift.getState().then((s) => s.loading)),
@@ -42,6 +43,10 @@ try {
   await chrome.evaluate(() => window.drift.action('show-settings'));
   await expect(
     chrome.getByRole('dialog', { name: 'Settings', exact: true }),
+  ).toBeVisible();
+  await chrome.getByText('Browser tools', { exact: true }).click();
+  await expect(
+    chrome.getByRole('button', { name: 'Downloads', exact: true }),
   ).toBeVisible();
   await chrome.screenshot({ path: 'test-results/phase7-packaged.png' });
   console.log(JSON.stringify({ status: 'passed', ...metadata }));

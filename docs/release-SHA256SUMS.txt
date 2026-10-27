@@ -1,2 +1,2 @@
-6c13ffddb96dfc1fb7cfda369d0cc0012d76ed6d439b6af81746d82047f2d1af  Drift-Setup-0.1.0-x64.exe
-686b3e8f0466a42e48664c0f6ef0b44d9927d2bb67fecd457bf4670d1077d16a  Drift-Portable-0.1.0-x64.exe
+a94f8f157b5498009cb4e2dbd2afb2ca7194943b20603eb281903aedd24f1cd7  Drift-Setup-0.1.0-x64.exe
+b5c82414fec9aae638c9a7492a39e31dd95e7cbddc65fa60c73d618500aa45f8  Drift-Portable-0.1.0-x64.exe
