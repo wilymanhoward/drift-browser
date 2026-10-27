@@ -1,0 +1,169 @@
+{
+  "measuredAt": "2026-10-27T11:12:26.811Z",
+  "platform": "win32",
+  "architecture": "x64",
+  "scenario": "Fresh profile, local new tab, 10-second idle; includes Electron GPU/network/renderers. Working sets may count shared pages more than once.",
+  "medianStartupMs": 736,
+  "samples": [
+    {
+      "scenario": "Fresh new tab",
+      "loadedTabs": 1,
+      "startupMs": 730,
+      "workingSetMB": 801,
+      "privateMB": 388,
+      "cpuPercent": 0.11,
+      "processes": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.04811872497273069,
+          "workingSetKB": 290636,
+          "privateKB": 213856
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.03827579461916961,
+          "workingSetKB": 186240,
+          "privateKB": 106336
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.009875567154206474,
+          "workingSetKB": 105280,
+          "privateKB": 12780
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.0030249708772215646,
+          "workingSetKB": 120708,
+          "privateKB": 36572
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.006551127479573515,
+          "workingSetKB": 117308,
+          "privateKB": 27680
+        }
+      ]
+    },
+    {
+      "scenario": "Fresh new tab",
+      "loadedTabs": 1,
+      "startupMs": 797,
+      "workingSetMB": 818,
+      "privateMB": 404,
+      "cpuPercent": 0.14,
+      "processes": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.05829763376872117,
+          "workingSetKB": 291096,
+          "privateKB": 213516
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.05965281247945788,
+          "workingSetKB": 202112,
+          "privateKB": 121376
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.006733360906146539,
+          "workingSetKB": 105412,
+          "privateKB": 12592
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.005034048006975538,
+          "workingSetKB": 121428,
+          "privateKB": 36856
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.010564604429241627,
+          "workingSetKB": 117732,
+          "privateKB": 28996
+        }
+      ]
+    },
+    {
+      "scenario": "Fresh new tab",
+      "loadedTabs": 1,
+      "startupMs": 736,
+      "workingSetMB": 812,
+      "privateMB": 400,
+      "cpuPercent": 0.09,
+      "processes": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.036492665262915676,
+          "workingSetKB": 292304,
+          "privateKB": 214260
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.034521154681439105,
+          "workingSetKB": 189392,
+          "privateKB": 114848
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.007434541775952633,
+          "workingSetKB": 105428,
+          "privateKB": 12560
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.002970711154992922,
+          "workingSetKB": 123628,
+          "privateKB": 37668
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.0069086852085424215,
+          "workingSetKB": 120296,
+          "privateKB": 30488
+        }
+      ]
+    },
+    {
+      "scenario": "20 restored tabs",
+      "loadedTabs": 1,
+      "startupMs": 789,
+      "workingSetMB": 810,
+      "privateMB": 392,
+      "cpuPercent": 0.1,
+      "processes": [
+        {
+          "type": "Browser",
+          "cpuPercent": 0.0456856434367101,
+          "workingSetKB": 293504,
+          "privateKB": 215028
+        },
+        {
+          "type": "GPU",
+          "cpuPercent": 0.03879463786907524,
+          "workingSetKB": 187684,
+          "privateKB": 107204
+        },
+        {
+          "type": "Utility",
+          "cpuPercent": 0.006890877876854067,
+          "workingSetKB": 105316,
+          "privateKB": 12484
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.0037247677466894094,
+          "workingSetKB": 126128,
+          "privateKB": 39324
+        },
+        {
+          "type": "Tab",
+          "cpuPercent": 0.0064910774419018585,
+          "workingSetKB": 117160,
+          "privateKB": 27272
+        }
+      ]
+    }
+  ]
+}

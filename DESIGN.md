@@ -1,6 +1,6 @@
 # Drift shell
 
-Phases 1 through 6 follow the user's calm, nearly invisible browser brief.
+Phases 1 through 7 follow the user's calm, nearly invisible browser brief.
 Reading this as a personal desktop browser with a soft neutral interface.
 ENERGY 1 / RHYTHM 1 / MOTION 1.
 
@@ -22,3 +22,6 @@ ENERGY 1 / RHYTHM 1 / MOTION 1.
 - Workspace icons and a narrow selected-tab accent identify the current context without recoloring the whole window. Pinned favicon tiles keep repeated destinations above regular tabs.
 - Compact mode keeps only an edge trigger; its temporary sidebar sits over an in-memory page frame. Two native split panes share a narrow, keyboard-adjustable divider.
 - Workspace editing and download progress use the existing dialog surface and labelled rows. Pin, panes, compact and download icons describe their actual actions; no new decorative assets are needed.
+- Find reserves one narrow row above native content so highlights remain visible and the page stays interactive. Search/printer/magnifier icons map to find, print and zoom actions.
+- A 160ms dialog entry marks a temporary surface after an explicit action; reduced motion disables it. Sidebar width changes remain synchronized with native bounds.
+- The active tab is the rail's keyboard tab stop; arrows move between tabs. Inputs, selects, textareas and draggable separators retain visible focus.

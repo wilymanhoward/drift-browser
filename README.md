@@ -1,6 +1,6 @@
 # Drift
 
-Phases 1 through 6 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
+Phases 1 through 7 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
 
 ## Run
 
@@ -93,6 +93,28 @@ Validation: [Phase 5](PHASE-5.md).
 
 Validation and UI gate: [Phase 6](PHASE-6.md).
 
-## Remaining work
+## Phase 7 and Windows builds
 
-Phase 7 covers broader accessibility and performance measurements, animation polish, NSIS and portable packaging. Find-in-page, per-site zoom, printing, and the web-page context menu from the broader feature brief are still outstanding. Extension support remains a stretch goal. Session/history/bookmark files contain local plaintext URLs and titles, and crashes may lose recent unsaved changes. Windows is the validation target; macOS/Linux have not been tested.
+- Find in page uses Ctrl+F, with next/previous matches, counts and Escape to return to the page. The native page stays interactive below the find bar.
+- Ctrl+= / Ctrl+- / Ctrl+0 adjust/reset zoom. Zoom is stored per web origin; private windows keep changes in memory. Controls also appear in the expanded sidebar and command bar.
+- Ctrl+P opens the native print dialog. Page context menus provide editable-field actions, open/copy link, save image, find, print and inspect.
+- F11 toggles window fullscreen. HTML fullscreen content fills the native view, hiding the sidebar until exit. Fullscreen follows Chromium's user-gesture rule; camera, microphone, location and notification access retain permission prompts.
+- Restored background tabs start dormant; only active and pinned pages load immediately. Selecting a dormant tab loads it. This reduces startup activity for large sessions. Find stops on navigation/tab changes.
+- Active tabs use a single keyboard tab stop with arrow navigation, all form controls have visible focus, and dialogs use a restrained 160ms entry animation with a reduced-motion alternative. Automated axe WCAG A/AA checks cover Settings, Workspaces and Downloads in light/dark themes. This is not a screen-reader certification.
+
+```sh
+npm run dist:win       # NSIS installer + portable x64 executable
+npm run pack:win       # unpacked app for inspection
+npm run test:packaged  # requires the unpacked build
+npm run measure        # local startup/idle benchmark
+```
+
+Outputs are `release/Drift-Setup-0.1.0-x64.exe`, `release/Drift-Portable-0.1.0-x64.exe`, and `release/win-unpacked/Drift.exe`. The installer is per-user and allows choosing its directory; uninstall preserves user data. The portable executable needs no installation, but its default profile still lives in Electron's user-data directory rather than beside the executable. Use `--user-data-dir=<absolute directory>` for an isolated profile.
+
+Builds are unsigned and retain the default Electron icon. No updater or publishing service is configured. A production signing certificate and user-supplied app icon can be added before public distribution. Dependencies and bundled filter licensing are described in THIRD-PARTY-NOTICES.md. Windows x64 is tested; ARM64, macOS and Linux are not.
+
+Phase report, measurements and validation: [Phase 7](PHASE-7.md).
+
+## Remaining limitations
+
+Extension support remains a stretch goal. Workspaces share cookies, split view supports two panes, and compact reveal uses a held frame. The Phase 4 DOM-cookie and fingerprinting limitations still apply. Session/history/bookmark/zoom files contain local plaintext browsing data, and crashes may lose recent unsaved changes. Private windows do not persist their browser history, but downloads are real files and the operating system may retain its own records. Hardware printers, camera/microphone grants and broad media-codec/DRM compatibility are not validated by the automated suite.
