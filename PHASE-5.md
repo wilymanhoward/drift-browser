@@ -1,0 +1,9 @@
+# Phase 5
+
+Implemented live light/dark/system themes, accent and accessible foregrounds, left/right sidebar, widths, density, corners, inset/shadow, local wallpaper, custom CSS, startup/search behavior, hover expansion, sleeping timeout preferences, shortcut rebinding, and validated JSON import/export. Google remains the default. `drift://settings/` opens the trusted browser editor; internal page content has no Node or preload access.
+
+Validation: build, lint, 64 unit tests and all 8 Electron tests passed. The settings test checks live theme/layout changes, native file-dialog export/import, custom CSS, a rebound shortcut, and persistence after restart. The running Electron screenshot was inspected for layout and legibility. The window-control hover regression remains covered.
+
+Delivery gate: the neutral palette, Segoe type and compact sidebar follow DESIGN.md (ENERGY 1 / RHYTHM 1 / MOTION 1). Fields serve real settings, without decorative assets or invented content. Controls have labels and keyboard focus; dialogs scroll at small heights. Text, surfaces, borders and errors use theme variables; accent-button foreground is calculated for contrast. Readable focus/icons use stable theme colors even with arbitrary user accents. Loading, storage and file-validation errors are visible. No generated assets or fonts were added. Custom CSS can override these defaults and may require `!important` to override equally specific rules.
+
+Limits: JSON exports preferences and shortcut bindings; bookmarks/history/session and privacy controls remain separate local stores. Expanded sidebar width is remembered in the session. File pickers were exercised with controlled test paths; arbitrary OS wallpaper formats are rejected. Phase 6 activates the configured tab-sleep timeout and reserved compact/split shortcuts.

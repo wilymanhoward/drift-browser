@@ -13,6 +13,8 @@ const api: DriftAPI = {
   clearHistory: () => ipcRenderer.invoke('drift:clear-history'),
   getShields: () => ipcRenderer.invoke('drift:shields'),
   privacy: (command) => ipcRenderer.invoke('drift:privacy', command),
+  settings: (value) => ipcRenderer.invoke('drift:settings', value),
+  settingsFile: (mode) => ipcRenderer.invoke('drift:settings-file', mode),
   onOverlay: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

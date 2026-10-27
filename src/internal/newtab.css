@@ -111,3 +111,36 @@ nav p,
   overflow: hidden;
   clip-path: inset(50%);
 }
+:root {
+  color: var(--text, #303833);
+  background: var(--surface, #f8f8f5);
+}
+.date,
+nav p,
+.signature {
+  color: var(--muted, #535f55);
+}
+form {
+  background: var(--input-bg, #fff);
+  border-color: var(--border, #b8c1b6);
+}
+button {
+  background: var(--accent, #466a55);
+  color: var(--accent-text, #fff);
+}
+input {
+  color: var(--text, #303833);
+}
+input::placeholder {
+  color: var(--muted, #535f55);
+}
+nav a {
+  background: var(--chrome-bg, #eeede9);
+  color: var(--text, #303833);
+}
+nav a:hover {
+  background: var(--selection, #dce4da);
+}
+#error {
+  color: var(--error, #8d2e25);
+}

@@ -19,6 +19,7 @@ import {
   History,
   Bookmark,
   Shield,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -133,10 +134,13 @@ export default function App() {
         ref={sidebar}
         aria-label="Browser sidebar"
         className={expanded ? 'expanded' : 'collapsed'}
-        style={{ width: expanded ? state.sidebar.width : 48 }}
+        style={{
+          width: expanded ? state.sidebar.width : state.settings.collapsedWidth,
+          marginLeft: state.settings.sidebarPosition === 'right' ? 'auto' : 0,
+        }}
         onMouseEnter={() => {
           clearTimeout(hover.current);
-          if (!expanded)
+          if (!expanded && state.settings.hoverExpand)
             hover.current = setTimeout(
               () => updateSidebar({ expanded: true }),
               150,
@@ -402,6 +406,13 @@ export default function App() {
           ))}
         <footer>
           <button
+            aria-label="Settings"
+            title="Settings (Ctrl+,)"
+            onClick={() => action('show-settings')}
+          >
+            <SettingsIcon size={16} />
+          </button>
+          <button
             aria-label="Shields"
             title="Shields"
             onClick={() => action('show-shields')}
@@ -448,6 +459,10 @@ export default function App() {
             aria-valuemax={360}
             aria-valuenow={state.sidebar.width}
             className="resize-handle"
+            style={{
+              right: state.settings.sidebarPosition === 'left' ? 0 : undefined,
+              left: state.settings.sidebarPosition === 'right' ? 0 : undefined,
+            }}
             onKeyDown={(event) => {
               if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                 event.preventDefault();
@@ -472,7 +487,14 @@ export default function App() {
                 updateSidebar({
                   width: Math.max(
                     220,
-                    Math.min(360, Math.round(event.clientX)),
+                    Math.min(
+                      360,
+                      Math.round(
+                        state.settings.sidebarPosition === 'left'
+                          ? event.clientX
+                          : window.innerWidth - event.clientX,
+                      ),
+                    ),
                   ),
                 });
             }}
@@ -486,6 +508,28 @@ export default function App() {
           />
         )}
       </aside>
+      {state.settings.contentShadow && state.settings.contentInset && (
+        <div
+          className="content-shadow"
+          style={{
+            top: 8,
+            bottom: 8,
+            left:
+              state.settings.sidebarPosition === 'left'
+                ? expanded
+                  ? state.sidebar.width
+                  : state.settings.collapsedWidth
+                : 8,
+            right:
+              state.settings.sidebarPosition === 'right'
+                ? expanded
+                  ? state.sidebar.width
+                  : state.settings.collapsedWidth
+                : 8,
+            borderRadius: state.settings.radius,
+          }}
+        />
+      )}
       {overlay && <Overlay key={overlay.kind} event={overlay} state={state} />}
     </>
   );

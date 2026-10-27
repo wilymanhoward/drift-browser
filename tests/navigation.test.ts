@@ -19,7 +19,7 @@ describe('navigation trust boundary', () => {
     'javascript:alert(1)',
     'file:///C:/secret',
     'data:text/html,test',
-    'drift://settings',
+    'drift://unknown',
     'https://user:pass@example.com',
     {},
     null,

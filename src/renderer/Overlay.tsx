@@ -22,6 +22,8 @@ import { isWebURL, NEW_TAB_URL, resolveInput } from '../shared/navigation';
 import { fuzzyScore, searchEntries } from '../shared/search';
 import type { SearchEntry } from '../shared/search';
 import Shields from './Shields';
+import Settings from './Settings';
+import { searchTemplate } from '../shared/settings';
 
 function Modal({
   label,
@@ -117,7 +119,9 @@ export default function Overlay({
               ? 'History'
               : event.kind === 'shields'
                 ? 'Shields'
-                : 'Bookmarks'
+                : event.kind === 'settings'
+                  ? 'Settings'
+                  : 'Bookmarks'
         }
         close={close}
       >
@@ -126,7 +130,9 @@ export default function Overlay({
             {error || library?.error || state.storageError}
           </p>
         )}
-        {event.kind === 'shields' ? (
+        {event.kind === 'settings' ? (
+          <Settings state={state} />
+        ) : event.kind === 'shields' ? (
           <Shields />
         ) : !library ? (
           <p role="status">Loading saved pages…</p>
@@ -226,7 +232,7 @@ function CommandBar({
         await window.drift.tab({ type: 'select', id: entry.id });
         await window.drift.closeOverlay();
       } else {
-        resolveInput(entry?.url ?? query);
+        resolveInput(entry?.url ?? query, searchTemplate(state.settings));
         await window.drift.navigate(entry?.url ?? query);
       }
     } catch {
@@ -281,7 +287,8 @@ function CommandBar({
         </button>
       </form>
       <p className="command-hint">
-        Enter to browse or search Google. Use ↓ to choose a match.
+        Enter to browse or search {state.settings.searchEngine}. Use ↓ to choose
+        a match.
       </p>
       {error && (
         <p role="alert" className="error">

@@ -1,4 +1,11 @@
-import { app, BrowserWindow, ipcMain, session, protocol } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  session,
+  protocol,
+  nativeTheme,
+} from 'electron';
 import type Store from 'electron-store';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -11,6 +18,8 @@ import { newTabResponse } from './new-tab';
 import { resolveInput } from '../shared/navigation';
 import { PrivacyController, loadFilters } from './privacy';
 import { randomUUID } from 'node:crypto';
+import { SettingsStore } from './settings';
+import { searchTemplate, themeCSS } from '../shared/settings';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -71,6 +80,8 @@ async function createWindow(privateWindow = false) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSaved = '';
   const library = new BrowserLibrary(() => publish());
+  const settings = new SettingsStore();
+  await settings.load(privateWindow);
   if (!privateWindow) await library.load();
   const partition = privateWindow
     ? `drift-private-${randomUUID()}`
@@ -90,11 +101,18 @@ async function createWindow(privateWindow = false) {
   if (pageSession.protocol.isProtocolHandled('drift'))
     pageSession.protocol.unhandle('drift');
   pageSession.protocol.handle('drift', (request) =>
-    newTabResponse(request.url, library.data.bookmarks),
+    newTabResponse(
+      request.url,
+      library.data.bookmarks,
+      settings.value,
+      settings.dark,
+    ),
   );
   const state = (): BrowserState => ({
     ...tabs.state,
-    storageError: storageError || library.error,
+    storageError: storageError || library.error || settings.error,
+    settings: settings.value,
+    dark: settings.dark,
   });
   const publish = () => {
     if (ready && !win.isDestroyed())
@@ -129,9 +147,29 @@ async function createWindow(privateWindow = false) {
       }
     },
     (url, title, increment) => library.visit(url, title, increment),
-    { partition, privateWindow, track: (page) => privacy.track(page) },
+    {
+      partition,
+      privateWindow,
+      track: (page) => privacy.track(page),
+      settings: () => settings.value,
+    },
   );
-  tabs.restore(saved);
+  tabs.restore(settings.value.startup === 'restore' ? saved : null);
+  let cssKey: string | null = null;
+  const applySettings = async () => {
+    tabs.layout();
+    const next = await win.webContents.insertCSS(
+      themeCSS(settings.value, settings.dark) + '\n' + settings.value.customCSS,
+    );
+    if (cssKey) await win.webContents.removeInsertedCSS(cssKey);
+    cssKey = next;
+    tabs.refreshNewTabs();
+    publish();
+  };
+  const systemTheme = () => {
+    void applySettings();
+  };
+  nativeTheme.on('updated', systemTheme);
   const handle = (
     channel: string,
     count: number,
@@ -160,7 +198,7 @@ async function createWindow(privateWindow = false) {
   };
   handle('drift:state', 0, state);
   handle('drift:navigate', 1, (input) => {
-    const url = resolveInput(input);
+    const url = resolveInput(input, searchTemplate(settings.value));
     tabs.closeOverlay();
     return tabs.navigate(url);
   });
@@ -171,6 +209,16 @@ async function createWindow(privateWindow = false) {
     tabs.refreshNewTabs();
   });
   handle('drift:clear-history', 0, () => library.clearHistory());
+  handle('drift:settings', 1, async (input) => {
+    settings.set(input);
+    await applySettings();
+  });
+  handle('drift:settings-file', 1, async (mode) => {
+    if (!['import', 'export', 'wallpaper'].includes(String(mode)))
+      throw new Error('Invalid settings file action');
+    await settings.transfer(win, mode as 'import' | 'export' | 'wallpaper');
+    await applySettings();
+  });
   handle('drift:shields', 0, () =>
     privacy.state(tabs.active.view.webContents.id, tabs.active.state.url),
   );
@@ -220,6 +268,8 @@ async function createWindow(privateWindow = false) {
         return tabs.openOverlay('shields');
       case 'private-window':
         return createWindow(true);
+      case 'show-settings':
+        return tabs.openSettings();
       case 'reopen-tab':
         tabs.reopen();
         break;
@@ -264,10 +314,14 @@ async function createWindow(privateWindow = false) {
     for (const channel of ['drift:shields', 'drift:privacy'])
       routes.get(channel)?.delete(chromeId);
     privacy.dispose();
+    for (const channel of ['drift:settings', 'drift:settings-file'])
+      routes.get(channel)?.delete(chromeId);
+    nativeTheme.removeListener('updated', systemTheme);
     tabs.dispose();
   });
   await win.loadURL(uiURL);
   ready = true;
+  await applySettings();
   publish();
   save();
   win.show();

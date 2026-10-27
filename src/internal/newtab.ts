@@ -24,6 +24,7 @@ document.getElementById('search')!.addEventListener('submit', (event) => {
     window.location.assign(
       resolveInput(
         (document.getElementById('query') as HTMLInputElement).value,
+        document.documentElement.dataset.search,
       ),
     );
   } catch {

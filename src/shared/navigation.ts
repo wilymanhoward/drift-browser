@@ -1,4 +1,5 @@
 export const NEW_TAB_URL = 'drift://newtab/';
+export const SETTINGS_URL = 'drift://settings/';
 export function navigationURL(value: unknown): string {
   if (
     typeof value !== 'string' ||
@@ -9,6 +10,8 @@ export function navigationURL(value: unknown): string {
   }
   const input = value.trim();
   if (input === 'drift://newtab' || input === NEW_TAB_URL) return NEW_TAB_URL;
+  if (input === 'drift://settings' || input === SETTINGS_URL)
+    return SETTINGS_URL;
   const candidate =
     /^[a-z][a-z\d+.-]*:/i.test(input) && !/^[\w.-]+:\d+(\/|$)/.test(input)
       ? input
@@ -34,10 +37,13 @@ export function navigationURL(value: unknown): string {
 }
 
 export function isPageURL(value: string): boolean {
-  return value === NEW_TAB_URL || isWebURL(value);
+  return value === NEW_TAB_URL || value === SETTINGS_URL || isWebURL(value);
 }
 
-export function resolveInput(value: unknown): string {
+export function resolveInput(
+  value: unknown,
+  template = 'https://www.google.com/search?q={query}',
+): string {
   if (typeof value !== 'string' || !value.trim() || value.length > 8192)
     throw new Error('Enter an address or search term.');
   const input = value.trim();
@@ -46,9 +52,7 @@ export function resolveInput(value: unknown): string {
     /^(localhost|\[[a-f\d:]+\]|[^\s/]+\.[^\s/]+)([:/]|$)/i.test(input)
   )
     return navigationURL(input);
-  return navigationURL(
-    `https://www.google.com/search?q=${encodeURIComponent(input)}`,
-  );
+  return navigationURL(template.replace('{query}', encodeURIComponent(input)));
 }
 
 export function isWebURL(value: string): boolean {

@@ -1,7 +1,7 @@
 import { BrowserWindow, Menu, WebContentsView } from 'electron';
 import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
-import { COLLAPSED_WIDTH, CONTENT_INSET } from '../shared/browser';
+import { CONTENT_INSET } from '../shared/browser';
 import type {
   BrowserState,
   TabCommand,
@@ -15,6 +15,7 @@ import {
   isWebURL,
   navigationURL,
   NEW_TAB_URL,
+  SETTINGS_URL,
 } from '../shared/navigation';
 
 interface Tab {
@@ -45,6 +46,7 @@ export class TabManager {
       partition: string;
       privateWindow: boolean;
       track: (page: WebContents) => void;
+      settings: () => import('../shared/settings').Settings;
     },
   ) {}
   restore(saved: SavedSession | null) {
@@ -54,7 +56,7 @@ export class TabManager {
       this.select(saved.activeTabId);
     } else this.create();
   }
-  get state(): Omit<BrowserState, 'storageError'> {
+  get state(): Omit<BrowserState, 'storageError' | 'settings' | 'dark'> {
     return {
       ...this.active.state,
       tabs: this.tabs.map((tab) => ({ ...tab.state })),
@@ -149,6 +151,10 @@ export class TabManager {
       update();
     });
     page.on('did-stop-loading', update);
+    page.on('did-finish-load', () => {
+      if (tab.state.url === SETTINGS_URL && tab.state.id === this.activeId)
+        void this.openOverlay('settings');
+    });
     page.on('did-navigate', (_event, url) => {
       if (isPageURL(url)) tab.state.url = url;
       this.visited(url, page.getTitle(), true);
@@ -269,6 +275,7 @@ export class TabManager {
     switch (command.type) {
       case 'select':
         this.select(command.id);
+        if (tab.state.url === SETTINGS_URL) void this.openOverlay('settings');
         break;
       case 'close':
         this.close(command.id);
@@ -402,7 +409,63 @@ export class TabManager {
     for (const tab of this.tabs)
       if (tab.state.url === NEW_TAB_URL) tab.view.webContents.reload();
   }
+  openSettings() {
+    const existing = this.tabs.find((tab) => tab.state.url === SETTINGS_URL);
+    if (existing) this.select(existing.state.id);
+    else this.create(SETTINGS_URL);
+    return this.openOverlay('settings');
+  }
   shortcut(input: Input): boolean {
+    if (input.type === 'keyDown') {
+      const chord = [
+        input.control || input.meta ? 'Ctrl' : '',
+        input.alt ? 'Alt' : '',
+        input.shift ? 'Shift' : '',
+        input.key.length === 1
+          ? input.key === ','
+            ? ','
+            : input.key.toUpperCase()
+          : input.key,
+      ]
+        .filter(Boolean)
+        .join('+');
+      const binding = Object.entries(
+        this.environment.settings().shortcuts,
+      ).find(([, value]) => value.toLowerCase() === chord.toLowerCase())?.[0];
+      if (binding === 'show-settings') {
+        void this.openSettings();
+        return true;
+      }
+      if (binding === 'toggle-sidebar') {
+        this.updateSidebar({ pinned: !this.sidebar.pinned });
+        return true;
+      }
+      if (binding === 'devtools') {
+        this.active.view.webContents.toggleDevTools();
+        return true;
+      }
+      const legacy: Record<string, [string, boolean]> = {
+        'new-tab': ['t', false],
+        'close-tab': ['w', false],
+        'reopen-tab': ['t', true],
+        'open-command': ['l', false],
+        'next-tab': ['Tab', false],
+        'previous-tab': ['Tab', true],
+        'show-history': ['h', false],
+        'show-bookmarks': ['b', true],
+      };
+      if (binding && legacy[binding]) {
+        const [key, shift] = legacy[binding];
+        input = {
+          ...input,
+          key,
+          shift,
+          control: true,
+          meta: false,
+          alt: false,
+        };
+      } else if (!binding) return false;
+    }
     if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt)
       return false;
     const key = input.key.toLowerCase();
@@ -433,16 +496,20 @@ export class TabManager {
   }
   layout() {
     const [width, height] = this.win.getContentSize();
+    const settings = this.environment.settings();
+    const inset = settings.contentInset ? CONTENT_INSET : 0;
     const sidebar = this.sidebar.expanded
       ? this.sidebar.width
-      : COLLAPSED_WIDTH;
+      : settings.collapsedWidth;
     for (const tab of this.tabs)
       tab.view.setBounds({
-        x: sidebar,
-        y: CONTENT_INSET,
-        width: Math.max(0, width - sidebar - CONTENT_INSET),
-        height: Math.max(0, height - CONTENT_INSET * 2),
+        x: settings.sidebarPosition === 'left' ? sidebar : inset,
+        y: inset,
+        width: Math.max(0, width - sidebar - inset),
+        height: Math.max(0, height - inset * 2),
       });
+    for (const tab of this.tabs)
+      tab.view.setBorderRadius(settings.contentInset ? settings.radius : 0);
   }
   dispose() {
     this.disposed = true;
