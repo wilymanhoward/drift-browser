@@ -11,7 +11,7 @@ export async function buildElectron() {
     bundle: true,
     platform: 'node',
     format: 'cjs',
-    external: ['electron'],
+    external: ['electron', 'electron-store'],
     sourcemap: true,
   });
 }
