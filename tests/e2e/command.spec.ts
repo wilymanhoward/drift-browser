@@ -246,7 +246,7 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
     await expect
       .poll(async () => (await state(chrome)).url)
       .toBe(`${origin}/two`);
-    await app.context().route('https://duckduckgo.com/**', (route) =>
+    await app.context().route('https://www.google.com/search?**', (route) =>
       route.fulfill({
         contentType: 'text/html',
         body: '<html><head><title>Search fixture</title></head><body>Search response</body></html>',
@@ -261,7 +261,7 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
       'Search fixture',
     );
     expect((await state(chrome)).url).toBe(
-      'https://duckduckgo.com/?q=quiet%20browser',
+      'https://www.google.com/search?q=quiet%20browser',
     );
     await chrome.evaluate((url) => window.drift.navigate(url), `${origin}/two`);
     const rejected = await chrome.evaluate(async () => {

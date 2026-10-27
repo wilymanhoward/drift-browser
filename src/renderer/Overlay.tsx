@@ -276,7 +276,7 @@ function CommandBar({
         </button>
       </form>
       <p className="command-hint">
-        Enter to browse or search DuckDuckGo. Use ↓ to choose a match.
+        Enter to browse or search Google. Use ↓ to choose a match.
       </p>
       {error && (
         <p role="alert" className="error">

@@ -54,14 +54,14 @@ Pinned sites and workspaces arrive in Phase 6. Validation: [Phase 1](PHASE-1.md)
 ## Phase 3
 
 - Ctrl+L opens the command bar with the current address selected. Ctrl+T creates an internal new tab and opens the bar in new-tab mode; Escape leaves the new tab open.
-- Enter browses a URL or searches DuckDuckGo. Down/Up chooses a fuzzy match from open tabs, history, bookmarks, and implemented commands; Enter activates it. Click a result to select it directly. Escape or the close button restores the page and its focus.
+- Enter browses a URL or searches Google. Down/Up chooses a fuzzy match from open tabs, history, bookmarks, and implemented commands; Enter activates it. Click a result to select it directly. Escape or the close button restores the page and its focus.
 - Commands include new/reopen tab, history, bookmarks, pin/unpin sidebar, and reload. Settings and compact-mode commands will appear when those features exist.
 - Ctrl+H or the History icon opens searchable history. Clear history removes the stored list. The library keeps the latest 5,000 unique web URLs with titles, timestamps, and visit counts; internal pages are excluded.
 - Ctrl+Shift+B or the Bookmarks icon opens bookmarks. Choose Bookmark this page, edit its title/address/folder, or remove an entry. Up to 2,000 bookmarks are stored in flat named folders. Changing a saved address preserves the bookmark's identity.
 - `drift://newtab/` shows a local clock/date, a URL/search field, and up to six saved favorites. It loads only bundled resources, has its own strict CSP, and receives no preload bridge or Node access. Its form shares the same URL/search resolver as the command bar.
 - History and bookmarks persist in `library.json` beside `session.json`. Writes use electron-store's atomic storage, autosave after 250ms, and flush on window close. Unreadable or malformed files remain untouched while the app reports unavailable storage.
 - The command bar and library dialogs hide native page views while showing a local captured frame behind the dialog. Pages stay alive. Captures exist in memory only and are discarded when the dialog closes.
-- DuckDuckGo is the current search default. Engine selection and custom search templates belong to Phase 5. There are no remote search suggestions.
+- Google is the current search default, as requested. Engine selection and custom search templates belong to Phase 5. There are no remote search suggestions.
 
 ## Next phases
 

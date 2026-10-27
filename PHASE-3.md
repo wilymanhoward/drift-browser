@@ -10,7 +10,7 @@ Validated on Windows, 27 October 2026. Scope: command navigation, searchable his
 - PASS: the same desktop suite runs against Vite development mode. Tests identify trusted chrome separately from tab pages.
 - PASS: Ctrl+L and Ctrl+T work through Electron input events with a native page focused. The command bar selects its initial address, supports keyboard result selection, navigates to a matching tab, and executes a history command.
 - PASS: a local fixture verifies new-tab URL entry, favicon/tab isolation regressions, history entries, folder edits, address edits without duplication, favorites, bookmark removal, and history clearing.
-- PASS: a routed DuckDuckGo fixture verifies search query encoding and the chosen default without depending on an external search service.
+- PASS: a routed Google fixture verifies search query encoding and the chosen default without depending on an external search service. Google replaced the original DuckDuckGo default at the user's request.
 - PASS: bookmarks and history survive restart; the test reads cleared arrays from the saved file after closing the app.
 - PASS: the internal new-tab document has no Node globals or preload bridge. Invalid schemes are rejected; its form and clock run under a strict CSP.
 - PASS: both the new-tab layout and command dialog fit the supported 640 × 440 minimum width without horizontal overflow, including resizing with a captured background displayed.
@@ -85,4 +85,4 @@ Evidence: renderer/internal source, `DESIGN.md`, `tests/command.test.ts`, and th
 
 ## Limits
 
-DuckDuckGo is fixed until Phase 5 search settings. History keeps 5,000 unique URLs rather than a complete per-visit timeline; bookmarks are capped at 2,000 with flat named folders and six new-tab favorites. The library is local plaintext and uses a 250ms autosave delay. Restart restores page URLs rather than form contents or navigation stacks. Captured backgrounds are temporary in-memory still frames; pages remain alive underneath. Privacy Shields, third-party cookie policy, HTTPS-only upgrades, permission prompts, private windows, workspaces, compact mode, and installers remain in later phases. Permissions are denied in the interim. macOS/Linux are untested.
+Google is fixed until Phase 5 search settings. History keeps 5,000 unique URLs rather than a complete per-visit timeline; bookmarks are capped at 2,000 with flat named folders and six new-tab favorites. The library is local plaintext and uses a 250ms autosave delay. Restart restores page URLs rather than form contents or navigation stacks. Captured backgrounds are temporary in-memory still frames; pages remain alive underneath. Privacy Shields, third-party cookie policy, HTTPS-only upgrades, permission prompts, private windows, workspaces, compact mode, and installers remain in later phases. Permissions are denied in the interim. macOS/Linux are untested.

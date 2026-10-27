@@ -47,7 +47,7 @@ export function resolveInput(value: unknown): string {
   )
     return navigationURL(input);
   return navigationURL(
-    `https://duckduckgo.com/?q=${encodeURIComponent(input)}`,
+    `https://www.google.com/search?q=${encodeURIComponent(input)}`,
   );
 }
 

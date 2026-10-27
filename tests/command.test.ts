@@ -15,10 +15,10 @@ describe('command navigation', () => {
       fuzzyScore('needle', `${'x'.repeat(600)}needle`),
     ).toBeGreaterThanOrEqual(0);
   });
-  it('uses HTTPS for domains and DuckDuckGo for search text', () => {
+  it('uses HTTPS for domains and Google for search text', () => {
     expect(resolveInput('example.com/path')).toBe('https://example.com/path');
     expect(resolveInput('calm browser & tabs')).toBe(
-      'https://duckduckgo.com/?q=calm%20browser%20%26%20tabs',
+      'https://www.google.com/search?q=calm%20browser%20%26%20tabs',
     );
     expect(resolveInput('http://localhost:3000/a')).toBe(
       'http://localhost:3000/a',
