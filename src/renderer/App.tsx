@@ -111,12 +111,15 @@ export default function App() {
     tab.title || (tab.loading ? 'Opening page…' : tab.url || 'No page open');
   const collapse = () => {
     clearTimeout(hover.current);
-    if (
-      !state.sidebar.pinned &&
-      !resizing.current &&
-      !sidebar.current?.contains(document.activeElement)
-    )
-      updateSidebar({ expanded: false });
+    hover.current = setTimeout(() => {
+      if (
+        !state.sidebar.pinned &&
+        !resizing.current &&
+        !sidebar.current?.matches(':hover') &&
+        !sidebar.current?.contains(document.activeElement)
+      )
+        updateSidebar({ expanded: false });
+    }, 300);
   };
   return (
     <aside
@@ -132,15 +135,27 @@ export default function App() {
             150,
           );
       }}
-      onMouseLeave={collapse}
+      onMouseLeave={(event) => {
+        const header = event.currentTarget
+          .querySelector('header')
+          ?.getBoundingClientRect();
+        // Electron drag regions can report an exit while the cursor is still in the header.
+        if (
+          header &&
+          event.clientX >= header.left &&
+          event.clientX < header.right &&
+          event.clientY >= header.top &&
+          event.clientY < header.bottom
+        )
+          return;
+        collapse();
+      }}
       onBlur={(event) => {
         if (
           !event.currentTarget.contains(event.relatedTarget) &&
           !event.currentTarget.matches(':hover')
         ) {
-          clearTimeout(hover.current);
-          if (!state.sidebar.pinned && !resizing.current)
-            updateSidebar({ expanded: false });
+          collapse();
         }
       }}
     >

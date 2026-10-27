@@ -145,3 +145,67 @@ test('Phase 1 browses with isolated content and working window controls', async 
     );
   }
 });
+
+test('hover-expanded window controls stay reachable across the header', async () => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
+  delete env.ELECTRON_RUN_AS_NODE;
+  const app = await electron.launch({
+    args: ['.', `--user-data-dir=${test.info().outputPath('hover-profile')}`],
+    env,
+  });
+  try {
+    const chrome = await chromeWindow(app);
+    const sidebar = chrome.getByRole('complementary');
+    await chrome.mouse.move(16, 140);
+    await expect(sidebar).toHaveCSS('width', '224px');
+    // Reproduce the native mouse-exit event when entering the draggable label.
+    await sidebar.dispatchEvent('mouseout', {
+      bubbles: true,
+      relatedTarget: null,
+      clientX: 28,
+      clientY: 20,
+    });
+    await chrome.waitForTimeout(400);
+    await expect(sidebar).toHaveCSS('width', '224px');
+    expect(
+      (await chrome.evaluate(() => window.drift.getState())).sidebar.pinned,
+    ).toBe(false);
+    await chrome.mouse.move(80, 20, { steps: 12 });
+    await chrome.getByLabel('Maximize window', { exact: true }).hover();
+    await chrome.waitForTimeout(400);
+    await expect(sidebar).toHaveCSS('width', '224px');
+    await chrome.getByLabel('Maximize window', { exact: true }).click();
+    await expect(
+      chrome.getByLabel('Restore window', { exact: true }),
+    ).toBeVisible();
+    await chrome.getByLabel('Restore window', { exact: true }).click();
+    await chrome.getByLabel('Minimize window', { exact: true }).hover();
+    await chrome.waitForTimeout(400);
+    await chrome.getByLabel('Minimize window', { exact: true }).click();
+    await expect
+      .poll(() =>
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0].isMinimized(),
+        ),
+      )
+      .toBe(true);
+    await app.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0];
+      win.restore();
+      win.show();
+    });
+    await chrome.mouse.move(16, 140);
+    await expect(sidebar).toHaveCSS('width', '224px');
+    await chrome.getByLabel('Close window', { exact: true }).hover();
+    await chrome.waitForTimeout(400);
+    const closed = app.waitForEvent('close');
+    await chrome.getByLabel('Close window', { exact: true }).click();
+    await closed;
+  } finally {
+    await app.close().catch(() => {});
+  }
+});

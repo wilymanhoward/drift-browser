@@ -6,7 +6,7 @@ Validated on Windows, 27 October 2026. Scope: vertical tabs, sidebar interaction
 
 - PASS: strict TypeScript production build, ESLint, and Prettier.
 - PASS: 41 unit tests cover URL handling, session validation, tab command validation, and sidebar input limits.
-- PASS: three Playwright end-to-end tests run against the built app and the Vite development server.
+- PASS: the initial three Playwright end-to-end workflows run against the built app and the Vite development server. A fourth regression test was added after the window-control issue below.
 - PASS: Phase 1 navigation, error recovery, window controls, security isolation, and minimum-size checks remain covered.
 - PASS: separate tab views retain a typed form value while switching; exactly one view is visible.
 - PASS: collapsed 48px sidebar, delayed hover expansion, collapse, pinning, pointer resize, keyboard resize, and persisted 280px width.
@@ -88,3 +88,15 @@ Evidence: `DESIGN.md`, renderer source, `tests/session.test.ts`, `tests/e2e/brow
 ## Limits
 
 New tabs still use example.com pending the Phase 3 internal new-tab page. Restart restores URLs rather than full navigation stacks, form state, or scroll position. Recently closed tabs are limited to 25 and remain in memory only. Autosave can lose the newest changes within its 250ms delay on a crash. Saved URLs are local plaintext. Inactive tabs remain loaded; unloading, pinned sites, and workspaces belong to Phase 6. Browser privacy controls and permission prompts remain Phase 4, and requests are denied until then. Actual audio playback was not tested on hardware; mute controls and persisted mute state were tested. macOS/Linux and installer packaging remain untested.
+
+## Window-control hover regression, 27 October 2026
+
+The initial tests exercised window controls with the sidebar pinned. A user reported that an unpinned sidebar collapsed when approaching the controls. Electron's draggable header ignores pointer events, causing a false sidebar exit.
+
+The drag region now covers only the Drift label. Mouse exits that remain inside the header do not collapse it; real exits use a cancellable 300ms delay, and re-entry or focus in the panel keeps it open. The header and control group accept pointer input.
+
+- Functional gate PASS: a new unpinned-sidebar regression simulates the native drag-region exit, pauses longer than the collapse delay, then moves through the header and clicks maximize, restore, minimize, and close.
+- Resilience gate PASS: all four production Electron workflows and all 41 unit tests pass; build, lint, and formatting pass. Existing hover-out collapse remains covered by the tabs workflow.
+- Purpose gate PASS: the drag boundary and collapse-delay rationale are recorded in DESIGN.md; neither change introduces decoration or new controls.
+- Liveliness gate PASS: ENERGY 1 / RHYTHM 1 / MOTION 1 and the existing palette/layout remain unchanged. The delay protects target stability rather than adding animation.
+- Remaining quality locks PASS: existing controls, labels, contrast, keyboard behavior, loading/error states, and phase scope remain intact by source inspection and regression checks. No new content, colors, links, or assets were introduced.

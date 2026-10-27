@@ -13,4 +13,5 @@ ENERGY 1 / RHYTHM 1 / MOTION 1.
 - A selected-page row repeats the soft green accent. There are no decorative cards, gradients, shadows, or marketing sections.
 - Panel width updates immediately alongside native content bounds, keeping the web page aligned without a CSS-only animation. Broader motion polish belongs to Phase 7.
 - The native tab menu exposes secondary actions without filling the rail with extra buttons. Arrow keys, keyboard resizing, and Alt+Up/Down provide alternatives to pointer gestures.
+- Only the Drift label is draggable: keeping the controls and their approach area outside Electron's drag region prevents false pointer exits. A 300ms collapse delay tolerates brief pointer departures without moving buttons out from under the user.
 - Light, dark, and system theme controls belong to Phase 5 as specified in the phased request.

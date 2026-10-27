@@ -29,9 +29,11 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  -webkit-app-region: drag;
+  -webkit-app-region: no-drag;
 }
 .wordmark {
+  -webkit-app-region: drag;
+  user-select: none;
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.6px;
@@ -73,6 +75,7 @@ input:focus-visible,
   outline-offset: -2px;
 }
 .window-controls {
+  -webkit-app-region: no-drag;
   display: flex;
 }
 .window-controls button {

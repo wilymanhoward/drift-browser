@@ -25,7 +25,7 @@ The end-to-end test launches the built Electron application and uses a local HTT
 
 ## Phase 1
 
-- Frameless window with minimize, maximize/restore, and close controls; drag the wordmark/header to move it.
+- Frameless window with minimize, maximize/restore, and close controls; drag the Drift label to move it. The rest of the header accepts normal pointer input.
 - Sandboxed native `WebContentsView` content, starting at `https://example.com`.
 - Enter an HTTP/HTTPS address in the sidebar and press Enter. Bare domains default to HTTPS.
 - Back, forward, reload, page title, loading indicator, and navigation error feedback.
