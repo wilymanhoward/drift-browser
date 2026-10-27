@@ -26,6 +26,10 @@ import {
   Minimize2,
   Pin,
   Moon,
+  Search,
+  Printer,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -37,6 +41,7 @@ import type {
   OverlayEvent,
 } from '../shared/browser';
 import Overlay from './Overlay';
+import FindBar from './FindBar';
 import { NEW_TAB_URL } from '../shared/navigation';
 
 declare global {
@@ -158,7 +163,7 @@ export default function App() {
           alt=""
         />
       ))}
-      {state.compact && (
+      {state.compact && !state.htmlFullscreen && (
         <div
           className="compact-edge"
           style={{ [state.settings.sidebarPosition]: 0 }}
@@ -173,7 +178,10 @@ export default function App() {
           position: state.compact ? 'fixed' : 'relative',
           zIndex: 2,
           visibility:
-            state.compact && !expanded && !state.overlay ? 'hidden' : 'visible',
+            state.htmlFullscreen ||
+            (state.compact && !expanded && !state.overlay)
+              ? 'hidden'
+              : 'visible',
           right: state.settings.sidebarPosition === 'right' ? 0 : undefined,
           background: 'var(--chrome-bg)',
           width: expanded ? state.sidebar.width : state.settings.collapsedWidth,
@@ -393,6 +401,7 @@ export default function App() {
               <button
                 role="tab"
                 aria-selected={tab.id === state.activeTabId}
+                tabIndex={tab.id === state.activeTabId ? 0 : -1}
                 aria-label={title(tab)}
                 title={title(tab)}
                 className="tab-select"
@@ -524,6 +533,20 @@ export default function App() {
         </div>
         <div className="power-tools">
           <button
+            aria-label="Find in page"
+            title={`Find (${state.settings.shortcuts.find})`}
+            onClick={() => action('find')}
+          >
+            <Search size={16} />
+          </button>
+          <button
+            aria-label="Print page"
+            title={`Print (${state.settings.shortcuts.print})`}
+            onClick={() => action('print')}
+          >
+            <Printer size={16} />
+          </button>
+          <button
             aria-label="Toggle compact mode"
             title={`Compact mode (${state.settings.shortcuts.compact})`}
             aria-pressed={state.compact}
@@ -548,6 +571,31 @@ export default function App() {
             <Download size={16} />
           </button>
         </div>
+        {expanded && (
+          <div className="zoom-tools" aria-label="Page zoom">
+            <button
+              aria-label="Zoom out"
+              disabled={state.zoomPercent <= 25}
+              onClick={() => action('zoom-out')}
+            >
+              <ZoomOut size={16} />
+            </button>
+            <button
+              className="zoom-value"
+              aria-label={`Reset zoom (${state.zoomPercent}%)`}
+              onClick={() => action('zoom-reset')}
+            >
+              {state.zoomPercent}%
+            </button>
+            <button
+              aria-label="Zoom in"
+              disabled={state.zoomPercent >= 300}
+              onClick={() => action('zoom-in')}
+            >
+              <ZoomIn size={16} />
+            </button>
+          </div>
+        )}
         <footer>
           <button
             aria-label="Settings"
@@ -652,73 +700,78 @@ export default function App() {
           />
         )}
       </aside>
-      {state.split && !state.overlay && !state.compactPreview && (
-        <div
-          role="separator"
-          aria-label="Split view width"
-          aria-orientation="vertical"
-          aria-valuemin={20}
-          aria-valuemax={80}
-          aria-valuenow={Math.round(state.split.ratio * 100)}
-          tabIndex={0}
-          className="split-divider"
-          style={{
-            left: `calc(${state.settings.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : state.compact ? 0 : state.settings.contentInset ? 8 : 0}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 8 : 0) + 8}px) * ${state.split.ratio})`,
-          }}
-          onPointerDown={(e) => {
-            splitting.current = true;
-            e.currentTarget.setPointerCapture(e.pointerId);
-          }}
-          onPointerMove={(e) => {
-            if (splitting.current) {
-              const side = state.compact
-                ? 6
-                : expanded
-                  ? state.sidebar.width
-                  : state.settings.collapsedWidth;
-              const inset =
-                !state.compact && state.settings.contentInset ? 8 : 0;
-              const x =
-                state.settings.sidebarPosition === 'left' ? side : inset;
-              void window.drift
-                .splitRatio(
-                  Math.max(
-                    0.2,
-                    Math.min(
-                      0.8,
-                      (e.clientX - x) / (window.innerWidth - side - inset - 8),
+      {state.find && !state.overlay && <FindBar state={state} />}
+      {state.split &&
+        !state.htmlFullscreen &&
+        !state.overlay &&
+        !state.compactPreview && (
+          <div
+            role="separator"
+            aria-label="Split view width"
+            aria-orientation="vertical"
+            aria-valuemin={20}
+            aria-valuemax={80}
+            aria-valuenow={Math.round(state.split.ratio * 100)}
+            tabIndex={0}
+            className="split-divider"
+            style={{
+              left: `calc(${state.settings.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : state.compact ? 0 : state.settings.contentInset ? 8 : 0}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 8 : 0) + 8}px) * ${state.split.ratio})`,
+            }}
+            onPointerDown={(e) => {
+              splitting.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+            }}
+            onPointerMove={(e) => {
+              if (splitting.current) {
+                const side = state.compact
+                  ? 6
+                  : expanded
+                    ? state.sidebar.width
+                    : state.settings.collapsedWidth;
+                const inset =
+                  !state.compact && state.settings.contentInset ? 8 : 0;
+                const x =
+                  state.settings.sidebarPosition === 'left' ? side : inset;
+                void window.drift
+                  .splitRatio(
+                    Math.max(
+                      0.2,
+                      Math.min(
+                        0.8,
+                        (e.clientX - x) /
+                          (window.innerWidth - side - inset - 8),
+                      ),
                     ),
-                  ),
-                )
-                .catch(report);
-            }
-          }}
-          onPointerUp={(e) => {
-            splitting.current = false;
-            e.currentTarget.releasePointerCapture(e.pointerId);
-          }}
-          onPointerCancel={() => {
-            splitting.current = false;
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-              e.preventDefault();
-              void window.drift
-                .splitRatio(
-                  Math.max(
-                    0.2,
-                    Math.min(
-                      0.8,
-                      state.split!.ratio +
-                        (e.key === 'ArrowRight' ? 0.05 : -0.05),
+                  )
+                  .catch(report);
+              }
+            }}
+            onPointerUp={(e) => {
+              splitting.current = false;
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            }}
+            onPointerCancel={() => {
+              splitting.current = false;
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                void window.drift
+                  .splitRatio(
+                    Math.max(
+                      0.2,
+                      Math.min(
+                        0.8,
+                        state.split!.ratio +
+                          (e.key === 'ArrowRight' ? 0.05 : -0.05),
+                      ),
                     ),
-                  ),
-                )
-                .catch(report);
-            }
-          }}
-        />
-      )}
+                  )
+                  .catch(report);
+              }
+            }}
+          />
+        )}
       {state.settings.contentShadow && state.settings.contentInset && (
         <div
           className="content-shadow"

@@ -12,6 +12,8 @@ import type {
 } from '../shared/browser';
 import { DEFAULT_SIDEBAR } from './session';
 import type { SavedSession, SavedTab } from './session';
+import { PAGE_ACTIONS } from '../shared/page-tools';
+import type { PageAction } from '../shared/page-tools';
 import {
   isPageURL,
   isWebURL,
@@ -48,6 +50,7 @@ export class TabManager {
   private compactPreview: BrowserState['compactPreview'] = null;
   private peekVersion = 0;
   private split: BrowserState['split'] = null;
+  private htmlFullscreen = false;
   private sleepTimer: ReturnType<typeof setInterval>;
   constructor(
     private win: BrowserWindow,
@@ -58,6 +61,9 @@ export class TabManager {
       privateWindow: boolean;
       track: (page: WebContents) => void;
       settings: () => import('../shared/settings').Settings;
+      closeFind: () => void;
+      findActive: () => boolean;
+      pageAction: (action: PageAction) => void;
     },
   ) {
     this.sleepTimer = setInterval(() => this.sleepInactive(), 30000);
@@ -68,11 +74,22 @@ export class TabManager {
       this.workspaces = saved.workspaces ?? [{ ...DEFAULT_WORKSPACE }];
       this.workspaceId = saved.activeWorkspaceId ?? this.workspaces[0].id;
       this.sidebar = { ...saved.sidebar, expanded: saved.sidebar.pinned };
-      for (const tab of saved.tabs) this.create(tab.url, tab, false);
+      this.activeId = saved.activeTabId;
+      for (const tab of saved.tabs)
+        this.create(
+          tab.url,
+          tab,
+          false,
+          undefined,
+          tab.id !== saved.activeTabId && !tab.pinned,
+        );
       this.select(saved.activeTabId);
     } else this.create();
   }
-  get state(): Omit<BrowserState, 'storageError' | 'settings' | 'dark'> {
+  get state(): Omit<
+    BrowserState,
+    'storageError' | 'settings' | 'dark' | 'find' | 'zoomPercent'
+  > {
     return {
       ...this.active.state,
       tabs: this.tabs.map((tab) => ({ ...tab.state })),
@@ -87,6 +104,7 @@ export class TabManager {
       compact: this.compact,
       compactPreview: this.compactPreview,
       split: this.split,
+      htmlFullscreen: this.htmlFullscreen,
     };
   }
   get saved(): SavedSession {
@@ -115,13 +133,15 @@ export class TabManager {
     );
   }
   private emit() {
-    if (!this.disposed && this.tabs.length) this.changed();
+    if (!this.disposed && this.tabs.some((t) => t.state.id === this.activeId))
+      this.changed();
   }
   create(
     url = NEW_TAB_URL,
     saved?: SavedTab,
     select = true,
     history?: ClosedTab,
+    deferred = false,
   ): Tab {
     const target = navigationURL(url);
     const view = new WebContentsView({
@@ -141,7 +161,7 @@ export class TabManager {
         id: saved?.id ?? randomUUID(),
         url: target,
         title: saved?.title ?? (target === NEW_TAB_URL ? 'New tab' : ''),
-        loading: true,
+        loading: !deferred,
         canGoBack: false,
         canGoForward: false,
         error: null,
@@ -152,7 +172,7 @@ export class TabManager {
           ? saved!.workspaceId!
           : this.workspaceId,
         pinned: saved?.pinned ?? false,
-        unloaded: false,
+        unloaded: deferred,
       },
     };
     const page = view.webContents;
@@ -236,16 +256,37 @@ export class TabManager {
     page.on('before-input-event', (event, input) => {
       if (this.shortcut(input)) event.preventDefault();
     });
+    page.on('enter-html-full-screen', () => {
+      if (this.disposed) return;
+      this.select(tab.state.id);
+      this.environment.closeFind();
+      this.htmlFullscreen = true;
+      this.compactPreview = null;
+      this.layout();
+      this.emit();
+    });
+    page.on('leave-html-full-screen', () => {
+      this.htmlFullscreen = false;
+      if (!this.disposed && !this.win.isDestroyed()) {
+        this.layout();
+        this.emit();
+      }
+    });
     page.on('focus', () => {
       if (
         this.split?.ids.includes(tab.state.id) &&
         this.activeId !== tab.state.id
       ) {
         this.activeId = tab.state.id;
+        this.environment.closeFind();
         tab.lastActive = Date.now();
         this.emit();
       }
     });
+    if (deferred) {
+      this.emit();
+      return tab;
+    }
     if (select || !this.activeId) this.select(tab.state.id);
     else this.layout();
     const loading = history?.history.length
@@ -272,11 +313,13 @@ export class TabManager {
     if (!this.tabs.some((tab) => tab.state.id === id))
       throw new Error('Unknown tab.');
     const chosen = this.wake(id);
+    const changedTab = id !== this.activeId;
     if (this.workspaceId !== chosen.state.workspaceId) this.split = null;
     if (this.split && !this.split.ids.includes(id))
       this.split.ids[this.split.ids.indexOf(this.activeId)] = id;
     this.workspaceId = chosen.state.workspaceId;
     this.activeId = id;
+    if (changedTab) this.environment.closeFind();
     chosen.lastActive = Date.now();
     this.layout();
     this.emit();
@@ -285,6 +328,10 @@ export class TabManager {
     const index = this.tabs.findIndex((tab) => tab.state.id === id);
     if (index < 0) throw new Error('Unknown tab.');
     const tab = this.tabs[index];
+    if (this.htmlFullscreen && id === this.activeId) {
+      this.htmlFullscreen = false;
+      this.win.setFullScreen(false);
+    }
     const page = tab.view.webContents;
     this.closed.push({
       tab: {
@@ -302,7 +349,7 @@ export class TabManager {
     });
     this.closed = this.closed.slice(-25);
     this.tabs.splice(index, 1);
-    if (!tab.state.unloaded) {
+    if (page && !page.isDestroyed()) {
       this.win.contentView.removeChildView(tab.view);
       page.close();
     }
@@ -488,6 +535,7 @@ export class TabManager {
     kind: NonNullable<BrowserState['overlay']>,
     newTab = false,
   ) {
+    this.environment.closeFind();
     if (newTab) this.create();
     const version = ++this.overlayVersion;
     const page = this.active.view.webContents;
@@ -681,6 +729,11 @@ export class TabManager {
     const tab = this.tabs.find((t) => t.state.id === id)!;
     if (!tab.state.unloaded) return tab;
     const index = this.tabs.indexOf(tab);
+    const placeholder = tab.view.webContents;
+    if (placeholder && !placeholder.isDestroyed()) {
+      this.win.contentView.removeChildView(tab.view);
+      placeholder.close();
+    }
     this.tabs.splice(index, 1);
     const replacement = this.create(
       tab.state.url,
@@ -693,6 +746,15 @@ export class TabManager {
     return replacement;
   }
   shortcut(input: Input): boolean {
+    if (
+      input.type === 'keyDown' &&
+      input.key === 'Escape' &&
+      this.environment.findActive()
+    ) {
+      this.environment.closeFind();
+      this.active.view.webContents.focus();
+      return true;
+    }
     if (input.type === 'keyDown') {
       const chord = [
         input.control || input.meta ? 'Ctrl' : '',
@@ -709,6 +771,10 @@ export class TabManager {
       const binding = Object.entries(
         this.environment.settings().shortcuts,
       ).find(([, value]) => value.toLowerCase() === chord.toLowerCase())?.[0];
+      if (PAGE_ACTIONS.includes(binding as PageAction)) {
+        this.environment.pageAction(binding as PageAction);
+        return true;
+      }
       if (binding === 'show-settings') {
         void this.openSettings();
         return true;
@@ -793,34 +859,43 @@ export class TabManager {
   layout() {
     const [width, height] = this.win.getContentSize();
     const settings = this.environment.settings();
-    const inset = this.compact ? 0 : settings.contentInset ? CONTENT_INSET : 0;
-    const sidebar = this.compact
-      ? 6
-      : this.sidebar.expanded
-        ? this.sidebar.width
-        : settings.collapsedWidth;
+    const inset =
+      this.compact || this.htmlFullscreen
+        ? 0
+        : settings.contentInset
+          ? CONTENT_INSET
+          : 0;
+    const sidebar = this.htmlFullscreen
+      ? 0
+      : this.compact
+        ? 6
+        : this.sidebar.expanded
+          ? this.sidebar.width
+          : settings.collapsedWidth;
     const x = settings.sidebarPosition === 'left' ? sidebar : inset;
     const available = Math.max(0, width - sidebar - inset);
-    const first = this.split
-      ? Math.floor((available - 8) * this.split.ratio)
-      : available;
+    const split = this.htmlFullscreen ? null : this.split;
+    const first = split ? Math.floor((available - 8) * split.ratio) : available;
+    const findHeight = this.environment.findActive() ? 48 : 0;
     for (const tab of this.tabs) {
       if (tab.state.unloaded) continue;
-      const second = this.split?.ids[1] === tab.state.id;
+      const second = split?.ids[1] === tab.state.id;
       tab.view.setBounds({
         x: x + (second ? first + 8 : 0),
-        y: inset,
+        y: inset + findHeight,
         width: second ? available - first - 8 : first,
-        height: Math.max(0, height - inset * 2),
+        height: Math.max(0, height - inset * 2 - findHeight),
       });
       tab.view.setBorderRadius(
-        !this.compact && settings.contentInset ? settings.radius : 0,
+        !this.compact && !this.htmlFullscreen && settings.contentInset
+          ? settings.radius
+          : 0,
       );
       tab.view.setVisible(
         !this.overlay &&
           !this.compactPreview &&
-          (this.split
-            ? this.split.ids.includes(tab.state.id)
+          (split
+            ? split.ids.includes(tab.state.id)
             : tab.state.id === this.activeId),
       );
     }
@@ -829,7 +904,7 @@ export class TabManager {
     this.disposed = true;
     clearInterval(this.sleepTimer);
     for (const tab of this.tabs)
-      if (!tab.state.unloaded && !tab.view.webContents.isDestroyed())
+      if (tab.view.webContents && !tab.view.webContents.isDestroyed())
         tab.view.webContents.close();
     this.tabs = [];
   }

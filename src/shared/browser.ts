@@ -2,6 +2,12 @@ export const SIDEBAR_WIDTH = 224;
 export const COLLAPSED_WIDTH = 48;
 export const CONTENT_INSET = 8;
 export const ACTIONS = [
+  'find',
+  'zoom-in',
+  'zoom-out',
+  'zoom-reset',
+  'print',
+  'fullscreen',
   'back',
   'forward',
   'reload',
@@ -70,6 +76,9 @@ export interface BrowserState extends Omit<TabState, 'id'> {
   privateWindow: boolean;
   settings: import('./settings').Settings;
   dark: boolean;
+  find: import('./page-tools').FindState | null;
+  zoomPercent: number;
+  htmlFullscreen: boolean;
 }
 export type TabCommand =
   | {
@@ -109,6 +118,8 @@ export interface DriftAPI {
   splitRatio(ratio: number): Promise<void>;
   getDownloads(): Promise<import('./power').DownloadState[]>;
   download(command: import('./power').DownloadCommand): Promise<void>;
+  find(command: import('./page-tools').FindCommand): Promise<void>;
+  onFindFocus(callback: () => void): () => void;
 }
 
 export interface HistoryEntry {

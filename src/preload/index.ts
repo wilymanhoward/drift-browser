@@ -3,6 +3,12 @@ import type { BrowserState, DriftAPI } from '../shared/browser';
 
 const api: DriftAPI = {
   getState: () => ipcRenderer.invoke('drift:state'),
+  find: (command) => ipcRenderer.invoke('drift:find', command),
+  onFindFocus: (callback) => {
+    const listener = () => callback();
+    ipcRenderer.on('drift:find-focus', listener);
+    return () => ipcRenderer.removeListener('drift:find-focus', listener);
+  },
   navigate: (url) => ipcRenderer.invoke('drift:navigate', url),
   action: (action) => ipcRenderer.invoke('drift:action', action),
   tab: (command) => ipcRenderer.invoke('drift:tab', command),

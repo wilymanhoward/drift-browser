@@ -210,8 +210,8 @@ export default function Settings({ state }: { state: BrowserState }) {
       </label>
       <h2>Keyboard shortcuts</h2>
       <p>
-        Use Ctrl, Alt, Shift, letters, Tab, comma, or F1–F12. Bindings must be
-        unique.
+        Use Ctrl, Alt, Shift, letters, digits, comma, =, -, Tab, or F1–F12.
+        Bindings must be unique.
       </p>
       {Object.entries(draft.shortcuts).map(([key, value]) => (
         <label key={key}>

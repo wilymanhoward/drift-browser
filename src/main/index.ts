@@ -22,6 +22,9 @@ import { SettingsStore } from './settings';
 import { searchTemplate, themeCSS } from '../shared/settings';
 import { parseWorkspace, parseDownload } from '../shared/power';
 import { Downloads } from './downloads';
+import { PageTools } from './page-tools';
+import { PAGE_ACTIONS, parseFind } from '../shared/page-tools';
+import type { PageAction } from '../shared/page-tools';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -112,9 +115,12 @@ async function createWindow(privateWindow = false) {
   );
   const state = (): BrowserState => ({
     ...tabs.state,
-    storageError: storageError || library.error || settings.error,
+    storageError:
+      storageError || library.error || settings.error || pageTools.error,
     settings: settings.value,
     dark: settings.dark,
+    find: pageTools.find,
+    zoomPercent: Math.round(tabs.active.view.webContents.getZoomFactor() * 100),
   });
   const publish = () => {
     if (ready && !win.isDestroyed())
@@ -139,7 +145,19 @@ async function createWindow(privateWindow = false) {
       publish();
     }
   };
-  const tabs = new TabManager(
+  const pageTools: PageTools = new PageTools(
+    win,
+    () => tabs.active.view.webContents,
+    (url) => tabs.create(url),
+    () => {
+      if (ready) {
+        tabs.layout();
+        publish();
+      }
+    },
+  );
+  await pageTools.load(privateWindow);
+  const tabs: TabManager = new TabManager(
     win,
     () => {
       publish();
@@ -152,11 +170,21 @@ async function createWindow(privateWindow = false) {
     {
       partition,
       privateWindow,
-      track: (page) => privacy.track(page),
+      track: (page) => {
+        privacy.track(page);
+        pageTools.attach(page);
+      },
       settings: () => settings.value,
+      closeFind: () => pageTools.closeFind(),
+      findActive: () => pageTools.find !== null,
+      pageAction: (action) => runPageAction(action),
     },
   );
   tabs.restore(settings.value.startup === 'restore' ? saved : null);
+  function runPageAction(action: PageAction) {
+    if (tabs.state.overlay) tabs.closeOverlay();
+    pageTools.action(action);
+  }
   if (saved) settings.value.expandedWidth = saved.sidebar.width;
   const downloads = new Downloads(
     pageSession,
@@ -206,6 +234,7 @@ async function createWindow(privateWindow = false) {
     });
   };
   handle('drift:state', 0, state);
+  handle('drift:find', 1, (input) => pageTools.findCommand(parseFind(input)));
   handle('drift:workspace', 1, (input) =>
     tabs.workspace(parseWorkspace(input)),
   );
@@ -260,6 +289,8 @@ async function createWindow(privateWindow = false) {
   handle('drift:action', 1, (input) => {
     if (!ACTIONS.includes(input as BrowserAction))
       throw new Error('Invalid action.');
+    if (PAGE_ACTIONS.includes(input as PageAction))
+      return runPageAction(input as PageAction);
     switch (input as BrowserAction) {
       case 'back':
       case 'forward':
@@ -339,6 +370,7 @@ async function createWindow(privateWindow = false) {
       'drift:library',
       'drift:bookmark',
       'drift:clear-history',
+      'drift:find',
     ])
       routes.get(channel)?.delete(chromeId);
     for (const channel of ['drift:shields', 'drift:privacy'])

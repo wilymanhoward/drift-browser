@@ -13,6 +13,12 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   split: 'Ctrl+Shift+S',
   devtools: 'F12',
   'show-downloads': 'Ctrl+J',
+  find: 'Ctrl+F',
+  print: 'Ctrl+P',
+  'zoom-in': 'Ctrl+=',
+  'zoom-out': 'Ctrl+-',
+  'zoom-reset': 'Ctrl+0',
+  fullscreen: 'F11',
   ...Object.fromEntries(
     Array.from({ length: 9 }, (_, i) => [
       `workspace-${i + 1}`,
@@ -108,7 +114,7 @@ export function parseSettings(value: unknown): Settings {
     const binding = v.shortcuts[key];
     if (
       typeof binding !== 'string' ||
-      !/^(?:(?:Ctrl|Alt|Shift)\+)*(?:[A-Za-z0-9,]|Tab|F(?:[1-9]|1[0-2]))$/.test(
+      !/^(?:(?:Ctrl|Alt|Shift)\+)*(?:[A-Za-z0-9,=-]|Tab|F(?:[1-9]|1[0-2]))$/.test(
         binding,
       ) ||
       bindings.has(binding.toLowerCase())

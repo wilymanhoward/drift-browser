@@ -299,7 +299,9 @@ export class PrivacyController {
     });
     session.setPermissionCheckHandler(
       (page, permission, origin) =>
-        !!page && !!this.grants.get(page.id)?.has(`${origin}|${permission}`),
+        !!page &&
+        ((permission === 'fullscreen' && isWebURL(page.getURL())) ||
+          !!this.grants.get(page.id)?.has(`${origin}|${permission}`)),
     );
     session.setPermissionRequestHandler(
       (page, permission, callback, details) => {
@@ -308,6 +310,10 @@ export class PrivacyController {
           origin = new URL(details.requestingUrl || page.getURL()).origin;
         } catch {
           callback(false);
+          return;
+        }
+        if (permission === 'fullscreen') {
+          callback(isWebURL(origin));
           return;
         }
         if (

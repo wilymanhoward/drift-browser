@@ -1,0 +1,30 @@
+{
+  "appId": "local.drift.browser",
+  "productName": "Drift",
+  "directories": { "output": "release" },
+  "files": [
+    "dist/**/*",
+    "assets/filters/**/*",
+    "package.json",
+    "THIRD-PARTY-NOTICES.md",
+    "!**/*.map"
+  ],
+  "asar": true,
+  "npmRebuild": false,
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] },
+      { "target": "portable", "arch": ["x64"] }
+    ],
+    "signExecutable": false
+  },
+  "nsis": {
+    "artifactName": "Drift-Setup-${version}-${arch}.${ext}",
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "deleteAppDataOnUninstall": false
+  },
+  "portable": { "artifactName": "Drift-Portable-${version}-${arch}.${ext}" },
+  "publish": null
+}

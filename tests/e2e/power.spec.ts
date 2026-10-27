@@ -234,6 +234,19 @@ test('workspaces, essentials, compact overlay, split panes, sleeping, and downlo
     ]);
     expect(restored.tabs.find((t) => t.id === first)?.pinned).toBe(true);
     expect(restored.tabs.find((t) => t.id === second)?.workspaceId).toBe(work);
+    const idleTarget = restored.tabs.find((t) => t.unloaded && !t.pinned)!;
+    await chrome.evaluate(
+      (id) => window.drift.tab({ type: 'select', id }),
+      idleTarget.id,
+    );
+    await expect.poll(async () => (await state()).loading).toBe(false);
+    await chrome.evaluate(
+      (id) => window.drift.tab({ type: 'select', id }),
+      second,
+    );
+    expect(
+      (await state()).tabs.find((t) => t.id === idleTarget.id)?.unloaded,
+    ).toBe(false);
     // Exercise the actual timeout without a test-only application IPC endpoint.
     await chrome.evaluate(async () => {
       const s = await window.drift.getState();
@@ -244,9 +257,13 @@ test('workspaces, essentials, compact overlay, split panes, sleeping, and downlo
       Date.now = () => now() + 61000;
     });
     await expect
-      .poll(async () => (await state()).tabs.some((t) => t.unloaded), {
-        timeout: 35000,
-      })
+      .poll(
+        async () =>
+          (await state()).tabs.find((t) => t.id === idleTarget.id)?.unloaded,
+        {
+          timeout: 35000,
+        },
+      )
       .toBe(true);
   } finally {
     await app.close();
