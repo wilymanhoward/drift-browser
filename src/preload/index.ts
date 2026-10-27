@@ -7,10 +7,17 @@ const api: DriftAPI = {
   action: (action) => ipcRenderer.invoke('drift:action', action),
   tab: (command) => ipcRenderer.invoke('drift:tab', command),
   sidebar: (update) => ipcRenderer.invoke('drift:sidebar', update),
-  onFocusAddress: (callback) => {
-    const listener = () => callback();
-    ipcRenderer.on('drift:focus-address', listener);
-    return () => ipcRenderer.removeListener('drift:focus-address', listener);
+  closeOverlay: () => ipcRenderer.invoke('drift:close-overlay'),
+  getLibrary: () => ipcRenderer.invoke('drift:library'),
+  bookmark: (command) => ipcRenderer.invoke('drift:bookmark', command),
+  clearHistory: () => ipcRenderer.invoke('drift:clear-history'),
+  onOverlay: (callback) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      overlay: Parameters<typeof callback>[0],
+    ) => callback(overlay);
+    ipcRenderer.on('drift:overlay', listener);
+    return () => ipcRenderer.removeListener('drift:overlay', listener);
   },
   onState: (callback) => {
     const listener = (_event: Electron.IpcRendererEvent, state: BrowserState) =>

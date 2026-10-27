@@ -10,6 +10,9 @@ export const ACTIONS = [
   'close',
   'new-tab',
   'reopen-tab',
+  'open-command',
+  'show-history',
+  'show-bookmarks',
 ] as const;
 export type BrowserAction = (typeof ACTIONS)[number];
 export interface TabState {
@@ -35,6 +38,7 @@ export interface BrowserState extends Omit<TabState, 'id'> {
   canReopen: boolean;
   sidebar: SidebarPreferences & { expanded: boolean };
   storageError: string | null;
+  overlay: 'command' | 'history' | 'bookmarks' | null;
 }
 export type TabCommand =
   | {
@@ -52,5 +56,38 @@ export interface DriftAPI {
   tab(command: TabCommand): Promise<void>;
   sidebar(update: SidebarUpdate): Promise<void>;
   onState(callback: (state: BrowserState) => void): () => void;
-  onFocusAddress(callback: () => void): () => void;
+  closeOverlay(): Promise<void>;
+  getLibrary(): Promise<LibraryData>;
+  bookmark(command: BookmarkCommand): Promise<void>;
+  clearHistory(): Promise<void>;
+  onOverlay(callback: (overlay: OverlayEvent) => void): () => void;
+}
+
+export interface HistoryEntry {
+  url: string;
+  title: string;
+  lastVisited: number;
+  visits: number;
+}
+export interface Bookmark {
+  id: string;
+  url: string;
+  title: string;
+  folder: string;
+  createdAt: number;
+}
+export interface LibraryData {
+  history: HistoryEntry[];
+  bookmarks: Bookmark[];
+  error: string | null;
+}
+export type BookmarkCommand =
+  | { type: 'save'; id?: string; url: string; title: string; folder: string }
+  | { type: 'remove'; id: string };
+export interface OverlayEvent {
+  kind: 'command' | 'history' | 'bookmarks';
+  newTab: boolean;
+  query: string;
+  snapshot: string | null;
+  bounds: { x: number; y: number; width: number; height: number };
 }

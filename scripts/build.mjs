@@ -14,6 +14,14 @@ export async function buildElectron() {
     external: ['electron', 'electron-store'],
     sourcemap: true,
   });
+  await build({
+    entryPoints: ['src/internal/newtab.ts'],
+    outdir: 'dist/internal',
+    bundle: true,
+    platform: 'browser',
+    format: 'iife',
+    minify: true,
+  });
 }
 
 await buildElectron();

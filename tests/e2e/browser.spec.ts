@@ -2,6 +2,12 @@ import { test, expect, _electron as electron } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { chromeWindow } from './helpers';
+import type { Page } from '@playwright/test';
+async function navigate(chrome: Page, url: string) {
+  await chrome.evaluate(() => window.drift.action('open-command'));
+  await chrome.getByLabel('Web address', { exact: true }).fill(url);
+  await chrome.getByLabel('Web address', { exact: true }).press('Enter');
+}
 
 test('Phase 1 browses with isolated content and working window controls', async () => {
   const server = createServer((request, response) => {
@@ -28,15 +34,13 @@ test('Phase 1 browses with isolated content and working window controls', async 
     chrome.on('pageerror', (error) => errors.push(error.message));
     await expect(chrome.getByRole('complementary')).toHaveCSS('width', '48px');
     await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
-    await expect(chrome.getByLabel('Web address')).toBeVisible();
+    await expect(chrome.getByLabel('Edit web address')).toBeVisible();
     await expect(chrome.getByRole('complementary')).toHaveCSS('width', '224px');
-    await chrome.getByLabel('Web address').fill(`${origin}/one`);
-    await chrome.getByLabel('Web address').press('Enter');
+    await navigate(chrome, `${origin}/one`);
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'First page',
     );
-    await chrome.getByLabel('Web address').fill(`${origin}/two`);
-    await chrome.getByLabel('Web address').press('Enter');
+    await navigate(chrome, `${origin}/two`);
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'Second page',
     );
@@ -51,18 +55,24 @@ test('Phase 1 browses with isolated content and working window controls', async 
     );
     await chrome.getByLabel('Reload', { exact: true }).click();
     await expect(chrome.getByRole('status')).toHaveText('Ready');
-    await chrome.getByLabel('Web address').fill('javascript:alert(1)');
-    await chrome.getByLabel('Web address').press('Enter');
+    await navigate(chrome, 'javascript:alert(1)');
     await expect(chrome.getByRole('alert')).toContainText(
-      'valid HTTP or HTTPS',
+      'valid address or search term',
     );
-    await chrome.getByLabel('Web address').press('Escape');
-    await expect(chrome.getByLabel('Web address')).toHaveValue(`${origin}/two`);
-    await chrome.getByLabel('Web address').press('Control+l');
-    await expect(chrome.getByLabel('Web address')).toBeFocused();
-    await chrome.getByLabel('Web address').press('Shift+Tab');
-    await expect(chrome.getByLabel('Reload', { exact: true })).toBeFocused();
-    await chrome.getByLabel('Reload', { exact: true }).press('Enter');
+    await chrome.getByLabel('Web address', { exact: true }).press('Escape');
+    await expect(chrome.getByRole('dialog')).toHaveCount(0);
+    await chrome.getByLabel('Edit web address').click();
+    await expect(chrome.getByLabel('Web address', { exact: true })).toHaveValue(
+      `${origin}/two`,
+    );
+    await expect(
+      chrome.getByLabel('Web address', { exact: true }),
+    ).toBeFocused();
+    await chrome.getByLabel('Web address', { exact: true }).press('Shift+Tab');
+    await expect(
+      chrome.getByLabel('Close dialog', { exact: true }),
+    ).toBeFocused();
+    await chrome.getByLabel('Close dialog', { exact: true }).press('Enter');
     await expect(chrome.getByRole('status')).toHaveText('Ready');
     const security = await app.evaluate(async ({ BrowserWindow }) => {
       const win = BrowserWindow.getAllWindows()[0];
@@ -109,13 +119,11 @@ test('Phase 1 browses with isolated content and working window controls', async 
       BrowserWindow.getAllWindows()[0].setSize(1320, 860),
     );
     await chrome.screenshot({ path: 'test-results/phase-1-chrome.png' });
-    await chrome.getByLabel('Web address').fill('http://127.0.0.1:1');
-    await chrome.getByLabel('Web address').press('Enter');
+    await navigate(chrome, 'http://127.0.0.1:1');
     await expect(chrome.getByRole('alert')).toContainText(
       'could not be loaded',
     );
-    await chrome.getByLabel('Web address').fill(`${origin}/one`);
-    await chrome.getByLabel('Web address').press('Enter');
+    await navigate(chrome, `${origin}/one`);
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'First page',
     );

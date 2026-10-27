@@ -55,6 +55,7 @@ async function shortcut(
   );
 }
 async function browse(chrome: Page, url: string, title: string) {
+  await chrome.evaluate(() => window.drift.action('open-command'));
   await chrome.getByLabel('Web address', { exact: true }).fill(url);
   await chrome.getByLabel('Web address', { exact: true }).press('Enter');
   await expect(chrome.getByRole('tab', { selected: true })).toHaveText(title);

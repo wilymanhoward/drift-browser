@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, session } from 'electron';
+import { app, BrowserWindow, ipcMain, session, protocol } from 'electron';
 import type { IpcMainInvokeEvent } from 'electron';
 import type Store from 'electron-store';
 import path from 'node:path';
@@ -7,9 +7,15 @@ import { ACTIONS } from '../shared/browser';
 import type { BrowserAction, BrowserState } from '../shared/browser';
 import { TabManager } from './tabs';
 import { parseSession, parseSidebar, parseTabCommand } from './session';
+import { BrowserLibrary, parseBookmark } from './library';
+import { newTabResponse } from './new-tab';
+import { resolveInput } from '../shared/navigation';
 
 app.setName('Drift');
 app.enableSandbox();
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'drift', privileges: { standard: true, secure: true } },
+]);
 let window: BrowserWindow | null = null;
 async function createWindow() {
   const devURL = !app.isPackaged ? process.env.DRIFT_DEV_URL : undefined;
@@ -54,7 +60,18 @@ async function createWindow() {
   let ready = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSaved = '';
-  const state = (): BrowserState => ({ ...tabs.state, storageError });
+  const library = new BrowserLibrary(() => publish());
+  await library.load();
+  const pageSession = session.fromPartition('persist:drift');
+  if (pageSession.protocol.isProtocolHandled('drift'))
+    pageSession.protocol.unhandle('drift');
+  pageSession.protocol.handle('drift', (request) =>
+    newTabResponse(request.url, library.data.bookmarks),
+  );
+  const state = (): BrowserState => ({
+    ...tabs.state,
+    storageError: storageError || library.error,
+  });
   const publish = () => {
     if (ready && !win.isDestroyed())
       win.webContents.send('drift:state', state());
@@ -78,13 +95,17 @@ async function createWindow() {
       publish();
     }
   };
-  const tabs = new TabManager(win, () => {
-    publish();
-    if (ready) {
-      clearTimeout(timer);
-      timer = setTimeout(save, 250);
-    }
-  });
+  const tabs = new TabManager(
+    win,
+    () => {
+      publish();
+      if (ready) {
+        clearTimeout(timer);
+        timer = setTimeout(save, 250);
+      }
+    },
+    (url, title, increment) => library.visit(url, title, increment),
+  );
   tabs.restore(saved);
   const authorize = (event: IpcMainInvokeEvent) => {
     if (
@@ -106,7 +127,18 @@ async function createWindow() {
     });
   };
   handle('drift:state', 0, state);
-  handle('drift:navigate', 1, (input) => tabs.navigate(input));
+  handle('drift:navigate', 1, (input) => {
+    const url = resolveInput(input);
+    tabs.closeOverlay();
+    return tabs.navigate(url);
+  });
+  handle('drift:close-overlay', 0, () => tabs.closeOverlay());
+  handle('drift:library', 0, () => library.data);
+  handle('drift:bookmark', 1, (input) => {
+    library.bookmark(parseBookmark(input));
+    tabs.refreshNewTabs();
+  });
+  handle('drift:clear-history', 0, () => library.clearHistory());
   handle('drift:tab', 1, (input) => tabs.command(parseTabCommand(input)));
   handle('drift:sidebar', 1, (input) =>
     tabs.updateSidebar(parseSidebar(input)),
@@ -131,9 +163,13 @@ async function createWindow() {
         win.close();
         break;
       case 'new-tab':
-        tabs.create();
-        tabs.focusAddress();
-        break;
+        return tabs.openOverlay('command', true);
+      case 'open-command':
+        return tabs.openOverlay('command');
+      case 'show-history':
+        return tabs.openOverlay('history');
+      case 'show-bookmarks':
+        return tabs.openOverlay('bookmarks');
       case 'reopen-tab':
         tabs.reopen();
         break;
@@ -150,6 +186,7 @@ async function createWindow() {
   win.on('close', () => {
     clearTimeout(timer);
     save();
+    library.flush();
   });
   win.on('closed', () => {
     ready = false;
@@ -160,6 +197,10 @@ async function createWindow() {
       'drift:action',
       'drift:tab',
       'drift:sidebar',
+      'drift:close-overlay',
+      'drift:library',
+      'drift:bookmark',
+      'drift:clear-history',
     ])
       ipcMain.removeHandler(channel);
     tabs.dispose();

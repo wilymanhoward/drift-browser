@@ -10,7 +10,12 @@ import type {
 } from '../shared/browser';
 import { DEFAULT_SIDEBAR } from './session';
 import type { SavedSession, SavedTab } from './session';
-import { isWebURL, navigationURL } from './navigation';
+import {
+  isPageURL,
+  isWebURL,
+  navigationURL,
+  NEW_TAB_URL,
+} from '../shared/navigation';
 
 interface Tab {
   view: WebContentsView;
@@ -30,16 +35,19 @@ export class TabManager {
   private closed: ClosedTab[] = [];
   private sidebar = { ...DEFAULT_SIDEBAR, expanded: false };
   private disposed = false;
+  private overlay: BrowserState['overlay'] = null;
+  private overlayVersion = 0;
   constructor(
     private win: BrowserWindow,
     private changed: () => void,
+    private visited: (url: string, title: string, increment: boolean) => void,
   ) {}
   restore(saved: SavedSession | null) {
     if (saved) {
       this.sidebar = { ...saved.sidebar, expanded: saved.sidebar.pinned };
       for (const tab of saved.tabs) this.create(tab.url, tab, false);
       this.select(saved.activeTabId);
-    } else this.create('https://example.com');
+    } else this.create();
   }
   get state(): Omit<BrowserState, 'storageError'> {
     return {
@@ -49,6 +57,7 @@ export class TabManager {
       maximized: this.win.isMaximized(),
       canReopen: this.closed.length > 0,
       sidebar: { ...this.sidebar },
+      overlay: this.overlay,
     };
   }
   get saved(): SavedSession {
@@ -71,7 +80,7 @@ export class TabManager {
     if (!this.disposed && this.tabs.length) this.changed();
   }
   create(
-    url = 'https://example.com',
+    url = NEW_TAB_URL,
     saved?: SavedTab,
     select = true,
     history?: ClosedTab,
@@ -92,7 +101,7 @@ export class TabManager {
       state: {
         id: saved?.id ?? randomUUID(),
         url: target,
-        title: saved?.title ?? '',
+        title: saved?.title ?? (target === NEW_TAB_URL ? 'New tab' : ''),
         loading: true,
         canGoBack: false,
         canGoForward: false,
@@ -134,14 +143,21 @@ export class TabManager {
     });
     page.on('did-stop-loading', update);
     page.on('did-navigate', (_event, url) => {
-      if (isWebURL(url)) tab.state.url = url;
+      if (isPageURL(url)) tab.state.url = url;
+      this.visited(url, page.getTitle(), true);
       update();
     });
     page.on('did-navigate-in-page', (_event, url, mainFrame) => {
-      if (mainFrame && isWebURL(url)) tab.state.url = url;
+      if (mainFrame && isPageURL(url)) {
+        tab.state.url = url;
+        this.visited(url, page.getTitle(), true);
+      }
       update();
     });
-    page.on('page-title-updated', update);
+    page.on('page-title-updated', () => {
+      this.visited(tab.state.url, page.getTitle(), false);
+      update();
+    });
     page.on('audio-state-changed', update);
     page.on('page-favicon-updated', (_event, urls) => {
       tab.state.favicon = urls.find(isWebURL) ?? null;
@@ -159,10 +175,10 @@ export class TabManager {
       update();
     });
     page.on('will-navigate', (event, url) => {
-      if (!isWebURL(url)) event.preventDefault();
+      if (!isPageURL(url)) event.preventDefault();
     });
     page.on('will-redirect', (event, url) => {
-      if (!isWebURL(url)) event.preventDefault();
+      if (!isPageURL(url)) event.preventDefault();
     });
     page.setWindowOpenHandler(({ url }) => {
       if (isWebURL(url)) this.create(url);
@@ -197,7 +213,8 @@ export class TabManager {
     if (!this.tabs.some((tab) => tab.state.id === id))
       throw new Error('Unknown tab.');
     this.activeId = id;
-    for (const tab of this.tabs) tab.view.setVisible(tab.state.id === id);
+    for (const tab of this.tabs)
+      tab.view.setVisible(tab.state.id === id && !this.overlay);
     this.layout();
     this.emit();
   }
@@ -333,24 +350,70 @@ export class TabManager {
     this.layout();
     this.emit();
   }
-  focusAddress() {
-    this.updateSidebar({ expanded: true });
+  async openOverlay(
+    kind: NonNullable<BrowserState['overlay']>,
+    newTab = false,
+  ) {
+    if (newTab) this.create();
+    const version = ++this.overlayVersion;
+    const page = this.active.view.webContents;
+    this.overlay = kind;
+    this.emit();
+    let snapshot: string | null = null;
+    try {
+      snapshot = (await page.capturePage()).toDataURL();
+    } catch {
+      /* A page may not have rendered yet. */
+    }
+    if (
+      this.disposed ||
+      this.win.isDestroyed() ||
+      version !== this.overlayVersion
+    )
+      return;
+    for (const tab of this.tabs) tab.view.setVisible(false);
     this.win.webContents.focus();
-    this.win.webContents.send('drift:focus-address');
+    this.win.webContents.send('drift:overlay', {
+      kind,
+      newTab,
+      query:
+        newTab || this.active.state.url === NEW_TAB_URL
+          ? ''
+          : this.active.state.url,
+      snapshot,
+      bounds: this.active.view.getBounds(),
+    });
+    this.emit();
+  }
+  closeOverlay() {
+    ++this.overlayVersion;
+    this.overlay = null;
+    this.select(this.activeId);
+    this.active.view.webContents.focus();
+  }
+  refreshNewTabs() {
+    for (const tab of this.tabs)
+      if (tab.state.url === NEW_TAB_URL) tab.view.webContents.reload();
   }
   shortcut(input: Input): boolean {
     if (input.type !== 'keyDown' || !(input.control || input.meta) || input.alt)
       return false;
     const key = input.key.toLowerCase();
     if (key === 't') {
-      if (input.shift) this.reopen();
-      else this.create();
-      this.focusAddress();
+      if (input.shift) {
+        if (this.overlay) this.closeOverlay();
+        this.reopen();
+        this.active.view.webContents.focus();
+      } else void this.openOverlay('command', true);
     } else if (key === 'w' && !input.shift) {
+      if (this.overlay) this.closeOverlay();
       this.close(this.activeId);
       this.active.view.webContents.focus();
-    } else if (key === 'l' && !input.shift) this.focusAddress();
+    } else if (key === 'l' && !input.shift) void this.openOverlay('command');
+    else if (key === 'h' && !input.shift) void this.openOverlay('history');
+    else if (key === 'b' && input.shift) void this.openOverlay('bookmarks');
     else if (key === 'tab') {
+      if (this.overlay) this.closeOverlay();
       const index = this.tabs.indexOf(this.active);
       this.select(
         this.tabs[

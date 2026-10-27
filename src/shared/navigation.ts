@@ -1,3 +1,4 @@
+export const NEW_TAB_URL = 'drift://newtab/';
 export function navigationURL(value: unknown): string {
   if (
     typeof value !== 'string' ||
@@ -7,6 +8,7 @@ export function navigationURL(value: unknown): string {
     throw new Error('Enter a web address.');
   }
   const input = value.trim();
+  if (input === 'drift://newtab' || input === NEW_TAB_URL) return NEW_TAB_URL;
   const candidate =
     /^[a-z][a-z\d+.-]*:/i.test(input) && !/^[\w.-]+:\d+(\/|$)/.test(input)
       ? input
@@ -27,7 +29,26 @@ export function navigationURL(value: unknown): string {
       'Only HTTP and HTTPS addresses without embedded credentials are supported.',
     );
   }
+  if (url.href.length > 8192) throw new Error('This address is too long.');
   return url.href;
+}
+
+export function isPageURL(value: string): boolean {
+  return value === NEW_TAB_URL || isWebURL(value);
+}
+
+export function resolveInput(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim() || value.length > 8192)
+    throw new Error('Enter an address or search term.');
+  const input = value.trim();
+  if (
+    /^[a-z][a-z\d+.-]*:/i.test(input) ||
+    /^(localhost|\[[a-f\d:]+\]|[^\s/]+\.[^\s/]+)([:/]|$)/i.test(input)
+  )
+    return navigationURL(input);
+  return navigationURL(
+    `https://duckduckgo.com/?q=${encodeURIComponent(input)}`,
+  );
 }
 
 export function isWebURL(value: string): boolean {

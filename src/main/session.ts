@@ -1,4 +1,4 @@
-import { isWebURL } from './navigation';
+import { isPageURL } from '../shared/navigation';
 import { SIDEBAR_WIDTH } from '../shared/browser';
 import type {
   SidebarPreferences,
@@ -110,7 +110,7 @@ export function parseSession(value: unknown): SavedSession | null {
       !/^[a-z\d-]{1,80}$/i.test(tab.id) ||
       ids.has(tab.id) ||
       typeof tab.url !== 'string' ||
-      !isWebURL(tab.url) ||
+      !isPageURL(tab.url) ||
       typeof tab.title !== 'string' ||
       tab.title.length > 1024 ||
       typeof tab.muted !== 'boolean'

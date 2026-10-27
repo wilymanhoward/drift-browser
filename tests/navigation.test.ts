@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isWebURL, navigationURL } from '../src/main/navigation';
+import { isWebURL, navigationURL } from '../src/shared/navigation';
 
 describe('navigation trust boundary', () => {
   it('normalizes domains and preserves web addresses', () => {

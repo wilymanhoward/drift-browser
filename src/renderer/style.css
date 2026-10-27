@@ -259,3 +259,229 @@ footer span {
     animation: none;
   }
 }
+.url-pill {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 8px;
+  border: 1px solid #c6ccc4;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8f8f5;
+  height: 40px;
+  min-height: 40px;
+  font-size: 12px;
+}
+.url-pill span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.url-pill svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.collapsed footer {
+  flex-direction: column;
+  gap: 4px;
+}
+.page-snapshot {
+  position: absolute;
+  object-fit: fill;
+  pointer-events: none;
+}
+.page-preview {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.chrome-dialog {
+  width: min(640px, calc(100vw - 40px));
+  max-height: calc(100dvh - 50px);
+  margin: min(14vh, 100px) auto 0;
+  padding: 0;
+  border: 1px solid #b8c1b6;
+  border-radius: 12px;
+  background: #f8f8f5;
+  color: #303833;
+  box-shadow: 0 18px 70px #18241d33;
+}
+.chrome-dialog::backdrop {
+  background: #27382c55;
+}
+.dialog-content {
+  padding: 20px;
+}
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.dialog-heading h1 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+.command-input {
+  height: 52px;
+  padding: 8px 10px;
+}
+.command-input input {
+  font-size: 16px;
+}
+.command-hint {
+  font-size: 12px;
+  color: #535f55;
+  line-height: 1.6;
+  margin: 10px 0 14px;
+}
+#command-results {
+  max-height: calc(100dvh - 310px);
+  min-height: 50px;
+  overflow-y: auto;
+}
+.command-result {
+  width: 100%;
+  height: auto;
+  min-height: 54px;
+  padding: 10px;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+.command-result[aria-selected='true'] {
+  background: #dce4da;
+}
+.result-copy,
+.saved-page span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.result-copy strong,
+.saved-page strong {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-copy small,
+.saved-page small {
+  font-size: 11px;
+  color: #535f55;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.result-kind {
+  font-size: 11px;
+  color: #535f55;
+}
+.empty-state {
+  color: #535f55;
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 16px 4px;
+}
+.library-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.library-tools input,
+.bookmark-editor input {
+  border: 1px solid #b8c1b6;
+  background: white;
+  border-radius: 6px;
+  padding: 10px;
+  color: #303833;
+}
+.text-button {
+  width: auto;
+  height: auto;
+  min-height: 36px;
+  padding: 8px 12px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.primary {
+  background: #466a55;
+  color: white;
+}
+.primary:hover {
+  background: #35523f;
+}
+.bookmark-editor {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  margin: 16px 0;
+}
+.bookmark-editor label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.bookmark-editor > div {
+  display: flex;
+  gap: 8px;
+}
+.library-list {
+  max-height: calc(100dvh - 285px);
+  overflow-y: auto;
+  margin-top: 18px;
+}
+.library-list h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #535f55;
+  margin: 18px 8px 8px;
+}
+.library-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.saved-page {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  justify-content: flex-start;
+  height: auto;
+  min-height: 58px;
+  gap: 12px;
+  text-align: left;
+  padding: 10px;
+}
+.saved-page svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.library-row > time {
+  font-size: 11px;
+  color: #535f55;
+  padding-right: 8px;
+}
+@media (max-height: 600px) {
+  aside.collapsed {
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .chrome-dialog {
+    margin: 20px auto 0;
+  }
+  #command-results {
+    max-height: calc(100dvh - 235px);
+  }
+  .library-list {
+    max-height: calc(100dvh - 210px);
+  }
+}
