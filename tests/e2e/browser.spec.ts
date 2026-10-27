@@ -1,6 +1,7 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { chromeWindow } from './helpers';
 
 test('Phase 1 browses with isolated content and working window controls', async () => {
   const server = createServer((request, response) => {
@@ -22,22 +23,32 @@ test('Phase 1 browses with isolated content and working window controls', async 
     env,
   });
   try {
-    const chrome = await app.firstWindow();
+    const chrome = await chromeWindow(app);
     const errors: string[] = [];
     chrome.on('pageerror', (error) => errors.push(error.message));
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '48px');
+    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
     await expect(chrome.getByLabel('Web address')).toBeVisible();
     await expect(chrome.getByRole('complementary')).toHaveCSS('width', '224px');
     await chrome.getByLabel('Web address').fill(`${origin}/one`);
     await chrome.getByLabel('Web address').press('Enter');
-    await expect(chrome.locator('.current-page')).toHaveText('First page');
+    await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
+      'First page',
+    );
     await chrome.getByLabel('Web address').fill(`${origin}/two`);
     await chrome.getByLabel('Web address').press('Enter');
-    await expect(chrome.locator('.current-page')).toHaveText('Second page');
+    await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
+      'Second page',
+    );
     await expect(chrome.getByLabel('Back', { exact: true })).toBeEnabled();
     await chrome.getByLabel('Back', { exact: true }).click();
-    await expect(chrome.locator('.current-page')).toHaveText('First page');
+    await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
+      'First page',
+    );
     await chrome.getByLabel('Forward', { exact: true }).click();
-    await expect(chrome.locator('.current-page')).toHaveText('Second page');
+    await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
+      'Second page',
+    );
     await chrome.getByLabel('Reload', { exact: true }).click();
     await expect(chrome.getByRole('status')).toHaveText('Ready');
     await chrome.getByLabel('Web address').fill('javascript:alert(1)');
@@ -105,7 +116,9 @@ test('Phase 1 browses with isolated content and working window controls', async 
     );
     await chrome.getByLabel('Web address').fill(`${origin}/one`);
     await chrome.getByLabel('Web address').press('Enter');
-    await expect(chrome.locator('.current-page')).toHaveText('First page');
+    await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
+      'First page',
+    );
     await expect(chrome.getByRole('alert')).toHaveCount(0);
     expect(errors).toEqual([]);
     await chrome.getByLabel('Minimize window', { exact: true }).click();

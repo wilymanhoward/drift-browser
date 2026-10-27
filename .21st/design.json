@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "project": {
+    "name": "drift-browser",
+    "productType": "Windows desktop browser chrome",
+    "stack": ["react", "vite"]
+  },
+  "sources": {
+    "tokens": [],
+    "components": [],
+    "assets": [],
+    "instructions": ["DESIGN.md"]
+  },
+  "design": {
+    "colorMode": "light",
+    "colors": {},
+    "typography": {},
+    "spacing": {},
+    "radius": {},
+    "shadows": {},
+    "motion": {},
+    "density": "compact"
+  },
+  "components": {
+    "installed": [],
+    "preferredPrimitives": [],
+    "patterns": []
+  },
+  "constraints": {
+    "must": [],
+    "avoid": []
+  },
+  "decisions": [
+    "Preserve DESIGN.md: warm neutral chrome, forest-green selection, Segoe UI, Lucide navigation icons.",
+    "Use a 48px collapsed rail, 150ms hover expansion, and 220-360px resizable pinned panel.",
+    "Reuse local React/CSS controls. Catalog search required authentication; no external components were retrieved."
+  ],
+  "evidence": [
+    {
+      "fact": "project.instructions",
+      "source": "DESIGN.md"
+    },
+    {
+      "fact": "project.stack:react",
+      "source": "package.json"
+    },
+    {
+      "fact": "project.stack:vite",
+      "source": "package.json"
+    }
+  ],
+  "generatedAt": "2026-10-27T05:34:51.812Z"
+}
