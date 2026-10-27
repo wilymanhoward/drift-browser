@@ -1,5 +1,4 @@
 import { app, BrowserWindow, ipcMain, session, protocol } from 'electron';
-import type { IpcMainInvokeEvent } from 'electron';
 import type Store from 'electron-store';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -10,14 +9,23 @@ import { parseSession, parseSidebar, parseTabCommand } from './session';
 import { BrowserLibrary, parseBookmark } from './library';
 import { newTabResponse } from './new-tab';
 import { resolveInput } from '../shared/navigation';
+import { PrivacyController, loadFilters } from './privacy';
+import { randomUUID } from 'node:crypto';
 
 app.setName('Drift');
 app.enableSandbox();
+app.commandLine.appendSwitch('test-third-party-cookie-phaseout');
 protocol.registerSchemesAsPrivileged([
   { scheme: 'drift', privileges: { standard: true, secure: true } },
 ]);
-let window: BrowserWindow | null = null;
-async function createWindow() {
+const routes = new Map<
+  string,
+  Map<
+    number,
+    { url: string; fn: (...args: unknown[]) => unknown; count: number }
+  >
+>();
+async function createWindow(privateWindow = false) {
   const devURL = !app.isPackaged ? process.env.DRIFT_DEV_URL : undefined;
   if (devURL && devURL !== 'http://127.0.0.1:5173')
     throw new Error('Invalid development origin.');
@@ -28,14 +36,16 @@ async function createWindow() {
   let storageError: string | null = null;
   let saved = null;
   try {
-    const { default: ElectronStore } = await import('electron-store');
-    store = new ElectronStore<{ session: unknown }>({ name: 'session' });
-    const value = store.get('session');
-    saved = parseSession(value);
-    if (value !== undefined && !saved) {
-      storageError =
-        'The saved session could not be restored. The original file has been preserved.';
-      store = null;
+    if (!privateWindow) {
+      const { default: ElectronStore } = await import('electron-store');
+      store = new ElectronStore<{ session: unknown }>({ name: 'session' });
+      const value = store.get('session');
+      saved = parseSession(value);
+      if (value !== undefined && !saved) {
+        storageError =
+          'The saved session could not be restored. The original file has been preserved.';
+        store = null;
+      }
     }
   } catch (error) {
     console.error('Session storage unavailable:', error);
@@ -56,13 +66,27 @@ async function createWindow() {
       nodeIntegration: false,
     },
   });
-  window = win;
+  const chromeId = win.webContents.id;
   let ready = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSaved = '';
   const library = new BrowserLibrary(() => publish());
-  await library.load();
-  const pageSession = session.fromPartition('persist:drift');
+  if (!privateWindow) await library.load();
+  const partition = privateWindow
+    ? `drift-private-${randomUUID()}`
+    : 'persist:drift';
+  const pageSession = session.fromPartition(partition);
+  const privacy = new PrivacyController(
+    pageSession,
+    win,
+    privateWindow,
+    () => publish(),
+    (id) => {
+      if (tabs.active.view.webContents.id === id)
+        void tabs.openOverlay('shields');
+    },
+  );
+  await privacy.load();
   if (pageSession.protocol.isProtocolHandled('drift'))
     pageSession.protocol.unhandle('drift');
   pageSession.protocol.handle('drift', (request) =>
@@ -105,25 +129,33 @@ async function createWindow() {
       }
     },
     (url, title, increment) => library.visit(url, title, increment),
+    { partition, privateWindow, track: (page) => privacy.track(page) },
   );
   tabs.restore(saved);
-  const authorize = (event: IpcMainInvokeEvent) => {
-    if (
-      event.sender !== win.webContents ||
-      event.senderFrame !== win.webContents.mainFrame ||
-      (event.senderFrame.url !== uiURL && event.senderFrame.url !== `${uiURL}/`)
-    )
-      throw new Error('Unauthorized IPC sender.');
-  };
   const handle = (
     channel: string,
     count: number,
     callback: (...args: unknown[]) => unknown,
   ) => {
-    ipcMain.handle(channel, (event, ...args: unknown[]) => {
-      authorize(event);
-      if (args.length !== count) throw new Error('Invalid arguments.');
-      return callback(...args);
+    if (!routes.has(channel)) {
+      routes.set(channel, new Map());
+      ipcMain.handle(channel, (event, ...args: unknown[]) => {
+        const entry = routes.get(channel)?.get(event.sender.id);
+        if (
+          !entry ||
+          event.senderFrame !== event.sender.mainFrame ||
+          (event.senderFrame.url !== entry.url &&
+            event.senderFrame.url !== `${entry.url}/`)
+        )
+          throw new Error('Unauthorized IPC sender.');
+        if (args.length !== entry.count) throw new Error('Invalid arguments.');
+        return entry.fn(...args);
+      });
+    }
+    routes.get(channel)!.set(chromeId, {
+      url: uiURL,
+      count,
+      fn: (...args) => callback(...args),
     });
   };
   handle('drift:state', 0, state);
@@ -139,6 +171,20 @@ async function createWindow() {
     tabs.refreshNewTabs();
   });
   handle('drift:clear-history', 0, () => library.clearHistory());
+  handle('drift:shields', 0, () =>
+    privacy.state(tabs.active.view.webContents.id, tabs.active.state.url),
+  );
+  handle('drift:privacy', 1, (input) => {
+    const url = privacy.command(
+      input,
+      tabs.active.view.webContents.id,
+      tabs.active.state.url,
+    );
+    if (url) {
+      tabs.closeOverlay();
+      return tabs.navigate(url);
+    }
+  });
   handle('drift:tab', 1, (input) => tabs.command(parseTabCommand(input)));
   handle('drift:sidebar', 1, (input) =>
     tabs.updateSidebar(parseSidebar(input)),
@@ -170,6 +216,10 @@ async function createWindow() {
         return tabs.openOverlay('history');
       case 'show-bookmarks':
         return tabs.openOverlay('bookmarks');
+      case 'show-shields':
+        return tabs.openOverlay('shields');
+      case 'private-window':
+        return createWindow(true);
       case 'reopen-tab':
         tabs.reopen();
         break;
@@ -183,10 +233,18 @@ async function createWindow() {
   win.on('resize', () => tabs.layout());
   win.on('maximize', publish);
   win.on('unmaximize', publish);
-  win.on('close', () => {
+  let clearing = false;
+  win.on('close', (event) => {
     clearTimeout(timer);
     save();
     library.flush();
+    if ((privateWindow || privacy.configuration.clearOnExit) && !clearing) {
+      event.preventDefault();
+      clearing = true;
+      library.clearHistory();
+      library.flush();
+      void privacy.clear().finally(() => win.close());
+    }
   });
   win.on('closed', () => {
     ready = false;
@@ -202,9 +260,11 @@ async function createWindow() {
       'drift:bookmark',
       'drift:clear-history',
     ])
-      ipcMain.removeHandler(channel);
+      routes.get(channel)?.delete(chromeId);
+    for (const channel of ['drift:shields', 'drift:privacy'])
+      routes.get(channel)?.delete(chromeId);
+    privacy.dispose();
     tabs.dispose();
-    window = null;
   });
   await win.loadURL(uiURL);
   ready = true;
@@ -215,11 +275,8 @@ async function createWindow() {
 void app
   .whenReady()
   .then(async () => {
-    // Permission prompts arrive in phase 4; deny requests until that UI exists.
-    for (const target of [
-      session.defaultSession,
-      session.fromPartition('persist:drift'),
-    ]) {
+    await loadFilters();
+    for (const target of [session.defaultSession]) {
       target.setPermissionRequestHandler((_contents, _permission, callback) =>
         callback(false),
       );
@@ -227,7 +284,7 @@ void app
     }
     await createWindow();
     app.on('activate', () => {
-      if (!window) void createWindow();
+      if (!BrowserWindow.getAllWindows().length) void createWindow();
     });
   })
   .catch((error) => {

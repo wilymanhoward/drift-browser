@@ -18,6 +18,7 @@ import {
   CircleAlert,
   History,
   Bookmark,
+  Shield,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -400,6 +401,13 @@ export default function App() {
             </button>
           ))}
         <footer>
+          <button
+            aria-label="Shields"
+            title="Shields"
+            onClick={() => action('show-shields')}
+          >
+            <Shield size={16} />
+          </button>
           <button
             aria-label="Reopen closed tab"
             title="Reopen closed tab (Ctrl+Shift+T)"

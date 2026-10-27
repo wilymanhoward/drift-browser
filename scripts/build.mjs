@@ -11,7 +11,12 @@ export async function buildElectron() {
     bundle: true,
     platform: 'node',
     format: 'cjs',
-    external: ['electron', 'electron-store'],
+    external: [
+      'electron',
+      'electron-store',
+      '@ghostery/adblocker-electron',
+      'tldts',
+    ],
     sourcemap: true,
   });
   await build({

@@ -21,6 +21,7 @@ import type {
 import { isWebURL, NEW_TAB_URL, resolveInput } from '../shared/navigation';
 import { fuzzyScore, searchEntries } from '../shared/search';
 import type { SearchEntry } from '../shared/search';
+import Shields from './Shields';
 
 function Modal({
   label,
@@ -114,7 +115,9 @@ export default function Overlay({
               : 'Search and navigate'
             : event.kind === 'history'
               ? 'History'
-              : 'Bookmarks'
+              : event.kind === 'shields'
+                ? 'Shields'
+                : 'Bookmarks'
         }
         close={close}
       >
@@ -123,7 +126,9 @@ export default function Overlay({
             {error || library?.error || state.storageError}
           </p>
         )}
-        {!library ? (
+        {event.kind === 'shields' ? (
+          <Shields />
+        ) : !library ? (
           <p role="status">Loading saved pages…</p>
         ) : event.kind === 'command' ? (
           <CommandBar event={event} state={state} library={library} />

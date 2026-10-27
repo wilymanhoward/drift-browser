@@ -13,6 +13,8 @@ export const ACTIONS = [
   'open-command',
   'show-history',
   'show-bookmarks',
+  'show-shields',
+  'private-window',
 ] as const;
 export type BrowserAction = (typeof ACTIONS)[number];
 export interface TabState {
@@ -38,7 +40,8 @@ export interface BrowserState extends Omit<TabState, 'id'> {
   canReopen: boolean;
   sidebar: SidebarPreferences & { expanded: boolean };
   storageError: string | null;
-  overlay: 'command' | 'history' | 'bookmarks' | null;
+  overlay: 'command' | 'history' | 'bookmarks' | 'shields' | null;
+  privateWindow: boolean;
 }
 export type TabCommand =
   | {
@@ -61,6 +64,8 @@ export interface DriftAPI {
   bookmark(command: BookmarkCommand): Promise<void>;
   clearHistory(): Promise<void>;
   onOverlay(callback: (overlay: OverlayEvent) => void): () => void;
+  getShields(): Promise<import('./privacy').ShieldsState>;
+  privacy(command: import('./privacy').PrivacyCommand): Promise<void>;
 }
 
 export interface HistoryEntry {
@@ -85,7 +90,7 @@ export type BookmarkCommand =
   | { type: 'save'; id?: string; url: string; title: string; folder: string }
   | { type: 'remove'; id: string };
 export interface OverlayEvent {
-  kind: 'command' | 'history' | 'bookmarks';
+  kind: 'command' | 'history' | 'bookmarks' | 'shields';
   newTab: boolean;
   query: string;
   snapshot: string | null;

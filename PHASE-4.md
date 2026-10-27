@@ -1,0 +1,9 @@
+# Phase 4
+
+Implemented network ad/tracker blocking with bundled EasyList and EasyPrivacy, weekly refreshes, per-site Shields and counts, tracking-parameter stripping, HTTPS upgrades with explicit insecure-site review, permission prompts and per-origin blocks, app-wide secure DNS, clear cookies/cache/history on exit, and isolated in-memory private windows. Google remains the default search engine.
+
+Validation: TypeScript build, lint, unit tests, prior browser/tab/command regressions, and a dedicated Electron privacy test. The privacy fixture verifies a known blocked tracker, a working per-site exception, request/response cookie stripping, URL cleanup, private history isolation, normal-window IPC after closing a private window, and HTTPS-failure review. Native OS permission grants and DNS resolver availability are not automated hardware/network claims.
+
+Limitations: Electron does not expose a complete Chrome cookie-settings API. Network Cookie and Set-Cookie headers are stripped in third-party contexts, but a seeded first-party cookie remained readable by an embedded script during testing. Shields discloses this limitation. Fingerprinting mitigation is limited to normalized user agent and known filter-list scripts. Cosmetic ad hiding is not enabled. HTTP loopback addresses remain available for local development. HTTPS errors never silently fall back to HTTP. DNS is app-wide. No telemetry or remote crash reporter is configured.
+
+UI gate: functional controls, loading/errors, keyboard semantics and existing contrast remain in place. Shields reuses the existing dialog and palette; its fields explain actual capabilities and limitations. No new branding, invented data, decorative assets, or dead controls are introduced. The earlier window-control regression remains part of validation.

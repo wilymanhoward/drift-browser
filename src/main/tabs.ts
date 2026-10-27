@@ -1,5 +1,5 @@
 import { BrowserWindow, Menu, WebContentsView } from 'electron';
-import type { Input, NavigationEntry } from 'electron';
+import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { COLLAPSED_WIDTH, CONTENT_INSET } from '../shared/browser';
 import type {
@@ -41,6 +41,11 @@ export class TabManager {
     private win: BrowserWindow,
     private changed: () => void,
     private visited: (url: string, title: string, increment: boolean) => void,
+    private environment: {
+      partition: string;
+      privateWindow: boolean;
+      track: (page: WebContents) => void;
+    },
   ) {}
   restore(saved: SavedSession | null) {
     if (saved) {
@@ -58,6 +63,7 @@ export class TabManager {
       canReopen: this.closed.length > 0,
       sidebar: { ...this.sidebar },
       overlay: this.overlay,
+      privateWindow: this.environment.privateWindow,
     };
   }
   get saved(): SavedSession {
@@ -91,7 +97,7 @@ export class TabManager {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
-        partition: 'persist:drift',
+        partition: this.environment.partition,
         navigateOnDragDrop: false,
       },
     });
@@ -112,6 +118,7 @@ export class TabManager {
       },
     };
     const page = view.webContents;
+    this.environment.track(page);
     this.tabs.push(tab);
     this.win.contentView.addChildView(view);
     view.setVisible(false);

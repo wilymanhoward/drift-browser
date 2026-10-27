@@ -11,6 +11,8 @@ const api: DriftAPI = {
   getLibrary: () => ipcRenderer.invoke('drift:library'),
   bookmark: (command) => ipcRenderer.invoke('drift:bookmark', command),
   clearHistory: () => ipcRenderer.invoke('drift:clear-history'),
+  getShields: () => ipcRenderer.invoke('drift:shields'),
+  privacy: (command) => ipcRenderer.invoke('drift:privacy', command),
   onOverlay: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
