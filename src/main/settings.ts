@@ -13,7 +13,20 @@ export class SettingsStore {
       const { default: Store } = await import('electron-store');
       const store = new Store<{ settings: unknown }>({ name: 'settings' });
       const raw = store.get('settings');
-      if (raw !== undefined) this.value = parseSettings(raw);
+      if (
+        raw !== undefined &&
+        (!raw || typeof raw !== 'object' || Array.isArray(raw))
+      )
+        throw new Error('Invalid saved settings');
+      if (raw !== undefined && raw && typeof raw === 'object')
+        this.value = parseSettings({
+          expandedWidth: DEFAULT_SETTINGS.expandedWidth,
+          ...raw,
+          shortcuts: {
+            ...DEFAULT_SETTINGS.shortcuts,
+            ...(raw as { shortcuts?: object }).shortcuts,
+          },
+        });
       if (!privateWindow) this.store = store;
     } catch {
       this.error =

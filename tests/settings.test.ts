@@ -11,6 +11,9 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
     searchTemplate({ ...DEFAULT_SETTINGS, searchEngine: 'brave' }),
   ).toContain('search.brave.com');
   expect(themeCSS(DEFAULT_SETTINGS, true)).toContain('--text:#edf1eb');
+  expect(themeCSS({ ...DEFAULT_SETTINGS, accent: '#777777' }, false)).toContain(
+    '--accent-text:#000000',
+  );
   expect(() =>
     parseSettings({ ...DEFAULT_SETTINGS, accent: 'red; background:url(x)' }),
   ).toThrow();

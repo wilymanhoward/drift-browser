@@ -20,6 +20,8 @@ import { PrivacyController, loadFilters } from './privacy';
 import { randomUUID } from 'node:crypto';
 import { SettingsStore } from './settings';
 import { searchTemplate, themeCSS } from '../shared/settings';
+import { parseWorkspace, parseDownload } from '../shared/power';
+import { Downloads } from './downloads';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -155,8 +157,15 @@ async function createWindow(privateWindow = false) {
     },
   );
   tabs.restore(settings.value.startup === 'restore' ? saved : null);
+  if (saved) settings.value.expandedWidth = saved.sidebar.width;
+  const downloads = new Downloads(
+    pageSession,
+    (page) => tabs.owns(page),
+    publish,
+  );
   let cssKey: string | null = null;
   const applySettings = async () => {
+    tabs.updateSidebar({ width: settings.value.expandedWidth });
     tabs.layout();
     const next = await win.webContents.insertCSS(
       themeCSS(settings.value, settings.dark) + '\n' + settings.value.customCSS,
@@ -197,6 +206,14 @@ async function createWindow(privateWindow = false) {
     });
   };
   handle('drift:state', 0, state);
+  handle('drift:workspace', 1, (input) =>
+    tabs.workspace(parseWorkspace(input)),
+  );
+  handle('drift:split-ratio', 1, (input) => tabs.setSplitRatio(input));
+  handle('drift:downloads', 0, () => downloads.state);
+  handle('drift:download', 1, (input) =>
+    downloads.command(parseDownload(input)),
+  );
   handle('drift:navigate', 1, (input) => {
     const url = resolveInput(input, searchTemplate(settings.value));
     tabs.closeOverlay();
@@ -234,9 +251,12 @@ async function createWindow(privateWindow = false) {
     }
   });
   handle('drift:tab', 1, (input) => tabs.command(parseTabCommand(input)));
-  handle('drift:sidebar', 1, (input) =>
-    tabs.updateSidebar(parseSidebar(input)),
-  );
+  handle('drift:sidebar', 1, (input) => {
+    const update = parseSidebar(input);
+    if (update.width !== undefined)
+      settings.set({ ...settings.value, expandedWidth: update.width });
+    tabs.updateSidebar(update);
+  });
   handle('drift:action', 1, (input) => {
     if (!ACTIONS.includes(input as BrowserAction))
       throw new Error('Invalid action.');
@@ -270,6 +290,16 @@ async function createWindow(privateWindow = false) {
         return createWindow(true);
       case 'show-settings':
         return tabs.openSettings();
+      case 'show-workspaces':
+        return tabs.openOverlay('workspaces');
+      case 'show-downloads':
+        return tabs.openOverlay('downloads');
+      case 'compact':
+        tabs.toggleCompact();
+        break;
+      case 'split':
+        tabs.toggleSplit();
+        break;
       case 'reopen-tab':
         tabs.reopen();
         break;
@@ -314,6 +344,14 @@ async function createWindow(privateWindow = false) {
     for (const channel of ['drift:shields', 'drift:privacy'])
       routes.get(channel)?.delete(chromeId);
     privacy.dispose();
+    downloads.dispose();
+    for (const channel of [
+      'drift:workspace',
+      'drift:split-ratio',
+      'drift:downloads',
+      'drift:download',
+    ])
+      routes.get(channel)?.delete(chromeId);
     for (const channel of ['drift:settings', 'drift:settings-file'])
       routes.get(channel)?.delete(chromeId);
     nativeTheme.removeListener('updated', systemTheme);

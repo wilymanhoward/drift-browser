@@ -29,6 +29,96 @@ test('settings apply live, export/import, and survive restart', async () => {
         ),
       )
       .toBe('#edf1eb');
+    for (const [label, value, key] of [
+      ['Collapsed width', '56', 'collapsedWidth'],
+      ['Expanded width', '248', 'expandedWidth'],
+      ['Corner radius', '12', 'radius'],
+      ['Unload minutes', '20', 'unloadMinutes'],
+    ] as const) {
+      await chrome.getByLabel(label, { exact: true }).fill(value);
+      await expect
+        .poll(() =>
+          chrome.evaluate(
+            (key) => window.drift.getState().then((s) => s.settings[key]),
+            key,
+          ),
+        )
+        .toBe(Number(value));
+    }
+    await chrome.getByLabel('Accent', { exact: true }).fill('#777777');
+    await chrome.getByLabel('Density', { exact: true }).selectOption('compact');
+    for (const [label, key] of [
+      ['Inset web content', 'contentInset'],
+      ['Content shadow', 'contentShadow'],
+      ['Expand sidebar on hover', 'hoverExpand'],
+    ] as const) {
+      const previous = (await chrome.evaluate(() => window.drift.getState()))
+        .settings[key];
+      await chrome.getByLabel(label, { exact: true }).click();
+      await expect
+        .poll(() =>
+          chrome.evaluate(
+            (key) => window.drift.getState().then((s) => s.settings[key]),
+            key,
+          ),
+        )
+        .toBe(!previous);
+      await chrome.getByLabel(label, { exact: true }).click();
+      await expect
+        .poll(() =>
+          chrome.evaluate(
+            (key) => window.drift.getState().then((s) => s.settings[key]),
+            key,
+          ),
+        )
+        .toBe(previous);
+    }
+    await chrome.getByLabel('Startup', { exact: true }).selectOption('new-tab');
+    await chrome.getByLabel('Startup', { exact: true }).selectOption('restore');
+    await chrome
+      .getByLabel('Search engine', { exact: true })
+      .selectOption('custom');
+    await chrome
+      .getByLabel('Custom search URL', { exact: true })
+      .fill('https://www.google.com/search?q={query}&safe=active');
+    await chrome.getByLabel('Custom search URL', { exact: true }).press('Tab');
+    const wallpaper = test.info().outputPath('wallpaper.png');
+    const png = await app.evaluate(({ nativeImage }) =>
+      Array.from(
+        nativeImage
+          .createFromBitmap(Buffer.alloc(16, 255), { width: 2, height: 2 })
+          .toPNG(),
+      ),
+    );
+    await writeFile(wallpaper, Buffer.from(png));
+    await app.evaluate(({ dialog }, wallpaper) => {
+      dialog.showOpenDialog = async () => ({
+        canceled: false,
+        filePaths: [wallpaper],
+      });
+    }, wallpaper);
+    await chrome
+      .getByRole('button', { name: 'Choose wallpaper', exact: true })
+      .click();
+    await expect(
+      chrome.getByRole('button', { name: 'Remove wallpaper', exact: true }),
+    ).toBeEnabled();
+    await chrome
+      .getByRole('button', { name: 'Remove wallpaper', exact: true })
+      .click();
+    await expect(
+      chrome.getByRole('button', { name: 'Remove wallpaper', exact: true }),
+    ).toBeDisabled();
+    await chrome
+      .getByLabel('Custom CSS', { exact: true })
+      .fill('.wordmark { letter-spacing:3px !important; }');
+    await chrome
+      .getByRole('button', { name: 'Apply CSS', exact: true })
+      .click();
+    await expect(chrome.locator('.wordmark')).toHaveCSS(
+      'letter-spacing',
+      '3px',
+    );
     await chrome
       .getByLabel('Sidebar position', { exact: true })
       .selectOption('right');

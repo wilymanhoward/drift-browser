@@ -1,6 +1,8 @@
 import { BrowserWindow, Menu, WebContentsView } from 'electron';
 import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { DEFAULT_WORKSPACE } from '../shared/power';
+import type { Workspace, WorkspaceCommand } from '../shared/power';
 import { CONTENT_INSET } from '../shared/browser';
 import type {
   BrowserState,
@@ -22,6 +24,8 @@ interface Tab {
   view: WebContentsView;
   state: TabState;
   navigationURL: string;
+  lastActive: number;
+  suspended?: ClosedTab;
 }
 interface ClosedTab {
   tab: SavedTab;
@@ -38,6 +42,13 @@ export class TabManager {
   private disposed = false;
   private overlay: BrowserState['overlay'] = null;
   private overlayVersion = 0;
+  private workspaces: Workspace[] = [{ ...DEFAULT_WORKSPACE }];
+  private workspaceId = DEFAULT_WORKSPACE.id;
+  private compact = false;
+  private compactPreview: BrowserState['compactPreview'] = null;
+  private peekVersion = 0;
+  private split: BrowserState['split'] = null;
+  private sleepTimer: ReturnType<typeof setInterval>;
   constructor(
     private win: BrowserWindow,
     private changed: () => void,
@@ -48,9 +59,14 @@ export class TabManager {
       track: (page: WebContents) => void;
       settings: () => import('../shared/settings').Settings;
     },
-  ) {}
+  ) {
+    this.sleepTimer = setInterval(() => this.sleepInactive(), 30000);
+    this.sleepTimer.unref();
+  }
   restore(saved: SavedSession | null) {
     if (saved) {
+      this.workspaces = saved.workspaces ?? [{ ...DEFAULT_WORKSPACE }];
+      this.workspaceId = saved.activeWorkspaceId ?? this.workspaces[0].id;
       this.sidebar = { ...saved.sidebar, expanded: saved.sidebar.pinned };
       for (const tab of saved.tabs) this.create(tab.url, tab, false);
       this.select(saved.activeTabId);
@@ -66,6 +82,11 @@ export class TabManager {
       sidebar: { ...this.sidebar },
       overlay: this.overlay,
       privateWindow: this.environment.privateWindow,
+      workspaces: this.workspaces.map((w) => ({ ...w })),
+      activeWorkspaceId: this.workspaceId,
+      compact: this.compact,
+      compactPreview: this.compactPreview,
+      split: this.split,
     };
   }
   get saved(): SavedSession {
@@ -76,13 +97,22 @@ export class TabManager {
         url: state.url,
         title: state.title.slice(0, 1024),
         muted: state.muted,
+        workspaceId: state.workspaceId,
+        pinned: state.pinned,
       })),
       activeTabId: this.activeId,
       sidebar: { pinned: this.sidebar.pinned, width: this.sidebar.width },
+      workspaces: this.workspaces,
+      activeWorkspaceId: this.workspaceId,
     };
   }
   get active() {
     return this.tabs.find((tab) => tab.state.id === this.activeId)!;
+  }
+  owns(page: WebContents) {
+    return this.tabs.some(
+      (t) => !t.state.unloaded && t.view.webContents.id === page.id,
+    );
   }
   private emit() {
     if (!this.disposed && this.tabs.length) this.changed();
@@ -106,6 +136,7 @@ export class TabManager {
     const tab: Tab = {
       view,
       navigationURL: target,
+      lastActive: Date.now(),
       state: {
         id: saved?.id ?? randomUUID(),
         url: target,
@@ -117,6 +148,11 @@ export class TabManager {
         favicon: null,
         audible: false,
         muted: saved?.muted ?? false,
+        workspaceId: this.workspaces.some((w) => w.id === saved?.workspaceId)
+          ? saved!.workspaceId!
+          : this.workspaceId,
+        pinned: saved?.pinned ?? false,
+        unloaded: false,
       },
     };
     const page = view.webContents;
@@ -200,6 +236,16 @@ export class TabManager {
     page.on('before-input-event', (event, input) => {
       if (this.shortcut(input)) event.preventDefault();
     });
+    page.on('focus', () => {
+      if (
+        this.split?.ids.includes(tab.state.id) &&
+        this.activeId !== tab.state.id
+      ) {
+        this.activeId = tab.state.id;
+        tab.lastActive = Date.now();
+        this.emit();
+      }
+    });
     if (select || !this.activeId) this.select(tab.state.id);
     else this.layout();
     const loading = history?.history.length
@@ -225,9 +271,13 @@ export class TabManager {
   select(id: string) {
     if (!this.tabs.some((tab) => tab.state.id === id))
       throw new Error('Unknown tab.');
+    const chosen = this.wake(id);
+    if (this.workspaceId !== chosen.state.workspaceId) this.split = null;
+    if (this.split && !this.split.ids.includes(id))
+      this.split.ids[this.split.ids.indexOf(this.activeId)] = id;
+    this.workspaceId = chosen.state.workspaceId;
     this.activeId = id;
-    for (const tab of this.tabs)
-      tab.view.setVisible(tab.state.id === id && !this.overlay);
+    chosen.lastActive = Date.now();
     this.layout();
     this.emit();
   }
@@ -242,18 +292,28 @@ export class TabManager {
         url: tab.state.url,
         title: tab.state.title,
         muted: tab.state.muted,
+        workspaceId: tab.state.workspaceId,
+        pinned: tab.state.pinned,
       },
       index,
-      history: page.navigationHistory.getAllEntries(),
-      historyIndex: page.navigationHistory.getActiveIndex(),
+      history: tab.suspended?.history ?? page.navigationHistory.getAllEntries(),
+      historyIndex:
+        tab.suspended?.historyIndex ?? page.navigationHistory.getActiveIndex(),
     });
     this.closed = this.closed.slice(-25);
     this.tabs.splice(index, 1);
-    this.win.contentView.removeChildView(tab.view);
-    page.close();
-    if (!this.tabs.length) this.create();
+    if (!tab.state.unloaded) {
+      this.win.contentView.removeChildView(tab.view);
+      page.close();
+    }
+    if (this.split?.ids.includes(id)) this.split = null;
+    const siblings = this.tabs.filter(
+      (t) => t.state.workspaceId === this.workspaceId,
+    );
+    if (!siblings.length) this.create();
     else if (this.activeId === id)
-      this.select(this.tabs[Math.min(index, this.tabs.length - 1)].state.id);
+      this.select(siblings[Math.min(index, siblings.length - 1)].state.id);
+    this.layout();
     this.emit();
   }
   reopen() {
@@ -272,6 +332,12 @@ export class TabManager {
   command(command: TabCommand) {
     const tab = this.tabs.find((tab) => tab.state.id === command.id);
     if (!tab) throw new Error('Unknown tab.');
+    const peers = this.tabs.filter(
+      (t) =>
+        t.state.workspaceId === tab.state.workspaceId &&
+        t.state.pinned === tab.state.pinned,
+    );
+    const peerIndex = peers.indexOf(tab);
     switch (command.type) {
       case 'select':
         this.select(command.id);
@@ -284,19 +350,66 @@ export class TabManager {
         this.move(command.id, command.index);
         break;
       case 'duplicate':
-        this.create(tab.state.url);
+        this.create(tab.state.url, {
+          ...tab.state,
+          id: randomUUID(),
+          pinned: false,
+        });
+        break;
+      case 'pin':
+        tab.state.pinned = !tab.state.pinned;
+        this.emit();
+        break;
+      case 'sleep':
+        this.sleep(tab);
+        break;
+      case 'split':
+        this.toggleSplit(tab.state.id);
         break;
       case 'mute':
         tab.state.muted = !tab.state.muted;
-        tab.view.webContents.setAudioMuted(tab.state.muted);
+        if (!tab.state.unloaded)
+          tab.view.webContents.setAudioMuted(tab.state.muted);
         this.emit();
         break;
       case 'close-others':
         for (const other of [...this.tabs])
-          if (other !== tab) this.close(other.state.id);
+          if (
+            other !== tab &&
+            other.state.workspaceId === tab.state.workspaceId &&
+            !other.state.pinned
+          )
+            this.close(other.state.id);
         break;
       case 'menu':
         Menu.buildFromTemplate([
+          {
+            label: tab.state.pinned ? 'Unpin tab' : 'Pin tab',
+            click: () => this.command({ type: 'pin', id: command.id }),
+          },
+          {
+            label: 'Move to workspace',
+            submenu: this.workspaces.map((w) => ({
+              label: w.name,
+              enabled: w.id !== tab.state.workspaceId,
+              click: () =>
+                this.workspace({
+                  type: 'move-tab',
+                  id: w.id,
+                  tabId: command.id,
+                }),
+            })),
+          },
+          {
+            label: 'Split beside current tab',
+            enabled: command.id !== this.activeId,
+            click: () => this.toggleSplit(command.id),
+          },
+          {
+            label: 'Put tab to sleep',
+            enabled: this.canSleep(tab),
+            click: () => this.sleep(tab),
+          },
           {
             label: 'Duplicate tab',
             click: () => this.command({ type: 'duplicate', id: command.id }),
@@ -307,13 +420,15 @@ export class TabManager {
           },
           {
             label: 'Move up',
-            enabled: this.tabs.indexOf(tab) > 0,
-            click: () => this.move(command.id, this.tabs.indexOf(tab) - 1),
+            enabled: peerIndex > 0,
+            click: () =>
+              this.move(command.id, this.tabs.indexOf(peers[peerIndex - 1])),
           },
           {
             label: 'Move down',
-            enabled: this.tabs.indexOf(tab) < this.tabs.length - 1,
-            click: () => this.move(command.id, this.tabs.indexOf(tab) + 1),
+            enabled: peerIndex < peers.length - 1,
+            click: () =>
+              this.move(command.id, this.tabs.indexOf(peers[peerIndex + 1])),
           },
           { type: 'separator' },
           {
@@ -358,6 +473,11 @@ export class TabManager {
       page.navigationHistory.goForward();
   }
   updateSidebar(update: SidebarUpdate) {
+    if (this.compact && update.pinned !== undefined) this.toggleCompact();
+    if (this.compact && update.expanded !== undefined) {
+      void this.peek(update.expanded);
+      return;
+    }
     this.sidebar = { ...this.sidebar, ...update };
     if (update.pinned !== undefined) this.sidebar.expanded = update.pinned;
     if (this.sidebar.pinned) this.sidebar.expanded = true;
@@ -385,7 +505,8 @@ export class TabManager {
       version !== this.overlayVersion
     )
       return;
-    for (const tab of this.tabs) tab.view.setVisible(false);
+    for (const tab of this.tabs)
+      if (!tab.state.unloaded) tab.view.setVisible(false);
     this.win.webContents.focus();
     this.win.webContents.send('drift:overlay', {
       kind,
@@ -407,13 +528,169 @@ export class TabManager {
   }
   refreshNewTabs() {
     for (const tab of this.tabs)
-      if (tab.state.url === NEW_TAB_URL) tab.view.webContents.reload();
+      if (!tab.state.unloaded && tab.state.url === NEW_TAB_URL)
+        tab.view.webContents.reload();
   }
   openSettings() {
     const existing = this.tabs.find((tab) => tab.state.url === SETTINGS_URL);
     if (existing) this.select(existing.state.id);
     else this.create(SETTINGS_URL);
     return this.openOverlay('settings');
+  }
+  workspace(command: WorkspaceCommand) {
+    if (command.type === 'save') {
+      const existing = this.workspaces.find((w) => w.id === command.id);
+      if (command.id && !existing) throw new Error('Unknown workspace');
+      if (!existing && this.workspaces.length >= 9)
+        throw new Error('Up to nine workspaces are supported');
+      const next = {
+        id: existing?.id ?? randomUUID(),
+        name: command.name.trim(),
+        icon: command.icon.trim(),
+        accent: command.accent,
+      };
+      if (existing) Object.assign(existing, next);
+      else this.workspaces.push(next);
+    } else {
+      const workspace = this.workspaces.find((w) => w.id === command.id);
+      if (!workspace) throw new Error('Unknown workspace');
+      if (command.type === 'remove') {
+        if (this.workspaces.length === 1)
+          throw new Error('Keep at least one workspace');
+        const fallback = this.workspaces.find((w) => w.id !== command.id)!;
+        for (const tab of this.tabs)
+          if (tab.state.workspaceId === command.id)
+            tab.state.workspaceId = fallback.id;
+        this.workspaces = this.workspaces.filter((w) => w !== workspace);
+        if (this.workspaceId === command.id) this.workspaceId = fallback.id;
+      } else if (command.type === 'move-tab') {
+        const tab = this.tabs.find((t) => t.state.id === command.tabId);
+        if (!tab) throw new Error('Unknown tab');
+        tab.state.workspaceId = command.id;
+        if (this.split?.ids.includes(tab.state.id)) this.split = null;
+        if (tab.state.id === this.activeId) {
+          const other = this.tabs.find(
+            (t) => t.state.workspaceId === this.workspaceId,
+          );
+          if (other) this.select(other.state.id);
+          else this.create();
+        }
+      } else {
+        this.split = null;
+        this.workspaceId = command.id;
+        const tab = this.tabs.find((t) => t.state.workspaceId === command.id);
+        if (tab) this.select(tab.state.id);
+        else this.create();
+      }
+    }
+    this.layout();
+    this.emit();
+  }
+  toggleCompact() {
+    this.compact = !this.compact;
+    ++this.peekVersion;
+    this.compactPreview = null;
+    this.sidebar.expanded = this.compact ? false : this.sidebar.pinned;
+    this.layout();
+    this.emit();
+  }
+  private async peek(open: boolean) {
+    const version = ++this.peekVersion;
+    if (open && !this.sidebar.expanded && !this.overlay) {
+      try {
+        const frames = await Promise.all(
+          this.tabs
+            .filter((t) => !t.state.unloaded && t.view.getVisible())
+            .map(async (t) => ({
+              snapshot: (await t.view.webContents.capturePage()).toDataURL(),
+              bounds: t.view.getBounds(),
+            })),
+        );
+        if (version !== this.peekVersion || this.disposed || !this.compact)
+          return;
+        this.compactPreview = frames;
+      } catch {
+        return;
+      }
+    } else if (!open) this.compactPreview = null;
+    this.sidebar.expanded = open;
+    this.layout();
+    this.emit();
+  }
+  toggleSplit(id?: string) {
+    if (this.split && !id) this.split = null;
+    else {
+      const other = id
+        ? this.tabs.find(
+            (t) =>
+              t.state.id === id && t.state.workspaceId === this.workspaceId,
+          )
+        : this.tabs.find(
+            (t) =>
+              t !== this.active && t.state.workspaceId === this.workspaceId,
+          );
+      if (!other || other.state.id === this.activeId) return;
+      this.wake(other.state.id);
+      this.split = { ids: [this.activeId, other.state.id], ratio: 0.5 };
+    }
+    this.layout();
+    this.emit();
+  }
+  setSplitRatio(ratio: unknown) {
+    if (
+      typeof ratio !== 'number' ||
+      !Number.isFinite(ratio) ||
+      ratio < 0.2 ||
+      ratio > 0.8
+    )
+      throw new Error('Invalid split ratio');
+    if (this.split) this.split.ratio = ratio;
+    this.layout();
+    this.emit();
+  }
+  private canSleep(tab: Tab) {
+    return (
+      !tab.state.unloaded &&
+      tab.state.id !== this.activeId &&
+      !this.split?.ids.includes(tab.state.id) &&
+      !tab.state.pinned &&
+      !tab.state.audible &&
+      !tab.state.loading &&
+      !tab.view.webContents.isDevToolsOpened()
+    );
+  }
+  private sleep(tab: Tab) {
+    if (!this.canSleep(tab)) return;
+    tab.suspended = {
+      tab: { ...tab.state },
+      index: this.tabs.indexOf(tab),
+      history: tab.view.webContents.navigationHistory.getAllEntries(),
+      historyIndex: tab.view.webContents.navigationHistory.getActiveIndex(),
+    };
+    tab.state.unloaded = true;
+    this.win.contentView.removeChildView(tab.view);
+    tab.view.webContents.close();
+    this.emit();
+  }
+  private sleepInactive() {
+    const cutoff =
+      Date.now() - this.environment.settings().unloadMinutes * 60000;
+    for (const tab of this.tabs) if (tab.lastActive < cutoff) this.sleep(tab);
+  }
+  private wake(id: string): Tab {
+    const tab = this.tabs.find((t) => t.state.id === id)!;
+    if (!tab.state.unloaded) return tab;
+    const index = this.tabs.indexOf(tab);
+    this.tabs.splice(index, 1);
+    const replacement = this.create(
+      tab.state.url,
+      { ...tab.state },
+      false,
+      tab.suspended,
+    );
+    this.tabs.splice(this.tabs.indexOf(replacement), 1);
+    this.tabs.splice(index, 0, replacement);
+    return replacement;
   }
   shortcut(input: Input): boolean {
     if (input.type === 'keyDown') {
@@ -442,6 +719,23 @@ export class TabManager {
       }
       if (binding === 'devtools') {
         this.active.view.webContents.toggleDevTools();
+        return true;
+      }
+      if (binding === 'compact') {
+        this.toggleCompact();
+        return true;
+      }
+      if (binding === 'split') {
+        this.toggleSplit();
+        return true;
+      }
+      if (binding === 'show-downloads') {
+        void this.openOverlay('downloads');
+        return true;
+      }
+      if (binding?.startsWith('workspace-')) {
+        const workspace = this.workspaces[Number(binding.slice(10)) - 1];
+        if (workspace) this.workspace({ type: 'select', id: workspace.id });
         return true;
       }
       const legacy: Record<string, [string, boolean]> = {
@@ -484,11 +778,13 @@ export class TabManager {
     else if (key === 'b' && input.shift) void this.openOverlay('bookmarks');
     else if (key === 'tab') {
       if (this.overlay) this.closeOverlay();
-      const index = this.tabs.indexOf(this.active);
+      const tabs = this.tabs.filter(
+        (t) => t.state.workspaceId === this.workspaceId,
+      );
+      const index = tabs.indexOf(this.active);
       this.select(
-        this.tabs[
-          (index + (input.shift ? -1 : 1) + this.tabs.length) % this.tabs.length
-        ].state.id,
+        tabs[(index + (input.shift ? -1 : 1) + tabs.length) % tabs.length].state
+          .id,
       );
       this.active.view.webContents.focus();
     } else return false;
@@ -497,24 +793,44 @@ export class TabManager {
   layout() {
     const [width, height] = this.win.getContentSize();
     const settings = this.environment.settings();
-    const inset = settings.contentInset ? CONTENT_INSET : 0;
-    const sidebar = this.sidebar.expanded
-      ? this.sidebar.width
-      : settings.collapsedWidth;
-    for (const tab of this.tabs)
+    const inset = this.compact ? 0 : settings.contentInset ? CONTENT_INSET : 0;
+    const sidebar = this.compact
+      ? 6
+      : this.sidebar.expanded
+        ? this.sidebar.width
+        : settings.collapsedWidth;
+    const x = settings.sidebarPosition === 'left' ? sidebar : inset;
+    const available = Math.max(0, width - sidebar - inset);
+    const first = this.split
+      ? Math.floor((available - 8) * this.split.ratio)
+      : available;
+    for (const tab of this.tabs) {
+      if (tab.state.unloaded) continue;
+      const second = this.split?.ids[1] === tab.state.id;
       tab.view.setBounds({
-        x: settings.sidebarPosition === 'left' ? sidebar : inset,
+        x: x + (second ? first + 8 : 0),
         y: inset,
-        width: Math.max(0, width - sidebar - inset),
+        width: second ? available - first - 8 : first,
         height: Math.max(0, height - inset * 2),
       });
-    for (const tab of this.tabs)
-      tab.view.setBorderRadius(settings.contentInset ? settings.radius : 0);
+      tab.view.setBorderRadius(
+        !this.compact && settings.contentInset ? settings.radius : 0,
+      );
+      tab.view.setVisible(
+        !this.overlay &&
+          !this.compactPreview &&
+          (this.split
+            ? this.split.ids.includes(tab.state.id)
+            : tab.state.id === this.activeId),
+      );
+    }
   }
   dispose() {
     this.disposed = true;
+    clearInterval(this.sleepTimer);
     for (const tab of this.tabs)
-      if (!tab.view.webContents.isDestroyed()) tab.view.webContents.close();
+      if (!tab.state.unloaded && !tab.view.webContents.isDestroyed())
+        tab.view.webContents.close();
     this.tabs = [];
   }
 }

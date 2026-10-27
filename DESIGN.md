@@ -1,6 +1,6 @@
 # Drift shell
 
-Phases 1 through 3 follow the user's calm, nearly invisible browser brief.
+Phases 1 through 6 follow the user's calm, nearly invisible browser brief.
 Reading this as a personal desktop browser with a soft neutral interface.
 ENERGY 1 / RHYTHM 1 / MOTION 1.
 
@@ -18,4 +18,7 @@ ENERGY 1 / RHYTHM 1 / MOTION 1.
 - The internal new tab uses a clock, search field, and real saved favorites as its only focal elements; no feed or fabricated content competes with browsing.
 - Dialog search fields receive focus only after an explicit user action opens the dialog. Native dialog semantics keep keyboard focus inside it, and Escape returns focus to the page.
 - Named bookmark folders use simple section headings and rows because titles/URLs must remain scannable and editable; they do not need decorative cards.
-- Light, dark, and system theme controls belong to Phase 5 as specified in the phased request.
+- Light, dark, and system themes preserve the same neutral hierarchy. Muted text and icon/focus colors have measured contrast; custom accents receive a calculated readable button foreground.
+- Workspace icons and a narrow selected-tab accent identify the current context without recoloring the whole window. Pinned favicon tiles keep repeated destinations above regular tabs.
+- Compact mode keeps only an edge trigger; its temporary sidebar sits over an in-memory page frame. Two native split panes share a narrow, keyboard-adjustable divider.
+- Workspace editing and download progress use the existing dialog surface and labelled rows. Pin, panes, compact and download icons describe their actual actions; no new decorative assets are needed.

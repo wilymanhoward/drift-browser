@@ -1,5 +1,7 @@
 import { isPageURL } from '../shared/navigation';
 import { SIDEBAR_WIDTH } from '../shared/browser';
+import { parseWorkspace } from '../shared/power';
+import type { Workspace } from '../shared/power';
 import type {
   SidebarPreferences,
   SidebarUpdate,
@@ -11,12 +13,16 @@ export interface SavedTab {
   url: string;
   title: string;
   muted: boolean;
+  workspaceId?: string;
+  pinned?: boolean;
 }
 export interface SavedSession {
   version: 1;
   tabs: SavedTab[];
   activeTabId: string;
   sidebar: SidebarPreferences;
+  workspaces?: Workspace[];
+  activeWorkspaceId?: string;
 }
 export const DEFAULT_SIDEBAR: SidebarPreferences = {
   pinned: false,
@@ -60,6 +66,9 @@ export function parseTabCommand(value: unknown): TabCommand {
       'close-others',
       'move',
       'menu',
+      'pin',
+      'sleep',
+      'split',
     ].includes(value.type)
   )
     throw new Error('Invalid tab command.');
@@ -102,6 +111,39 @@ export function parseSession(value: unknown): SavedSession | null {
   )
     return null;
   const ids = new Set<string>();
+  let workspaces: Workspace[] | undefined;
+  if (value.workspaces !== undefined) {
+    if (
+      !Array.isArray(value.workspaces) ||
+      !value.workspaces.length ||
+      value.workspaces.length > 9
+    )
+      return null;
+    const workspaceIds = new Set<string>();
+    workspaces = [];
+    try {
+      for (const raw of value.workspaces) {
+        if (!record(raw)) return null;
+        const command = parseWorkspace({ ...raw, type: 'save' });
+        if (
+          command.type !== 'save' ||
+          !command.id ||
+          workspaceIds.has(command.id)
+        )
+          return null;
+        workspaceIds.add(command.id);
+        workspaces.push({
+          id: command.id,
+          name: command.name,
+          icon: command.icon,
+          accent: command.accent,
+        });
+      }
+      if (!workspaceIds.has(String(value.activeWorkspaceId))) return null;
+    } catch {
+      return null;
+    }
+  } else if (value.activeWorkspaceId !== undefined) return null;
   const tabs: SavedTab[] = [];
   for (const tab of value.tabs) {
     if (
@@ -117,7 +159,21 @@ export function parseSession(value: unknown): SavedSession | null {
     )
       return null;
     ids.add(tab.id);
-    tabs.push({ id: tab.id, url: tab.url, title: tab.title, muted: tab.muted });
+    if (
+      (tab.pinned !== undefined && typeof tab.pinned !== 'boolean') ||
+      (workspaces && !workspaces.some((w) => w.id === tab.workspaceId)) ||
+      (!workspaces && tab.workspaceId !== undefined)
+    )
+      return null;
+    tabs.push({
+      id: tab.id,
+      url: tab.url,
+      title: tab.title,
+      muted: tab.muted,
+      ...(workspaces
+        ? { workspaceId: String(tab.workspaceId), pinned: tab.pinned === true }
+        : {}),
+    });
   }
   if (!ids.has(value.activeTabId)) return null;
   return {
@@ -125,5 +181,8 @@ export function parseSession(value: unknown): SavedSession | null {
     tabs,
     activeTabId: value.activeTabId,
     sidebar: { pinned: value.sidebar.pinned, width: value.sidebar.width },
+    ...(workspaces
+      ? { workspaces, activeWorkspaceId: String(value.activeWorkspaceId) }
+      : {}),
   };
 }

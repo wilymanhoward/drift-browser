@@ -92,11 +92,9 @@ export default function Settings({ state }: { state: BrowserState }) {
           type="number"
           min={220}
           max={360}
-          value={state.sidebar.width}
+          value={draft.expandedWidth}
           onChange={(e) =>
-            void window.drift
-              .sidebar({ width: Number(e.target.value) })
-              .catch(() => setError('Width must be between 220 and 360.'))
+            void update({ expandedWidth: Number(e.target.value) })
           }
         />
       </label>

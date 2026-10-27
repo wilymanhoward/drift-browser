@@ -1,6 +1,6 @@
 # Drift
 
-Phases 1 through 3 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
+Phases 1 through 6 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
 
 ## Run
 
@@ -30,7 +30,7 @@ The end-to-end test launches the built Electron application and uses a local HTT
 - Click the sidebar domain pill or press Ctrl+L to enter an address in the command bar. Bare domains default to HTTPS.
 - Back, forward, reload, page title, loading indicator, and navigation error feedback.
 - Typed preload API, strict IPC sender/frame/argument validation, sandboxing and context isolation in both renderers, no Node integration, no preload in web content.
-- Internal CSP, blocked chrome navigation/popups, HTTP/HTTPS and the explicit internal new-tab route only, denied permissions until permission prompts exist.
+- Internal CSP, blocked chrome navigation/popups, and explicit HTTP/HTTPS/internal routes. Website permissions use the Phase 4 prompts.
 - New-window links now open a separate tab.
 
 Electron security guidance: [Security](https://www.electronjs.org/docs/latest/tutorial/security), [WebContentsView](https://www.electronjs.org/docs/latest/api/web-contents-view).
@@ -44,30 +44,55 @@ Electron security guidance: [Security](https://www.electronjs.org/docs/latest/tu
 - Right-click a tab or press Shift+F10 for duplicate, mute/unmute, move up/down, close others, and close.
 - Closing the last tab opens a replacement. Reopen up to 25 recently closed tabs with their navigation histories during the current session.
 - Ctrl+T creates a tab and opens its command bar, Ctrl+W closes, Ctrl+Shift+T reopens, Ctrl+Tab and Ctrl+Shift+Tab switch. Ctrl+L opens the floating command bar, including when a web page has focus.
-- Each tab retains its own live document and navigation history while switching. Inactive views are hidden and stay loaded; unloading belongs to Phase 6.
+- Each tab retains its own live document and navigation history while switching. Phase 6 unloads eligible inactive pages after the configured timeout.
 - `electron-store` atomically saves tab URLs, order, active tab, mute state, sidebar width, and pinned state to `session.json` in Electron's user-data directory. Autosave waits 250ms after changes and flushes on window close.
 - Restart restores those URLs into new page documents. Navigation stacks, form contents, scroll position, and the recently closed list are not persisted across restarts. A crash can lose the most recent changes before autosave. Session URLs are stored as local plaintext.
 - Invalid or unreadable session files are preserved; the browser opens a fresh session with a visible storage warning and avoids overwriting the original.
 
-Pinned sites and workspaces arrive in Phase 6. Validation: [Phase 1](PHASE-1.md), [Phase 2](PHASE-2.md), [Phase 3](PHASE-3.md).
+Validation: [Phase 1](PHASE-1.md), [Phase 2](PHASE-2.md), [Phase 3](PHASE-3.md).
 
 ## Phase 3
 
 - Ctrl+L opens the command bar with the current address selected. Ctrl+T creates an internal new tab and opens the bar in new-tab mode; Escape leaves the new tab open.
 - Enter browses a URL or searches Google. Down/Up chooses a fuzzy match from open tabs, history, bookmarks, and implemented commands; Enter activates it. Click a result to select it directly. Escape or the close button restores the page and its focus.
-- Commands include new/reopen tab, history, bookmarks, pin/unpin sidebar, and reload. Settings and compact-mode commands will appear when those features exist.
+- Commands include new/reopen tab, history, bookmarks, pin/unpin sidebar, reload, settings, workspaces, downloads, compact mode, and split view.
 - Ctrl+H or the History icon opens searchable history. Clear history removes the stored list. The library keeps the latest 5,000 unique web URLs with titles, timestamps, and visit counts; internal pages are excluded.
 - Ctrl+Shift+B or the Bookmarks icon opens bookmarks. Choose Bookmark this page, edit its title/address/folder, or remove an entry. Up to 2,000 bookmarks are stored in flat named folders. Changing a saved address preserves the bookmark's identity.
 - `drift://newtab/` shows a local clock/date, a URL/search field, and up to six saved favorites. It loads only bundled resources, has its own strict CSP, and receives no preload bridge or Node access. Its form shares the same URL/search resolver as the command bar.
 - History and bookmarks persist in `library.json` beside `session.json`. Writes use electron-store's atomic storage, autosave after 250ms, and flush on window close. Unreadable or malformed files remain untouched while the app reports unavailable storage.
 - The command bar and library dialogs hide native page views while showing a local captured frame behind the dialog. Pages stay alive. Captures exist in memory only and are discarded when the dialog closes.
-- Google is the current search default, as requested. Engine selection and custom search templates belong to Phase 5. There are no remote search suggestions.
+- Google is the search default, as requested. Settings offers other engines and custom HTTPS search templates. There are no remote search suggestions.
 
-## Next phases
+## Phase 4
 
-4. Shields, tracker/ad blocking, cookie policy, HTTPS upgrades, permissions, private windows.
-5. Settings, themes, CSS, shortcuts, import/export.
-6. Workspaces, compact mode, split view, pinned tabs, unloading, downloads.
-7. Polish, accessibility pass, performance measurements, NSIS and portable packaging.
+- Shields blocks matching network requests using bundled EasyList/EasyPrivacy, refreshes weekly, counts blocks, and supports per-site exceptions.
+- Tracking parameters are removed; public HTTP requests upgrade to HTTPS. Failed upgrades require an explicit site exception. Loopback remains usable for local development.
+- Third-party network Cookie/Set-Cookie headers are stripped. **This is incomplete cookie isolation:** embedded scripts may still read cookies created in a first-party context. Electron does not expose Chrome's full cookie policy API. Fingerprinting mitigation is limited to normalized user agent and known filter-list scripts.
+- Sensitive permissions prompt per document, with per-origin blocks. Secure DNS is app-wide; system, Cloudflare and Quad9 are available. Clear-on-exit removes cookies, cache and history. Private windows use a separate in-memory session and library.
+- No telemetry or remote crash reporter is configured. Filter-list refreshes and user browsing cause network traffic.
 
-This browser does not yet provide privacy Shields, third-party cookie blocking, HTTPS-only policy, or fingerprinting protection. Permission requests remain denied until Phase 4 adds prompts. Session, history, and bookmark files contain local plaintext URLs and titles. A crash may lose the newest unsaved changes. The content inset is rectangular; rounded native clipping is deferred. Installer packaging belongs to Phase 7. Windows is the validation target; macOS/Linux have not been tested.
+Validation and limitations: [Phase 4](PHASE-4.md).
+
+## Phase 5
+
+- Open Settings with the gear, command bar, or Ctrl+,. Light/dark/system themes, accent, both sidebar widths/position, density, native corners, inset and shadow apply live.
+- Local wallpaper, custom UI CSS, startup behavior, search engine/templates, hover expansion and unloading timeout are configurable. Advanced CSS can hide controls; export a backup first.
+- Shortcuts are editable with duplicate/format validation. JSON import/export covers appearance, behavior and shortcuts, including sidebar width. Library/session/privacy stores remain separate.
+
+Validation: [Phase 5](PHASE-5.md).
+
+## Phase 6
+
+- Manage up to nine named workspaces with icons and accent colors. Each owns its tabs and pinned essentials. Switch using sidebar icons or Ctrl+Alt+1 through 9. Workspaces share cookies/logins; private windows remain isolated.
+- Drop a tab onto Essentials, use the pin button, or choose Pin in its menu. Pinned tiles form a grid; drag them to regular tabs to unpin. The menu can move tabs to another workspace. Removing a workspace preserves its tabs by moving them to another workspace.
+- Ctrl+Alt+C hides the sidebar. A six-pixel edge on the chosen side reveals it over a captured frame; the live page returns on exit. The frame is held briefly while the sidebar is hovered, avoiding native-view layering problems.
+- Ctrl+Shift+S splits the current and another tab in the workspace. The tab menu can choose a specific partner. Drag the divider or focus it and use Left/Right to resize. Clicking a pane makes it the navigation target. Toggle split again to return to one page.
+- Eligible inactive tabs unload after the chosen timeout, checked every 30 seconds. Active, split, pinned, loading, audible and DevTools tabs are excluded. The tab menu can sleep a background tab immediately. Selecting it recreates the renderer and navigation history; unsaved page/form state may be lost.
+- Ctrl+J opens downloads with progress, pause/resume, cancel, and Show in folder. Files use the native save dialog and never open automatically. The list lasts for the window; closing the window cancels its active transfers. Resume depends on server support.
+- Sessions preserve workspace definitions, tab membership/order and pins. Old sessions migrate to Personal. Compact/split presentation and download records are not persisted.
+
+Validation and UI gate: [Phase 6](PHASE-6.md).
+
+## Remaining work
+
+Phase 7 covers broader accessibility and performance measurements, animation polish, NSIS and portable packaging. Find-in-page, per-site zoom, printing, and the web-page context menu from the broader feature brief are still outstanding. Extension support remains a stretch goal. Session/history/bookmark files contain local plaintext URLs and titles, and crashes may lose recent unsaved changes. Windows is the validation target; macOS/Linux have not been tested.

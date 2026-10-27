@@ -20,6 +20,20 @@ const LISTS = ['easylist', 'easyprivacy'] as const;
 let engine: ElectronBlocker;
 let updatedAt = 0;
 let filterError: string | null = null;
+let activeDNS: PrivacySettings['dns'] = 'system';
+function configureDNS(dns: PrivacySettings['dns']) {
+  app.configureHostResolver({
+    enableBuiltInResolver: dns !== 'system',
+    secureDnsMode: dns === 'system' ? 'off' : 'secure',
+    secureDnsServers:
+      dns === 'cloudflare'
+        ? ['https://cloudflare-dns.com/dns-query']
+        : dns === 'quad9'
+          ? ['https://dns.quad9.net/dns-query']
+          : [],
+  });
+  activeDNS = dns;
+}
 export async function loadFilters() {
   const cache = path.join(app.getPath('userData'), 'filters');
   await mkdir(cache, { recursive: true });
@@ -156,6 +170,7 @@ export class PrivacyController {
           'Privacy preferences could not be read. Defaults are active; the original file is preserved.';
       }
     }
+    if (!this.privateWindow) configureDNS(this.settings.dns);
     this.attach();
   }
   get configuration() {
@@ -176,7 +191,7 @@ export class PrivacyController {
       pendingHTTP: this.failed.get(id) || null,
       filterError,
       updatedAt,
-      settings: this.settings,
+      settings: { ...this.settings, dns: activeDNS },
       privateWindow: this.privateWindow,
     };
   }
@@ -384,16 +399,7 @@ export class PrivacyController {
         this.settings.httpsOnly = command.httpsOnly;
         this.settings.clearOnExit = command.clearOnExit;
         this.settings.dns = command.dns;
-        app.configureHostResolver({
-          enableBuiltInResolver: command.dns !== 'system',
-          secureDnsMode: command.dns === 'system' ? 'off' : 'secure',
-          secureDnsServers:
-            command.dns === 'cloudflare'
-              ? ['https://cloudflare-dns.com/dns-query']
-              : command.dns === 'quad9'
-                ? ['https://dns.quad9.net/dns-query']
-                : [],
-        });
+        configureDNS(command.dns);
         break;
       case 'permission': {
         if (

@@ -12,12 +12,20 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   compact: 'Ctrl+Alt+C',
   split: 'Ctrl+Shift+S',
   devtools: 'F12',
+  'show-downloads': 'Ctrl+J',
+  ...Object.fromEntries(
+    Array.from({ length: 9 }, (_, i) => [
+      `workspace-${i + 1}`,
+      `Ctrl+Alt+${i + 1}`,
+    ]),
+  ),
 };
 export interface Settings {
   theme: 'light' | 'dark' | 'system';
   accent: string;
   sidebarPosition: 'left' | 'right';
   collapsedWidth: number;
+  expandedWidth: number;
   density: 'compact' | 'comfortable';
   radius: number;
   contentInset: boolean;
@@ -36,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   accent: '#466a55',
   sidebarPosition: 'left',
   collapsedWidth: 48,
+  expandedWidth: 224,
   density: 'comfortable',
   radius: 8,
   contentInset: true,
@@ -61,6 +70,9 @@ export function parseSettings(value: unknown): Settings {
     !Number.isInteger(v.collapsedWidth) ||
     v.collapsedWidth < 40 ||
     v.collapsedWidth > 80 ||
+    !Number.isInteger(v.expandedWidth) ||
+    v.expandedWidth < 220 ||
+    v.expandedWidth > 360 ||
     !['compact', 'comfortable'].includes(v.density) ||
     !Number.isInteger(v.radius) ||
     v.radius < 0 ||
@@ -138,7 +150,7 @@ export function themeCSS(settings: Settings, dark: boolean): string {
     });
   const luminance =
     channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-  const foreground = luminance > 0.179 ? '#111111' : '#ffffff';
+  const foreground = luminance > 0.179 ? '#000000' : '#ffffff';
   const readableAccent = dark ? '#b8d3bd' : '#35543d';
-  return `:root{color-scheme:${dark ? 'dark' : 'light'};--chrome-bg:${dark ? '#202722' : '#eeede9'};--surface:${dark ? '#29332c' : '#f8f8f5'};--input-bg:${dark ? '#202722' : '#ffffff'};--text:${dark ? '#edf1eb' : '#303833'};--muted:${dark ? '#b8c8b7' : '#535f55'};--border:${dark ? '#647563' : '#b8c1b6'};--hover:${dark ? '#3b4a3d' : '#dedfd9'};--selection:${dark ? '#3b4e3e' : '#dce4da'};--error:${dark ? '#ffb4a8' : '#8d2e25'};--accent:${settings.accent};--icon-accent:${readableAccent};--accent-text:${foreground};--radius:${settings.radius}px;--control-size:${settings.density === 'compact' ? 28 : 32}px;--tab-height:${settings.density === 'compact' ? 32 : 40}px;}`;
+  return `:root{color-scheme:${dark ? 'dark' : 'light'};--chrome-bg:${dark ? '#202722' : '#eeede9'};--surface:${dark ? '#29332c' : '#f8f8f5'};--input-bg:${dark ? '#202722' : '#ffffff'};--text:${dark ? '#edf1eb' : '#303833'};--muted:${dark ? '#b8c8b7' : '#535f55'};--border:${dark ? '#81917f' : '#7c867b'};--hover:${dark ? '#3b4a3d' : '#dedfd9'};--selection:${dark ? '#3b4e3e' : '#dce4da'};--error:${dark ? '#ffb4a8' : '#8d2e25'};--accent:${settings.accent};--icon-accent:${readableAccent};--accent-text:${foreground};--radius:${settings.radius}px;--control-size:${settings.density === 'compact' ? 28 : 32}px;--tab-height:${settings.density === 'compact' ? 32 : 40}px;}`;
 }

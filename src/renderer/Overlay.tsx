@@ -23,6 +23,8 @@ import { fuzzyScore, searchEntries } from '../shared/search';
 import type { SearchEntry } from '../shared/search';
 import Shields from './Shields';
 import Settings from './Settings';
+import Workspaces from './Workspaces';
+import Downloads from './Downloads';
 import { searchTemplate } from '../shared/settings';
 
 function Modal({
@@ -121,7 +123,11 @@ export default function Overlay({
                 ? 'Shields'
                 : event.kind === 'settings'
                   ? 'Settings'
-                  : 'Bookmarks'
+                  : event.kind === 'workspaces'
+                    ? 'Workspaces'
+                    : event.kind === 'downloads'
+                      ? 'Downloads'
+                      : 'Bookmarks'
         }
         close={close}
       >
@@ -130,7 +136,11 @@ export default function Overlay({
             {error || library?.error || state.storageError}
           </p>
         )}
-        {event.kind === 'settings' ? (
+        {event.kind === 'workspaces' ? (
+          <Workspaces state={state} />
+        ) : event.kind === 'downloads' ? (
+          <Downloads />
+        ) : event.kind === 'settings' ? (
           <Settings state={state} />
         ) : event.kind === 'shields' ? (
           <Shields />
@@ -179,6 +189,11 @@ function CommandBar({
     { id: 'new', title: 'Open a new tab', action: 'new-tab' },
     { id: 'history', title: 'Show browsing history', action: 'show-history' },
     { id: 'bookmarks', title: 'Show bookmarks', action: 'show-bookmarks' },
+    { id: 'settings', title: 'Open settings', action: 'show-settings' },
+    { id: 'workspaces', title: 'Manage workspaces', action: 'show-workspaces' },
+    { id: 'downloads', title: 'Show downloads', action: 'show-downloads' },
+    { id: 'compact', title: 'Toggle compact mode', action: 'compact' },
+    { id: 'split', title: 'Toggle split view', action: 'split' },
     {
       id: 'pin',
       title: state.sidebar.pinned ? 'Unpin sidebar' : 'Pin sidebar open',

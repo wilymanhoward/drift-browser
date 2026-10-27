@@ -15,6 +15,10 @@ const api: DriftAPI = {
   privacy: (command) => ipcRenderer.invoke('drift:privacy', command),
   settings: (value) => ipcRenderer.invoke('drift:settings', value),
   settingsFile: (mode) => ipcRenderer.invoke('drift:settings-file', mode),
+  workspace: (command) => ipcRenderer.invoke('drift:workspace', command),
+  splitRatio: (ratio) => ipcRenderer.invoke('drift:split-ratio', ratio),
+  getDownloads: () => ipcRenderer.invoke('drift:downloads'),
+  download: (command) => ipcRenderer.invoke('drift:download', command),
   onOverlay: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,

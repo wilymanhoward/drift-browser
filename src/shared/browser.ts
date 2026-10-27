@@ -16,6 +16,10 @@ export const ACTIONS = [
   'show-shields',
   'private-window',
   'show-settings',
+  'show-workspaces',
+  'show-downloads',
+  'compact',
+  'split',
 ] as const;
 export type BrowserAction = (typeof ACTIONS)[number];
 export interface TabState {
@@ -29,6 +33,9 @@ export interface TabState {
   favicon: string | null;
   audible: boolean;
   muted: boolean;
+  workspaceId: string;
+  pinned: boolean;
+  unloaded: boolean;
 }
 export interface SidebarPreferences {
   pinned: boolean;
@@ -41,14 +48,41 @@ export interface BrowserState extends Omit<TabState, 'id'> {
   canReopen: boolean;
   sidebar: SidebarPreferences & { expanded: boolean };
   storageError: string | null;
-  overlay: 'command' | 'history' | 'bookmarks' | 'shields' | 'settings' | null;
+  overlay:
+    | 'command'
+    | 'history'
+    | 'bookmarks'
+    | 'shields'
+    | 'settings'
+    | 'workspaces'
+    | 'downloads'
+    | null;
+  workspaces: import('./power').Workspace[];
+  activeWorkspaceId: string;
+  compact: boolean;
+  compactPreview:
+    | {
+        snapshot: string;
+        bounds: { x: number; y: number; width: number; height: number };
+      }[]
+    | null;
+  split: { ids: [string, string]; ratio: number } | null;
   privateWindow: boolean;
   settings: import('./settings').Settings;
   dark: boolean;
 }
 export type TabCommand =
   | {
-      type: 'select' | 'close' | 'duplicate' | 'mute' | 'close-others' | 'menu';
+      type:
+        | 'select'
+        | 'close'
+        | 'duplicate'
+        | 'mute'
+        | 'close-others'
+        | 'menu'
+        | 'pin'
+        | 'sleep'
+        | 'split';
       id: string;
     }
   | { type: 'move'; id: string; index: number };
@@ -71,6 +105,10 @@ export interface DriftAPI {
   privacy(command: import('./privacy').PrivacyCommand): Promise<void>;
   settings(value: import('./settings').Settings): Promise<void>;
   settingsFile(mode: 'import' | 'export' | 'wallpaper'): Promise<void>;
+  workspace(command: import('./power').WorkspaceCommand): Promise<void>;
+  splitRatio(ratio: number): Promise<void>;
+  getDownloads(): Promise<import('./power').DownloadState[]>;
+  download(command: import('./power').DownloadCommand): Promise<void>;
 }
 
 export interface HistoryEntry {
