@@ -1,16 +1,22 @@
 import { Menu, clipboard } from 'electron';
 import type {
   BrowserWindow,
+  ContextMenuParams,
+  MenuItem,
   WebContents,
   MenuItemConstructorOptions,
 } from 'electron';
 import type Store from 'electron-store';
 import { isWebURL } from '../shared/navigation';
+import { listeners } from './listeners';
 import { parseZoom, zoomOrigin } from '../shared/page-tools';
 import type { FindState, FindCommand, PageAction } from '../shared/page-tools';
 export class PageTools {
   find: FindState | null = null;
   error: string | null = null;
+  // Items extensions add through chrome.contextMenus.
+  extraItems: (page: WebContents, params: ContextMenuParams) => MenuItem[] =
+    () => [];
   private target: WebContents | null = null;
   private request = 0;
   private zoom: Record<string, number> = {};
@@ -33,10 +39,12 @@ export class PageTools {
         'Zoom preferences could not be read. The original file is preserved.';
     }
   }
+  // Returns a cleanup for when the page moves to another window.
   attach(page: WebContents) {
-    page.on('did-navigate', () => this.applyZoom(page));
-    page.on('did-navigate-in-page', () => this.applyZoom(page));
-    page.on('found-in-page', (_event, result) => {
+    const { on, off } = listeners(page);
+    on('did-navigate', () => this.applyZoom(page));
+    on('did-navigate-in-page', () => this.applyZoom(page));
+    on('found-in-page', (_event, result) => {
       if (
         this.target === page &&
         this.find &&
@@ -50,17 +58,17 @@ export class PageTools {
         this.changed();
       }
     });
-    page.on('did-start-navigation', (_event, _url, inPlace, main) => {
+    on('did-start-navigation', (_event, _url, inPlace, main) => {
       if (main && !inPlace && this.target === page) this.closeFind();
     });
-    page.once('destroyed', () => {
+    on('destroyed', () => {
       if (this.target === page) {
         this.target = null;
         this.find = null;
       }
     });
-    page.on('context-menu', (_event, p) => {
-      const items: MenuItemConstructorOptions[] = [];
+    on('context-menu', (_event, p) => {
+      const items: (MenuItemConstructorOptions | MenuItem)[] = [];
       if (isWebURL(p.linkURL))
         items.push(
           { label: 'Open link in new tab', click: () => this.open(p.linkURL) },
@@ -90,6 +98,8 @@ export class PageTools {
           click: () => clipboard.writeText(p.selectionText),
         });
       if (items.length) items.push({ type: 'separator' });
+      const extra = this.extraItems(page, p);
+      if (extra.length) items.push(...extra, { type: 'separator' });
       items.push(
         { label: 'Find in page', click: () => this.action('find') },
         {
@@ -109,6 +119,7 @@ export class PageTools {
       );
       Menu.buildFromTemplate(items).popup({ window: this.win });
     });
+    return off;
   }
   private applyZoom(page: WebContents) {
     const origin = zoomOrigin(page.getURL());

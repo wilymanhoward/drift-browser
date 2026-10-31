@@ -1,0 +1,50 @@
+{
+  "measuredAt": "2026-10-27T17:19:36.849Z",
+  "method": "Two alternating fresh profiles per mode, dark home, 10s idle. All Electron process private bytes and aggregate CPU; excludes GPU VRAM and OS compositor memory.",
+  "samples": [
+    {
+      "glass": false,
+      "surface": {
+        "blur": "none",
+        "blurLayers": 0,
+        "animations": 0,
+        "clock": "01:18"
+      },
+      "privateMB": 417,
+      "cpuPercent": 0.04
+    },
+    {
+      "glass": true,
+      "surface": {
+        "blur": "blur(20px)",
+        "blurLayers": 1,
+        "animations": 0,
+        "clock": "01:19"
+      },
+      "privateMB": 409,
+      "cpuPercent": 0.05
+    },
+    {
+      "glass": false,
+      "surface": {
+        "blur": "none",
+        "blurLayers": 0,
+        "animations": 0,
+        "clock": "01:19"
+      },
+      "privateMB": 394,
+      "cpuPercent": 0.03
+    },
+    {
+      "glass": true,
+      "surface": {
+        "blur": "blur(20px)",
+        "blurLayers": 1,
+        "animations": 0,
+        "clock": "01:19"
+      },
+      "privateMB": 415,
+      "cpuPercent": 0.03
+    }
+  ]
+}

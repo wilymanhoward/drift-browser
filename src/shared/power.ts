@@ -8,7 +8,7 @@ export const DEFAULT_WORKSPACE: Workspace = {
   id: 'personal',
   name: 'Personal',
   icon: '◉',
-  accent: '#466a55',
+  accent: '#007aff',
 };
 export type WorkspaceCommand =
   | { type: 'save'; id?: string; name: string; icon: string; accent: string }

@@ -181,6 +181,39 @@ export class BrowserLibrary {
     this.value.history = [];
     this.schedule();
   }
+  importBookmarks(items: Omit<Bookmark, 'id'>[]) {
+    if (!this.store || this.error)
+      throw new Error('Bookmark storage is unavailable.');
+    const urls = new Set(this.value.bookmarks.map((bookmark) => bookmark.url));
+    const added: Bookmark[] = [];
+    let skipped = 0;
+    for (const item of items) {
+      if (
+        urls.has(item.url) ||
+        added.length + this.value.bookmarks.length >= 2000
+      ) {
+        skipped++;
+        continue;
+      }
+      const parsed = parseBookmark({
+        type: 'save',
+        url: item.url,
+        title: item.title,
+        folder: item.folder,
+      });
+      if (parsed.type !== 'save') continue;
+      urls.add(parsed.url);
+      added.push({ ...item, url: parsed.url, id: randomUUID() });
+    }
+    const next = {
+      ...this.value,
+      bookmarks: [...added, ...this.value.bookmarks],
+    };
+    this.store.set('library', next);
+    this.value = next;
+    this.changed();
+    return { added: added.length, skipped };
+  }
   flush() {
     clearTimeout(this.timer);
     if (!this.store) return;

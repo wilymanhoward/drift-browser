@@ -26,8 +26,8 @@ export default function FindBar({ state }: { state: BrowserState }) {
       className="find-bar"
       aria-label="Find in page"
       style={{
-        left: state.settings.sidebarPosition === 'left' ? side : 0,
-        right: state.settings.sidebarPosition === 'right' ? side : 0,
+        left: state.sidebarPosition === 'left' ? side : 0,
+        right: state.sidebarPosition === 'right' ? side : 0,
       }}
       onSubmit={(e) => {
         e.preventDefault();

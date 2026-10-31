@@ -3,16 +3,22 @@ import type { PrivacyCommand, ShieldsState } from '../shared/privacy';
 export default function Shields() {
   const [state, setState] = useState<ShieldsState | null>(null);
   const [error, setError] = useState('');
+  const [updating, setUpdating] = useState(false);
   const refresh = () => window.drift.getShields().then(setState);
   useEffect(() => {
     void refresh().catch(() => setError('Shields could not be loaded.'));
   }, []);
   const update = async (command: PrivacyCommand) => {
+    setError('');
     try {
       await window.drift.privacy(command);
       await refresh();
     } catch {
-      setError('The privacy change could not be applied.');
+      setError(
+        command.type === 'update-filters'
+          ? 'Filters could not be updated. Existing rules remain active.'
+          : 'The privacy change could not be applied.',
+      );
     }
   };
   if (!state) return <p role="status">{error || 'Loading Shields…'}</p>;
@@ -40,8 +46,23 @@ export default function Shields() {
       </p>
       {state.filterError && <p role="alert">{state.filterError}</p>}
       <p className="command-hint">
-        EasyList and EasyPrivacy. Last filter snapshot:{' '}
+        EasyList, EasyPrivacy and uBlock Origin rules. Last filter snapshot:{' '}
         {new Date(state.updatedAt).toLocaleDateString()}.
+      </p>
+      <button
+        className="text-button"
+        disabled={updating}
+        onClick={() => {
+          setUpdating(true);
+          void update({ type: 'update-filters' }).finally(() =>
+            setUpdating(false),
+          );
+        }}
+      >
+        {updating ? 'Updating filters…' : 'Update filters and reload page'}
+      </button>
+      <p className="command-hint">
+        Changing site protection reloads this page to apply the rules.
       </p>
       {state.pendingHTTP && (
         <section className="connection-warning">

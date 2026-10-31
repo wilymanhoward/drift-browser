@@ -1,0 +1,57 @@
+{
+  "url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+  "samples": [
+    {
+      "elapsedMs": 2593,
+      "title": "Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film - YouTube",
+      "state": "complete",
+      "playerStatus": "OK",
+      "ad": false,
+      "video": {
+        "ready": 4,
+        "time": 0.323695,
+        "paused": false,
+        "width": 854,
+        "height": 480,
+        "decodedFrames": 15,
+        "droppedFrames": 0,
+        "error": null
+      }
+    },
+    {
+      "elapsedMs": 5106,
+      "title": "Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film - YouTube",
+      "state": "complete",
+      "playerStatus": "OK",
+      "ad": false,
+      "video": {
+        "ready": 4,
+        "time": 2.838806,
+        "paused": false,
+        "width": 854,
+        "height": 480,
+        "decodedFrames": 89,
+        "droppedFrames": 5,
+        "error": null
+      }
+    }
+  ],
+  "shields": {
+    "origin": "https://www.youtube.com",
+    "site": "www.youtube.com",
+    "enabled": true,
+    "blocked": 10,
+    "pendingHTTP": null,
+    "filterError": null,
+    "updatedAt": 1793331288022,
+    "settings": {
+      "disabledSites": [],
+      "httpSites": [],
+      "deniedPermissions": {},
+      "httpsOnly": true,
+      "clearOnExit": false,
+      "dns": "system"
+    },
+    "privateWindow": false
+  }
+}

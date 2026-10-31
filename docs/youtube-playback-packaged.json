@@ -1,0 +1,57 @@
+{
+  "url": "https://www.youtube.com/watch?v=FFamEq1PilQ",
+  "samples": [
+    {
+      "elapsedMs": 3062,
+      "title": "Mac Miller - Cinderella (feat. Ty Dolla $ign) - YouTube",
+      "state": "complete",
+      "playerStatus": "OK",
+      "ad": false,
+      "video": {
+        "ready": 4,
+        "time": 0.02,
+        "paused": false,
+        "width": 854,
+        "height": 480,
+        "decodedFrames": 7,
+        "droppedFrames": 0,
+        "error": null
+      }
+    },
+    {
+      "elapsedMs": 5589,
+      "title": "Mac Miller - Cinderella (feat. Ty Dolla $ign) - YouTube",
+      "state": "complete",
+      "playerStatus": "OK",
+      "ad": false,
+      "video": {
+        "ready": 4,
+        "time": 2.340459,
+        "paused": false,
+        "width": 854,
+        "height": 480,
+        "decodedFrames": 60,
+        "droppedFrames": 1,
+        "error": null
+      }
+    }
+  ],
+  "shields": {
+    "origin": "https://www.youtube.com",
+    "site": "www.youtube.com",
+    "enabled": true,
+    "blocked": 11,
+    "pendingHTTP": null,
+    "filterError": null,
+    "updatedAt": 1793331627681,
+    "settings": {
+      "disabledSites": [],
+      "httpSites": [],
+      "deniedPermissions": {},
+      "httpsOnly": true,
+      "clearOnExit": false,
+      "dns": "system"
+    },
+    "privateWindow": false
+  }
+}

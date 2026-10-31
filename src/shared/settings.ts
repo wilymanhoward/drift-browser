@@ -28,6 +28,7 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
 };
 export interface Settings {
   theme: 'light' | 'dark' | 'system';
+  glassEffect: boolean;
   accent: string;
   sidebarPosition: 'left' | 'right';
   collapsedWidth: number;
@@ -42,42 +43,79 @@ export interface Settings {
   searchEngine: 'google' | 'duckduckgo' | 'brave' | 'startpage' | 'custom';
   customSearch: string;
   hoverExpand: boolean;
+  lockCollapsed: boolean;
+  toolbarLayout: 'sidebar' | 'top';
+  autoHideTopBar: boolean;
   unloadMinutes: number;
+  maxAwakeTabs: number;
   shortcuts: Record<string, string>;
 }
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
-  accent: '#466a55',
+  glassEffect: true,
+  accent: '#5856d6',
   sidebarPosition: 'left',
-  collapsedWidth: 48,
-  expandedWidth: 224,
+  collapsedWidth: 44,
+  expandedWidth: 208,
   density: 'comfortable',
-  radius: 8,
+  radius: 12,
   contentInset: true,
-  contentShadow: false,
+  contentShadow: true,
   wallpaper: '',
   customCSS: '',
   startup: 'restore',
   searchEngine: 'google',
   customSearch: 'https://www.google.com/search?q={query}',
   hoverExpand: true,
-  unloadMinutes: 30,
+  lockCollapsed: false,
+  toolbarLayout: 'sidebar',
+  autoHideTopBar: true,
+  unloadMinutes: 15,
+  maxAwakeTabs: 6,
   shortcuts: DEFAULT_SHORTCUTS,
 };
+// Earlier default accents follow the default forward.
+const LEGACY_ACCENTS = ['#466a55', '#007aff'];
 export function parseSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid settings');
-  const v = value as Settings;
+  const v = {
+    ...(value as Settings),
+    accent: LEGACY_ACCENTS.includes((value as Settings).accent)
+      ? DEFAULT_SETTINGS.accent
+      : (value as Settings).accent,
+    glassEffect:
+      (value as Settings).glassEffect === undefined
+        ? DEFAULT_SETTINGS.glassEffect
+        : (value as Settings).glassEffect,
+    toolbarLayout:
+      (value as Settings).toolbarLayout === undefined
+        ? DEFAULT_SETTINGS.toolbarLayout
+        : (value as Settings).toolbarLayout,
+    autoHideTopBar:
+      (value as Settings).autoHideTopBar === undefined
+        ? DEFAULT_SETTINGS.autoHideTopBar
+        : (value as Settings).autoHideTopBar,
+    lockCollapsed:
+      (value as Settings).lockCollapsed === undefined
+        ? DEFAULT_SETTINGS.lockCollapsed
+        : (value as Settings).lockCollapsed,
+    maxAwakeTabs:
+      (value as Settings).maxAwakeTabs === undefined
+        ? DEFAULT_SETTINGS.maxAwakeTabs
+        : (value as Settings).maxAwakeTabs,
+  };
   if (
     Object.keys(v).some((key) => !(key in DEFAULT_SETTINGS)) ||
     !['light', 'dark', 'system'].includes(v.theme) ||
+    typeof v.glassEffect !== 'boolean' ||
     !/^#[\da-f]{6}$/i.test(v.accent) ||
     !['left', 'right'].includes(v.sidebarPosition) ||
     !Number.isInteger(v.collapsedWidth) ||
     v.collapsedWidth < 40 ||
     v.collapsedWidth > 80 ||
     !Number.isInteger(v.expandedWidth) ||
-    v.expandedWidth < 220 ||
+    v.expandedWidth < 208 ||
     v.expandedWidth > 360 ||
     !['compact', 'comfortable'].includes(v.density) ||
     !Number.isInteger(v.radius) ||
@@ -100,9 +138,15 @@ export function parseSettings(value: unknown): Settings {
     !v.customSearch.includes('{query}') ||
     !/^https:\/\//.test(v.customSearch) ||
     typeof v.hoverExpand !== 'boolean' ||
+    typeof v.lockCollapsed !== 'boolean' ||
+    !['sidebar', 'top'].includes(v.toolbarLayout) ||
+    typeof v.autoHideTopBar !== 'boolean' ||
     !Number.isInteger(v.unloadMinutes) ||
     v.unloadMinutes < 1 ||
     v.unloadMinutes > 1440 ||
+    !Number.isInteger(v.maxAwakeTabs) ||
+    v.maxAwakeTabs < 1 ||
+    v.maxAwakeTabs > 50 ||
     !v.shortcuts ||
     typeof v.shortcuts !== 'object'
   )
@@ -146,7 +190,13 @@ export function searchTemplate(settings: Settings): string {
     custom: settings.customSearch,
   }[settings.searchEngine];
 }
-export function themeCSS(settings: Settings, dark: boolean): string {
+// nativeGlass: the window itself is translucent (Windows acrylic / macOS vibrancy),
+// so the chrome only tints it instead of painting a fallback backdrop.
+export function themeCSS(
+  settings: Settings,
+  dark: boolean,
+  nativeGlass = false,
+): string {
   const channels = settings.accent
     .slice(1)
     .match(/../g)!
@@ -156,7 +206,61 @@ export function themeCSS(settings: Settings, dark: boolean): string {
     });
   const luminance =
     channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
-  const foreground = luminance > 0.179 ? '#000000' : '#ffffff';
-  const readableAccent = dark ? '#b8d3bd' : '#35543d';
-  return `:root{color-scheme:${dark ? 'dark' : 'light'};--chrome-bg:${dark ? '#202722' : '#eeede9'};--surface:${dark ? '#29332c' : '#f8f8f5'};--input-bg:${dark ? '#202722' : '#ffffff'};--text:${dark ? '#edf1eb' : '#303833'};--muted:${dark ? '#b8c8b7' : '#535f55'};--border:${dark ? '#81917f' : '#7c867b'};--hover:${dark ? '#3b4a3d' : '#dedfd9'};--selection:${dark ? '#3b4e3e' : '#dce4da'};--error:${dark ? '#ffb4a8' : '#8d2e25'};--accent:${settings.accent};--icon-accent:${readableAccent};--accent-text:${foreground};--radius:${settings.radius}px;--control-size:${settings.density === 'compact' ? 28 : 32}px;--tab-height:${settings.density === 'compact' ? 32 : 40}px;}`;
+  // Leans to white text like macOS, so saturated accents get white labels.
+  const foreground = luminance > 0.26 ? '#000000' : '#ffffff';
+  const glass = settings.glassEffect;
+  const pick = (light: string, darkValue: string) => (dark ? darkValue : light);
+  // With glass off every translucent token falls back to an opaque one.
+  const tone = (light: string, darkValue: string, solid: string) =>
+    glass ? pick(light, darkValue) : solid;
+  const base = pick('#eef0f5', '#15161b');
+  // Zen-style backdrop: the accent washes in from the top corner and a warm
+  // tint from the bottom. Over native acrylic the base stays translucent.
+  const layer = nativeGlass ? `${base}a6` : base;
+  const wallpaper = settings.wallpaper
+    ? `url("${settings.wallpaper}")`
+    : glass
+      ? `radial-gradient(110% 80% at 0% 0%,color-mix(in srgb,${settings.accent} ${dark ? 28 : 24}%,transparent),transparent 65%),radial-gradient(90% 70% at 100% 100%,color-mix(in srgb,${pick('#ffb38a 30%', '#ff8a65 12%')},transparent),transparent 60%),linear-gradient(${layer},${layer})`
+      : 'none';
+  const tokens: Record<string, string> = {
+    'color-scheme': dark ? 'dark' : 'light',
+    '--chrome-bg': base,
+    '--backdrop': glass && nativeGlass ? 'transparent' : base,
+    '--wallpaper-image': wallpaper,
+    '--glass': tone('#ffffff8c', '#ffffff14', pick('#e3e5ea', '#26272c')),
+    '--glass-strong': tone(
+      '#ffffffd9',
+      '#ffffff24',
+      pick('#ffffff', '#33343a'),
+    ),
+    '--glass-edge': tone('#ffffffb3', '#ffffff1f', pick('#d6d8de', '#3a3b41')),
+    '--glass-blur': glass ? '24px' : '0px',
+    '--hairline': pick('#0000001a', '#ffffff17'),
+    '--surface': pick('#ffffff', '#1e1f23'),
+    '--panel': tone('#f9f9fbe0', '#26272be6', pick('#f9f9fb', '#26272b')),
+    '--input-bg': pick('#0000000d', '#ffffff12'),
+    '--hover': pick('#0000000d', '#ffffff12'),
+    '--selection': tone('#ffffffd9', '#ffffff24', pick('#ffffff', '#33343a')),
+    '--text': pick('#1d1d1f', '#f5f5f7'),
+    '--muted': pick('#6e6e73', '#a1a1a6'),
+    '--border': pick('#d2d2d7', '#3a3a3f'),
+    '--error': pick('#d70015', '#ff6961'),
+    '--shadow-sm': pick(
+      '0 1px 2px #0000000f,0 2px 8px #1e14500f',
+      '0 1px 2px #0000004d,0 2px 8px #00000033',
+    ),
+    '--shadow-lg': pick(
+      '0 1px 2px #0000000d,0 12px 40px #1e14501f',
+      '0 1px 2px #00000066,0 16px 48px #00000080',
+    ),
+    '--accent': settings.accent,
+    '--accent-text': foreground,
+    '--icon-accent': settings.accent,
+    '--radius': `${settings.radius}px`,
+    '--control-size': settings.density === 'compact' ? '28px' : '32px',
+    '--tab-height': settings.density === 'compact' ? '30px' : '34px',
+  };
+  return `:root{${Object.entries(tokens)
+    .map(([key, value]) => `${key}:${value}`)
+    .join(';')}}`;
 }

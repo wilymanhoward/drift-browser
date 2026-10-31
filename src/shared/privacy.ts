@@ -18,6 +18,7 @@ export interface ShieldsState {
   privateWindow: boolean;
 }
 export type PrivacyCommand =
+  | { type: 'update-filters' }
   | { type: 'site'; enabled: boolean }
   | { type: 'allow-http' }
   | {

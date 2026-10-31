@@ -22,6 +22,13 @@ export class SettingsStore {
         this.value = parseSettings({
           expandedWidth: DEFAULT_SETTINGS.expandedWidth,
           ...raw,
+          collapsedWidth:
+            (raw as Settings).collapsedWidth === 48
+              ? DEFAULT_SETTINGS.collapsedWidth
+              : (raw as Settings).collapsedWidth,
+          ...((raw as Settings).expandedWidth === 224 && {
+            expandedWidth: DEFAULT_SETTINGS.expandedWidth,
+          }),
           shortcuts: {
             ...DEFAULT_SETTINGS.shortcuts,
             ...(raw as { shortcuts?: object }).shortcuts,

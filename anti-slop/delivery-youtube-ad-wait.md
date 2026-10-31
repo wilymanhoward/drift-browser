@@ -1,0 +1,16 @@
+# YouTube blank-ad wait verification
+
+The user's clarified symptom is a blank player for approximately the length of an ad, followed by normal playback. Network-request blocking alone does not address a player that retains ad instructions. This change adds a YouTube-specific compatibility function before page scripts, alongside the existing upstream scriptlets.
+
+- PASS player data: initial ytInitialPlayerResponse assignment, JSON.parse, recognized player fetch JSON, and XHR JSON responses lose adPlacements/playerAds/adSlots/no_ads/adBreakHeartbeatParams while retaining streamingData and playabilityStatus. Non-player JSON remains unchanged in the isolated test fixture.
+- PASS leftover ad state: the compatibility function only clicks an available skip-ad button when the player explicitly reports ad-showing/ad-interrupting. There is no currentTime assignment, seeking, playback-rate change or content reload. The regression test throws if the main video's position is changed and verifies it remains at the original position.
+- PASS regression: a fixture with a 20-second ad timer transitions through its skip control within two seconds. The initial ad-heartbeat flag is removed with Shields on and retained with Shields off. The same off toggle prevents automatic ad skipping.
+- PASS scope: injection is limited to top-level youtube.com pages with active Shields. Page APIs remain sandboxed; no desktop capability is exposed. Existing generic cosmetics and network filtering remain active.
+- PASS efficiency: no dependency or permanent polling loop was added. A single observer watches only the player's class attribute. Half-second retries are capped at 20 attempts during an ad state; normal video playback has no retry timer. Navigation reattaches the observer and page exit disconnects it.
+- PASS design gate: no new UI, assets, navigation, styling, animation, claims or controls were introduced. Existing direction and low-motion dials remain unchanged; the existing Shields site toggle disables this behavior and reloads the page.
+- PASS source verification: build, all 72 unit tests, four privacy/Shields/YouTube integration tests and focused ESLint/formatting checks pass. A fresh live Cinderella playback check decoded frames by 2.6 seconds and advanced normally with Shields enabled. The result is a local sample, not a guarantee for every YouTube rollout.
+- PASS packaged verification: three Shields/YouTube integration tests pass against the built application. Its fresh live Cinderella test decoded frames within 2.6 seconds and advanced to content playback with Shields enabled; raw results are in docs/youtube-ad-wait-playback.json.
+
+The exact lyric-video URL from the screenshot remains unknown. The simulated 20-second ad wait is a regression fixture, not a claim that the same server-side ad rollout was reproduced live. Unskippable ads delivered within the content media stream and future player changes may require further upstream fixes. No cookies, logins or installed user profile data were changed.
+
+Relevant upstream references checked: https://github.com/uBlockOrigin/uAssets and https://www.ghostery.com/blog/whats-happening-with-youtube-ads . The implementation retains the existing licensed upstream engine and rules; it does not replace them with a new dependency.

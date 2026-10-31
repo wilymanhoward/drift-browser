@@ -6,7 +6,7 @@ export default function Workspaces({ state }: { state: BrowserState }) {
     id: '',
     name: '',
     icon: '◉',
-    accent: '#466a55',
+    accent: '#007aff',
   });
   const [error, setError] = useState('');
   const run = async (command: WorkspaceCommand) => {
@@ -70,7 +70,7 @@ export default function Workspaces({ state }: { state: BrowserState }) {
             accent: draft.accent,
           }).then((ok) => {
             if (ok)
-              setDraft({ id: '', name: '', icon: '◉', accent: '#466a55' });
+              setDraft({ id: '', name: '', icon: '◉', accent: '#007aff' });
           });
         }}
       >
@@ -113,7 +113,7 @@ export default function Workspaces({ state }: { state: BrowserState }) {
               type="button"
               className="text-button"
               onClick={() =>
-                setDraft({ id: '', name: '', icon: '◉', accent: '#466a55' })
+                setDraft({ id: '', name: '', icon: '◉', accent: '#007aff' })
               }
             >
               Cancel edit

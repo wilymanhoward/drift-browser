@@ -6,8 +6,9 @@ import {
   fromElectronDetails,
 } from '@ghostery/adblocker-electron';
 import { getDomain } from 'tldts';
-import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { DEFAULT_PRIVACY } from '../shared/privacy';
 import type {
   PrivacySettings,
@@ -15,11 +16,28 @@ import type {
   PrivacyCommand,
 } from '../shared/privacy';
 import { isWebURL } from '../shared/navigation';
+import { enableCosmetics } from './cosmetics';
 
-const LISTS = ['easylist', 'easyprivacy'] as const;
+// Ship network rules, cosmetics and their scriptlets together so the first
+// page never starts with only half of the blocking rules.
+const MIRROR =
+  'https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets';
+const REMOTE = [
+  'easylist/easylist.txt',
+  'easylist/easyprivacy.txt',
+  'peter-lowe/serverlist.txt',
+  'ublock-origin/filters.txt',
+  'ublock-origin/quick-fixes.txt',
+  'ublock-origin/badware.txt',
+  'ublock-origin/privacy.txt',
+  'ublock-origin/resource-abuse.txt',
+  'ublock-origin/unbreak.txt',
+];
+const REFRESH = 86400000;
 let engine: ElectronBlocker;
 let updatedAt = 0;
 let filterError: string | null = null;
+let refreshing: Promise<void> | null = null;
 let activeDNS: PrivacySettings['dns'] = 'system';
 function configureDNS(dns: PrivacySettings['dns']) {
   app.configureHostResolver({
@@ -36,62 +54,73 @@ function configureDNS(dns: PrivacySettings['dns']) {
 }
 export async function loadFilters() {
   const cache = path.join(app.getPath('userData'), 'filters');
+  const cached = path.join(cache, 'engine.bin');
   await mkdir(cache, { recursive: true });
-  const lists = await Promise.all(
-    LISTS.map(async (name) => {
-      try {
-        return await readFile(path.join(cache, `${name}.txt`), 'utf8');
-      } catch {
-        return readFile(
-          path.join(app.getAppPath(), 'assets/filters', `${name}.txt`),
-          'utf8',
-        );
-      }
-    }),
-  );
-  engine = ElectronBlocker.parse(lists.join('\n'), {
-    loadCosmeticFilters: false,
-    enableCompression: true,
-  });
+  const bundled = path.join(app.getAppPath(), 'assets/filters');
+  const snapshot = JSON.parse(
+    await readFile(path.join(bundled, 'full-engine.json'), 'utf8'),
+  ) as { updatedAt: number };
+  const fallback = await readFile(path.join(bundled, 'full-engine.bin'));
   try {
-    updatedAt = (await stat(path.join(cache, 'easylist.txt'))).mtimeMs;
+    engine = ElectronBlocker.deserialize(await readFile(cached));
+    updatedAt = (await stat(cached)).mtimeMs;
+    if (updatedAt < snapshot.updatedAt || !engine.resources.scriptlets.length)
+      throw new Error('Incomplete or superseded filters');
   } catch {
-    updatedAt = (
-      await stat(path.join(app.getAppPath(), 'assets/filters/easylist.txt'))
-    ).mtimeMs;
+    engine = ElectronBlocker.deserialize(fallback);
+    updatedAt = snapshot.updatedAt;
   }
-  const update = async () => {
-    if (Date.now() - updatedAt < 7 * 86400000) return;
+  const update = () => {
+    if (Date.now() - updatedAt >= REFRESH)
+      void refreshFilters().catch(() => undefined);
+  };
+  update();
+  setInterval(update, 3600000).unref();
+}
+export function refreshFilters(): Promise<void> {
+  if (refreshing) return refreshing;
+  refreshing = (async () => {
+    const cached = path.join(app.getPath('userData'), 'filters/engine.bin');
     try {
-      const text = await Promise.all(
-        LISTS.map(async (name) => {
-          const response = await fetch(
-            `https://easylist.to/easylist/${name}.txt`,
-            { signal: AbortSignal.timeout(20000) },
-          );
-          if (!response.ok) throw new Error('Filter download failed');
-          const body = await response.text();
-          if (!body.startsWith('[Adblock') || body.length < 10000)
-            throw new Error('Invalid filter list');
-          return body;
-        }),
-      );
+      const download = async (file: string) => {
+        const response = await fetch(`${MIRROR}/${file}`, {
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok) throw new Error('Filter download failed');
+        return response.text();
+      };
+      const [resources, ...text] = await Promise.all([
+        download('ublock-origin/resources.json'),
+        ...REMOTE.map(download),
+      ]);
+      if (
+        text.some((body) => body.length < 1000 || /^\s*</.test(body)) ||
+        !resources.startsWith('{')
+      )
+        throw new Error('Invalid filter list');
       const next = ElectronBlocker.parse(text.join('\n'), {
-        loadCosmeticFilters: false,
         enableCompression: true,
       });
-      for (let i = 0; i < LISTS.length; i++)
-        await writeFile(path.join(cache, `${LISTS[i]}.txt`), text[i]);
+      next.updateResources(
+        resources,
+        createHash('sha256').update(resources).digest('hex'),
+      );
+      if (!next.resources.scriptlets.length)
+        throw new Error('Missing scriptlets');
+      await writeFile(`${cached}.tmp`, next.serialize());
+      await rename(`${cached}.tmp`, cached);
       engine = next;
       updatedAt = Date.now();
       filterError = null;
     } catch {
       filterError =
-        'Filter updates failed; bundled or cached lists remain active.';
+        'Filter updates failed; the last working bundled or cached rules remain active.';
+      throw new Error(filterError);
+    } finally {
+      refreshing = null;
     }
-  };
-  void update();
-  setInterval(() => void update(), 86400000).unref();
+  })();
+  return refreshing;
 }
 export function cleanTracking(url: string): string {
   if (!isWebURL(url)) return url;
@@ -147,13 +176,17 @@ export class PrivacyController {
   private settings = structuredClone(DEFAULT_PRIVACY);
   private store: Store<{ privacy: unknown }> | null = null;
   private counts = new Map<number, number>();
+  private lifetime = 0;
+  private statsStore: Store<{ blocked: unknown }> | null = null;
+  private statsTimer: ReturnType<typeof setTimeout> | undefined;
   private upgrades = new Map<number, string>();
   private failed = new Map<number, string>();
   private grants = new Map<number, Set<string>>();
   private active = true;
   constructor(
     private session: Session,
-    private win: BrowserWindow,
+    // Windows of one profile share this controller; asks go to the page's own.
+    private windowFor: (page: WebContents) => BrowserWindow,
     private privateWindow: boolean,
     private changed: () => void,
     private warning: (id: number) => void,
@@ -165,6 +198,13 @@ export class PrivacyController {
         const store = new Store<{ privacy: unknown }>({ name: 'privacy' });
         this.settings = parse(store.get('privacy'));
         this.store = store;
+        const stats = new Store<{ blocked: unknown }>({ name: 'stats' });
+        const saved = stats.get('blocked');
+        this.lifetime =
+          typeof saved === 'number' && Number.isSafeInteger(saved) && saved > 0
+            ? saved
+            : 0;
+        this.statsStore = stats;
       } catch {
         filterError =
           'Privacy preferences could not be read. Defaults are active; the original file is preserved.';
@@ -172,6 +212,9 @@ export class PrivacyController {
     }
     if (!this.privateWindow) configureDNS(this.settings.dns);
     this.attach();
+  }
+  get lifetimeBlocked() {
+    return this.lifetime;
   }
   get configuration() {
     return this.settings;
@@ -232,6 +275,17 @@ export class PrivacyController {
         .replace(/\s(?:Drift|Electron|drift-browser)\/[^ ]+/g, '')
         .replace(/Chrome\/(\d+)\.[\d.]+/, 'Chrome/$1.0.0.0'),
     );
+    enableCosmetics(
+      session,
+      () => engine,
+      (url) => {
+        try {
+          return !this.settings.disabledSites.includes(new URL(url).hostname);
+        } catch {
+          return false;
+        }
+      },
+    );
     const top = (id: number | undefined) =>
       id ? webContents.fromId(id)?.getURL() || '' : '';
     session.webRequest.onBeforeRequest((details, callback) => {
@@ -264,18 +318,34 @@ export class PrivacyController {
           return parsed.hostname;
         }
       })();
-      const blocked =
+      const result =
         details.resourceType !== 'mainFrame' &&
-        !this.settings.disabledSites.includes(site) &&
-        engine.match(fromElectronDetails(details)).match;
+        !this.settings.disabledSites.includes(site)
+          ? engine.match(fromElectronDetails(details))
+          : null;
+      const blocked = !!result && (result.match || !!result.redirect);
       if (blocked) {
         this.counts.set(
           details.webContentsId ?? -1,
           (this.counts.get(details.webContentsId ?? -1) || 0) + 1,
         );
+        this.lifetime++;
+        clearTimeout(this.statsTimer);
+        this.statsTimer = setTimeout(() => {
+          try {
+            this.statsStore?.set('blocked', this.lifetime);
+          } catch {
+            /* Statistics are best-effort. */
+          }
+        }, 2000);
         this.changed();
       }
-      callback({ cancel: blocked });
+      // Redirects swap ad scripts for harmless stubs so players keep working.
+      callback(
+        result?.redirect
+          ? { redirectURL: result.redirect.dataUrl }
+          : { cancel: blocked },
+      );
     });
     session.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = { ...details.requestHeaders };
@@ -332,7 +402,7 @@ export class PrivacyController {
         }
         const id = page.id;
         void dialog
-          .showMessageBox(this.win, {
+          .showMessageBox(this.windowFor(page), {
             type: 'question',
             title: 'Site permission',
             message: `${origin} requests ${permission} access.`,
@@ -450,5 +520,11 @@ export class PrivacyController {
   }
   dispose() {
     this.active = false;
+    clearTimeout(this.statsTimer);
+    try {
+      this.statsStore?.set('blocked', this.lifetime);
+    } catch {
+      /* Statistics are best-effort. */
+    }
   }
 }

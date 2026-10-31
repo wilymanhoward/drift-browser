@@ -48,13 +48,17 @@ describe('IPC input validation', () => {
       id: 'tab-1',
       index: 0,
     });
+    expect(parseTabCommand({ type: 'detach', id: 'tab-1' })).toEqual({
+      type: 'detach',
+      id: 'tab-1',
+    });
   });
   it.each([
     null,
     {},
     { expanded: 'true' },
     { width: NaN },
-    { width: 219 },
+    { width: 207 },
     { width: 361 },
     { pinned: 1 },
     { expanded: true, unknown: true },
@@ -71,6 +75,7 @@ describe('IPC input validation', () => {
     { type: ['select'], id: 'a' },
     { type: 'select', id: '' },
     { type: 'close', id: 'a', url: 'https://example.com' },
+    { type: 'detach', id: 'a', index: 0 },
   ])('rejects invalid tab payloads', (value) => {
     expect(() => parseTabCommand(value)).toThrow();
   });

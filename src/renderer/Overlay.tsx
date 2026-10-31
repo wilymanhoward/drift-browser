@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
+import type { ReactNode, CSSProperties } from 'react';
 import {
   X,
   Search,
@@ -18,34 +18,51 @@ import type {
   LibraryData,
   OverlayEvent,
 } from '../shared/browser';
-import { isWebURL, NEW_TAB_URL, resolveInput } from '../shared/navigation';
+import {
+  isWebURL,
+  NEW_TAB_URL,
+  SETTINGS_URL,
+  resolveInput,
+} from '../shared/navigation';
 import { fuzzyScore, searchEntries } from '../shared/search';
 import type { SearchEntry } from '../shared/search';
 import Shields from './Shields';
 import Settings from './Settings';
 import Workspaces from './Workspaces';
 import Downloads from './Downloads';
+import { ExtensionsPanel } from './Extensions';
 import { searchTemplate } from '../shared/settings';
+import BrowserMenu from './BrowserMenu';
 
 function Modal({
   label,
   close,
   children,
+  pageBounds,
 }: {
   label: string;
   close: () => void;
   children: ReactNode;
+  pageBounds?: CSSProperties;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    dialog.current?.showModal();
+    if (pageBounds) dialog.current?.show();
+    else dialog.current?.showModal();
     return () => dialog.current?.close();
   }, []);
   return (
     <dialog
       ref={dialog}
-      className="chrome-dialog"
+      className={`chrome-dialog ${pageBounds ? 'settings-dialog' : ''}`}
+      style={pageBounds}
       aria-label={label}
+      onKeyDown={(event) => {
+        if (pageBounds && event.key === 'Escape') {
+          event.preventDefault();
+          close();
+        }
+      }}
       onCancel={(event) => {
         event.preventDefault();
         close();
@@ -76,6 +93,7 @@ export default function Overlay({
   const [library, setLibrary] = useState<LibraryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (event.kind === 'menu') return;
     let live = true;
     void window.drift
       .getLibrary()
@@ -94,24 +112,55 @@ export default function Overlay({
       .closeOverlay()
       .catch(() => setError('The dialog could not be closed.'));
   };
+  const inset =
+    state.compact || state.htmlFullscreen
+      ? 0
+      : state.settings.contentInset
+        ? 8
+        : 0;
+  const side = state.htmlFullscreen
+    ? 0
+    : state.compact
+      ? 6
+      : state.sidebar.expanded
+        ? state.sidebar.width
+        : state.settings.collapsedWidth;
+  const preview = event.snapshot && (
+    <div className="page-preview">
+      <img
+        className="page-snapshot"
+        src={event.snapshot}
+        alt=""
+        style={{
+          left: event.bounds.x,
+          top: event.bounds.y,
+          width: event.bounds.width,
+          height: event.bounds.height,
+        }}
+      />
+    </div>
+  );
+  if (event.kind === 'menu')
+    return (
+      <>
+        {state.url !== SETTINGS_URL && preview}
+        <BrowserMenu state={state} close={close} />
+      </>
+    );
   return (
     <>
-      {event.snapshot && (
-        <div className="page-preview">
-          <img
-            className="page-snapshot"
-            src={event.snapshot}
-            alt=""
-            style={{
-              left: event.bounds.x,
-              top: event.bounds.y,
-              width: event.bounds.width,
-              height: event.bounds.height,
-            }}
-          />
-        </div>
-      )}
+      {preview}
       <Modal
+        pageBounds={
+          event.kind === 'settings'
+            ? {
+                left: (state.sidebarPosition === 'left' ? side : 0) + inset,
+                right: (state.sidebarPosition === 'right' ? side : 0) + inset,
+                top: state.topInset + inset,
+                bottom: inset,
+              }
+            : undefined
+        }
         label={
           event.kind === 'command'
             ? event.newTab
@@ -127,7 +176,9 @@ export default function Overlay({
                     ? 'Workspaces'
                     : event.kind === 'downloads'
                       ? 'Downloads'
-                      : 'Bookmarks'
+                      : event.kind === 'extensions'
+                        ? 'Extensions'
+                        : 'Bookmarks'
         }
         close={close}
       >
@@ -144,6 +195,8 @@ export default function Overlay({
           <Settings state={state} />
         ) : event.kind === 'shields' ? (
           <Shields />
+        ) : event.kind === 'extensions' ? (
+          <ExtensionsPanel state={state} />
         ) : !library ? (
           <p role="status">Loading saved pages…</p>
         ) : event.kind === 'command' ? (
@@ -198,6 +251,11 @@ function CommandBar({
     { id: 'fullscreen', title: 'Toggle fullscreen', action: 'fullscreen' },
     { id: 'workspaces', title: 'Manage workspaces', action: 'show-workspaces' },
     { id: 'downloads', title: 'Show downloads', action: 'show-downloads' },
+    {
+      id: 'extensions',
+      title: 'Manage extensions',
+      action: 'show-extensions',
+    },
     { id: 'compact', title: 'Toggle compact mode', action: 'compact' },
     { id: 'split', title: 'Toggle split view', action: 'split' },
     {

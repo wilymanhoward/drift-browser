@@ -15,20 +15,41 @@ test('settings apply live, export/import, and survive restart', async () => {
   let app = await launch();
   try {
     let chrome = await chromeWindow(app);
+    const category = (name: string) =>
+      chrome
+        .getByRole('navigation', { name: 'Settings categories' })
+        .getByRole('button', { name, exact: true })
+        .click();
     const initial = await chrome.evaluate(() => window.drift.getState());
     await expect(chrome.locator('aside footer button')).toHaveCount(2);
     await expect(chrome.locator('.workspace-switcher')).toHaveCount(0);
     await chrome.evaluate(() => window.drift.action('show-settings'));
     await expect(
-      chrome.getByRole('dialog', { name: 'Settings', exact: true }),
+      chrome.getByRole('main', { name: 'Settings', exact: true }),
     ).toBeVisible();
+    await chrome.getByLabel('Find in Settings', { exact: true }).fill('corner');
+    await expect(
+      chrome.getByLabel('Corner radius', { exact: true }),
+    ).toBeVisible();
+    await chrome
+      .getByLabel('Find in Settings', { exact: true })
+      .fill('no-such-preference');
+    await expect(
+      chrome.getByText('No settings found. Try a different word.'),
+    ).toBeVisible();
+    await chrome.getByLabel('Clear settings search', { exact: true }).click();
     expect(
       (await chrome.evaluate(() => window.drift.getState())).activeTabId,
     ).toBe(initial.activeTabId);
     expect(
       (await chrome.evaluate(() => window.drift.getState())).tabs,
     ).toHaveLength(initial.tabs.length);
-    await chrome.getByText('Browser tools', { exact: true }).click();
+    await chrome.getByRole('tab', { selected: true }).click();
+    await expect(
+      chrome.getByRole('main', { name: 'Settings', exact: true }),
+    ).toHaveCount(0);
+    await chrome.evaluate(() => window.drift.action('show-settings'));
+    await category('Browser tools');
     await expect(
       chrome.getByRole('button', { name: 'Downloads', exact: true }),
     ).toBeVisible();
@@ -36,7 +57,7 @@ test('settings apply live, export/import, and survive restart', async () => {
       chrome.getByRole('button', { name: 'Workspaces', exact: true }),
     ).toBeVisible();
     await chrome.screenshot({ path: 'test-results/minimal-settings.png' });
-    await chrome.getByText('Browser tools', { exact: true }).click();
+    await category('Look and feel');
     await chrome.getByLabel('Theme', { exact: true }).selectOption('dark');
     await expect
       .poll(() =>
@@ -51,7 +72,6 @@ test('settings apply live, export/import, and survive restart', async () => {
       ['Collapsed width', '56', 'collapsedWidth'],
       ['Expanded width', '248', 'expandedWidth'],
       ['Corner radius', '12', 'radius'],
-      ['Unload minutes', '20', 'unloadMinutes'],
     ] as const) {
       await chrome.getByLabel(label, { exact: true }).fill(value);
       await expect
@@ -63,6 +83,15 @@ test('settings apply live, export/import, and survive restart', async () => {
         )
         .toBe(Number(value));
     }
+    await chrome.getByLabel('Glass effect', { exact: true }).click();
+    await expect
+      .poll(() =>
+        chrome.evaluate(() =>
+          window.drift.getState().then((s) => s.settings.glassEffect),
+        ),
+      )
+      .toBe(false);
+    await chrome.getByLabel('Glass effect', { exact: true }).click();
     await chrome.getByLabel('Accent', { exact: true }).fill('#777777');
     await chrome.getByLabel('Density', { exact: true }).selectOption('compact');
     for (const [label, key] of [
@@ -91,8 +120,12 @@ test('settings apply live, export/import, and survive restart', async () => {
         )
         .toBe(previous);
     }
+    await category('Tabs and workspaces');
+    await chrome.getByLabel('Unload minutes', { exact: true }).fill('20');
+    await category('General');
     await chrome.getByLabel('Startup', { exact: true }).selectOption('new-tab');
     await chrome.getByLabel('Startup', { exact: true }).selectOption('restore');
+    await category('Search');
     await chrome
       .getByLabel('Search engine', { exact: true })
       .selectOption('custom');
@@ -115,6 +148,7 @@ test('settings apply live, export/import, and survive restart', async () => {
         filePaths: [wallpaper],
       });
     }, wallpaper);
+    await category('Home');
     await chrome
       .getByRole('button', { name: 'Choose wallpaper', exact: true })
       .click();
@@ -127,6 +161,7 @@ test('settings apply live, export/import, and survive restart', async () => {
     await expect(
       chrome.getByRole('button', { name: 'Remove wallpaper', exact: true }),
     ).toBeDisabled();
+    await category('Advanced');
     await chrome
       .getByLabel('Custom CSS', { exact: true })
       .fill('.wordmark { letter-spacing:3px !important; }');
@@ -137,6 +172,7 @@ test('settings apply live, export/import, and survive restart', async () => {
       'letter-spacing',
       '3px',
     );
+    await category('Look and feel');
     await chrome
       .getByLabel('Sidebar position', { exact: true })
       .selectOption('right');
@@ -147,6 +183,7 @@ test('settings apply live, export/import, and survive restart', async () => {
         ),
       )
       .toBe('right');
+    await category('Search');
     await chrome
       .getByLabel('Search engine', { exact: true })
       .selectOption('brave');
@@ -158,6 +195,7 @@ test('settings apply live, export/import, and survive restart', async () => {
         filePaths: [file],
       });
     }, file);
+    await category('Advanced');
     await chrome
       .getByRole('button', { name: 'Export settings', exact: true })
       .click();
@@ -192,6 +230,7 @@ test('settings apply live, export/import, and survive restart', async () => {
       'letter-spacing',
       '2px',
     );
+    await category('Keyboard shortcuts');
     await chrome
       .getByLabel('Shortcut open-command', { exact: true })
       .fill('Ctrl+K');

@@ -1,0 +1,46 @@
+{
+  "updatedAt": 1793331627681,
+  "sha256": "18a87599ceda99c1335d56ac4f84ed4b1b146f73fabe859dab6fd49882e21d8e",
+  "sources": [
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/easylist/easylist.txt",
+      "sha256": "318f849794a94697a04d470f6162523befd43ce58d2477d4e321f727cbbb0ccd"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/easylist/easyprivacy.txt",
+      "sha256": "d0b04edb90a4e9ef6f3a371d08a9afd90057a22abe843586409fe08edfa89262"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/peter-lowe/serverlist.txt",
+      "sha256": "13e5ecddc163997c41cea134e96e2328e1489d435ff757f87a737b4a7d141d8d"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/filters.txt",
+      "sha256": "f64eb22a4421a0813adcb04afd8739cdc0ad9de9842dc0178feb05d917becf14"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/quick-fixes.txt",
+      "sha256": "61d766e66cf971d417e105f0b0ad869f80ef28ed407028f9555332bdd3fc0822"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/badware.txt",
+      "sha256": "00b6e789c148541dfafab5f5a433fe83d2f3fd20e426eb5baf4c490afd325d1c"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/privacy.txt",
+      "sha256": "62d173cbfa87251b305e4a695d0d5b8afefb96a2e32d3f70f21e2b422fae6dbe"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/resource-abuse.txt",
+      "sha256": "a7f06a353f79141a4c1eded476fc26409a76d8f02be1c2e7c225e96666fbe64d"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/unbreak.txt",
+      "sha256": "d06b9a46309f8d2555b69f9c2e789e61299ecec0f947c5cf13ce5e5febb5a22e"
+    },
+    {
+      "url": "https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets/ublock-origin/resources.json",
+      "sha256": "5ce0ce483f0e5514308ccb0240960a9dd7bfeab417debeef96960dce2c95f690"
+    }
+  ]
+}

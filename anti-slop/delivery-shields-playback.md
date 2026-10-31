@@ -1,0 +1,15 @@
+# Shields and playback delivery gate
+
+Direction: repair blocking startup and provide recovery within the existing Shields panel. Preserve Drift typography, neutral/forest palette, buttons, keyboard focus and low-motion interface. No new assets, navigation structure, dependency or animation. During-implementation mode and ENERGY 1 / RHYTHM 1 / MOTION 1 remain in effect.
+
+- PASS completeness: network rules, cosmetic rules and scriptlets now ship as one compiled snapshot before any page loads. New, incomplete, corrupt or older profile caches use the complete bundle. A newer complete cache remains usable. Failed updates do not replace a working engine.
+- PASS controls: the existing Shields panel has a real filter-update button, disabled/busy state, clear failure message and explicit reload wording. Site-toggle changes reload to apply/remove injected scriptlets, verified by the existing early-script test without a manual reload.
+- PASS content: source hashes, unmodified bodies and original notices accompany the bundled data; GPL license and attribution are retained. No invented success rates or universal YouTube guarantees appear in the UI.
+- PASS safety: video playback requests and YouTube player API requests remain allowed in unit tests; ad requests remain blocked. The YouTube-like fixture loses ad fields while preserving streamingData and playabilityStatus. Filter download failure and subsequent successful retry are exercised.
+- PASS accessibility/visual consistency: native button semantics, inherited focus/theme styling, visible updating text and role=alert errors reuse the established Shields controls. No layout, motion or decorative styles were added.
+- PASS verification: production build and 72 unit tests pass. Privacy and Shields integration tests pass. Live isolated-profile playback tests decoded content frames within 2.6 seconds for Blender's test film and 2.8 seconds for the official Mac Miller Cinderella video, with Shields enabled and 10/11 requests blocked respectively. These are local samples, not a promise for all connections, videos or accounts.
+- PASS packaged verification: the incomplete-cache, playback-data preservation, failed-update and retry fixture passes against the packaged Drift.exe. Its live Cinderella check decodes frames within 3.1 seconds with Shields enabled and 11 blocked requests.
+
+The exact 25:46 lyric video from the user's screenshot has not been identified by URL, and the reported long startup was not reproduced on the test videos. The screenshot shows a player at 0:00; the user's subsequent clarification says playback eventually starts. Do not claim an account-specific or network cause was proven. No live user cookies, account sessions or installed profile files were changed.
+
+Reproduce a live check with `node scripts/check-youtube.mjs <www.youtube.com URL>`; use DRIFT_TEST_EXECUTABLE to select the packaged application. Raw local results are in docs/youtube-playback-blender.json and docs/youtube-playback-cinderella.json. Existing unrelated formatting failures and old sidebar-pin test timeouts are documented separately in delivery-tear-off.md.

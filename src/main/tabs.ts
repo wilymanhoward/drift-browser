@@ -1,9 +1,20 @@
-import { BrowserWindow, Menu, WebContentsView } from 'electron';
+import {
+  BrowserWindow,
+  Menu,
+  WebContentsView,
+  screen,
+  systemPreferences,
+} from 'electron';
 import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_WORKSPACE } from '../shared/power';
 import type { Workspace, WorkspaceCommand } from '../shared/power';
-import { CONTENT_INSET } from '../shared/browser';
+import {
+  CONTENT_INSET,
+  HOT_ZONE,
+  TOP_BAR,
+  TOPBAR_SLIDE,
+} from '../shared/browser';
 import type {
   BrowserState,
   TabCommand,
@@ -11,6 +22,9 @@ import type {
   SidebarUpdate,
 } from '../shared/browser';
 import { DEFAULT_SIDEBAR } from './session';
+import { listeners } from './listeners';
+import { readDescription, readSnapshot } from './tab-card';
+import type { TabCardDetails } from './tab-card';
 import type { SavedSession, SavedTab } from './session';
 import { PAGE_ACTIONS } from '../shared/page-tools';
 import type { PageAction } from '../shared/page-tools';
@@ -28,12 +42,21 @@ interface Tab {
   navigationURL: string;
   lastActive: number;
   suspended?: ClosedTab;
+  unwire?: () => void;
+  // Last description and preview read for the hover card; kept while asleep.
+  details?: { url: string; description: string; snapshot: string | null };
 }
 interface ClosedTab {
   tab: SavedTab;
   index: number;
   history: NavigationEntry[];
   historyIndex: number;
+}
+// A tab taken out of one window, page still alive, for another to adopt.
+export interface MovedTab {
+  tab: Tab;
+  workspaces: Workspace[];
+  sidebar: { pinned: boolean; width: number };
 }
 
 export class TabManager {
@@ -51,6 +74,12 @@ export class TabManager {
   private peekVersion = 0;
   private split: BrowserState['split'] = null;
   private htmlFullscreen = false;
+  private topbarShown = false;
+  private cursorTimer: ReturnType<typeof setInterval>;
+  private cursorOutside = 0;
+  // Page top while the toolbar slides; null when at rest.
+  private slidingTop: number | null = null;
+  private slideTimer?: ReturnType<typeof setInterval>;
   private sleepTimer: ReturnType<typeof setInterval>;
   constructor(
     private win: BrowserWindow,
@@ -59,7 +88,8 @@ export class TabManager {
     private environment: {
       partition: string;
       privateWindow: boolean;
-      track: (page: WebContents) => void;
+      // Returns a cleanup that undoes the window-specific hooks.
+      track: (page: WebContents, adopted: boolean) => () => void;
       settings: () => import('../shared/settings').Settings;
       closeFind: () => void;
       findActive: () => boolean;
@@ -68,6 +98,44 @@ export class TabManager {
   ) {
     this.sleepTimer = setInterval(() => this.sleepInactive(), 30000);
     this.sleepTimer.unref();
+    // Native page views cover the renderer and frameless edges swallow mouse
+    // events, so the auto-hide toolbar follows the cursor from the main process.
+    this.cursorTimer = setInterval(() => this.watchCursor(), 60);
+    this.cursorTimer.unref();
+  }
+  private watchCursor() {
+    if (
+      this.disposed ||
+      this.win.isDestroyed() ||
+      !this.win.isVisible() ||
+      this.win.isMinimized() ||
+      this.htmlFullscreen ||
+      this.environment.settings().toolbarLayout !== 'top' ||
+      !this.environment.settings().autoHideTopBar
+    )
+      return;
+    const point = screen.getCursorScreenPoint();
+    // Content bounds, because a maximized frameless window's outer bounds
+    // reach past the screen edge on Windows.
+    const bounds = this.win.getContentBounds();
+    const y = point.y - bounds.y;
+    const inside =
+      point.x >= bounds.x &&
+      point.x < bounds.x + bounds.width &&
+      y >= 0 &&
+      y < bounds.height;
+    if (!this.topbarShown) {
+      if (inside && y <= 6) this.updateSidebar({ topbar: true });
+      return;
+    }
+    // This is the only place that hides the bar: its empty space is a drag
+    // region, which never reports hover to the renderer.
+    if (this.overlay || (inside && y < TOP_BAR + 8)) {
+      this.cursorOutside = 0;
+    } else if (++this.cursorOutside > 7) {
+      this.cursorOutside = 0;
+      this.updateSidebar({ topbar: false });
+    }
   }
   restore(saved: SavedSession | null) {
     if (saved) {
@@ -88,7 +156,12 @@ export class TabManager {
   }
   get state(): Omit<
     BrowserState,
-    'storageError' | 'settings' | 'dark' | 'find' | 'zoomPercent'
+    | 'storageError'
+    | 'settings'
+    | 'dark'
+    | 'find'
+    | 'zoomPercent'
+    | 'extensions'
   > {
     return {
       ...this.active.state,
@@ -97,6 +170,7 @@ export class TabManager {
       maximized: this.win.isMaximized(),
       canReopen: this.closed.length > 0,
       sidebar: { ...this.sidebar },
+      sidebarPosition: this.environment.settings().sidebarPosition,
       overlay: this.overlay,
       privateWindow: this.environment.privateWindow,
       workspaces: this.workspaces.map((w) => ({ ...w })),
@@ -105,6 +179,7 @@ export class TabManager {
       compactPreview: this.compactPreview,
       split: this.split,
       htmlFullscreen: this.htmlFullscreen,
+      ...this.topbar(),
     };
   }
   get saved(): SavedSession {
@@ -126,6 +201,11 @@ export class TabManager {
   }
   get active() {
     return this.tabs.find((tab) => tab.state.id === this.activeId)!;
+  }
+  idOf(page: WebContents) {
+    return this.tabs.find(
+      (t) => !t.state.unloaded && t.view.webContents.id === page.id,
+    )?.state.id;
   }
   owns(page: WebContents) {
     return this.tabs.some(
@@ -176,113 +256,11 @@ export class TabManager {
       },
     };
     const page = view.webContents;
-    this.environment.track(page);
     this.tabs.push(tab);
     this.win.contentView.addChildView(view);
     view.setVisible(false);
     page.setAudioMuted(tab.state.muted);
-    const update = () => {
-      if (this.disposed || page.isDestroyed() || !this.tabs.includes(tab))
-        return;
-      tab.state = {
-        ...tab.state,
-        title: page.getTitle() || tab.state.title,
-        loading: page.isLoading(),
-        canGoBack: page.navigationHistory.canGoBack(),
-        canGoForward: page.navigationHistory.canGoForward(),
-        audible: page.isCurrentlyAudible(),
-      };
-      this.emit();
-    };
-    page.on('did-start-navigation', (_event, url, _inPlace, mainFrame) => {
-      if (mainFrame) {
-        tab.navigationURL = url;
-        if (isWebURL(url)) tab.state.url = url;
-        tab.state.error = null;
-        tab.state.favicon = null;
-      }
-    });
-    page.on('did-start-loading', () => {
-      tab.state.error = null;
-      update();
-    });
-    page.on('did-stop-loading', update);
-    page.on('did-finish-load', () => {
-      if (tab.state.url === SETTINGS_URL && tab.state.id === this.activeId)
-        void this.openOverlay('settings');
-    });
-    page.on('did-navigate', (_event, url) => {
-      if (isPageURL(url)) tab.state.url = url;
-      this.visited(url, page.getTitle(), true);
-      update();
-    });
-    page.on('did-navigate-in-page', (_event, url, mainFrame) => {
-      if (mainFrame && isPageURL(url)) {
-        tab.state.url = url;
-        this.visited(url, page.getTitle(), true);
-      }
-      update();
-    });
-    page.on('page-title-updated', () => {
-      this.visited(tab.state.url, page.getTitle(), false);
-      update();
-    });
-    page.on('audio-state-changed', update);
-    page.on('page-favicon-updated', (_event, urls) => {
-      tab.state.favicon = urls.find(isWebURL) ?? null;
-      update();
-    });
-    page.on('did-fail-load', (_event, code, _description, url, mainFrame) => {
-      if (mainFrame && code !== -3 && url === tab.navigationURL) {
-        tab.state.error =
-          'This page could not be loaded. Check the address and your connection.';
-        update();
-      }
-    });
-    page.on('render-process-gone', () => {
-      tab.state.error = 'The page stopped responding. Reload to try again.';
-      update();
-    });
-    page.on('will-navigate', (event, url) => {
-      if (!isPageURL(url)) event.preventDefault();
-    });
-    page.on('will-redirect', (event, url) => {
-      if (!isPageURL(url)) event.preventDefault();
-    });
-    page.setWindowOpenHandler(({ url }) => {
-      if (isWebURL(url)) this.create(url);
-      return { action: 'deny' };
-    });
-    page.on('before-input-event', (event, input) => {
-      if (this.shortcut(input)) event.preventDefault();
-    });
-    page.on('enter-html-full-screen', () => {
-      if (this.disposed) return;
-      this.select(tab.state.id);
-      this.environment.closeFind();
-      this.htmlFullscreen = true;
-      this.compactPreview = null;
-      this.layout();
-      this.emit();
-    });
-    page.on('leave-html-full-screen', () => {
-      this.htmlFullscreen = false;
-      if (!this.disposed && !this.win.isDestroyed()) {
-        this.layout();
-        this.emit();
-      }
-    });
-    page.on('focus', () => {
-      if (
-        this.split?.ids.includes(tab.state.id) &&
-        this.activeId !== tab.state.id
-      ) {
-        this.activeId = tab.state.id;
-        this.environment.closeFind();
-        tab.lastActive = Date.now();
-        this.emit();
-      }
-    });
+    const update = this.wire(tab, false);
     if (deferred) {
       this.emit();
       return tab;
@@ -309,6 +287,128 @@ export class TabManager {
     this.emit();
     return tab;
   }
+  // Page listeners are bound to this window, so a moved tab is unwired from
+  // its old window and wired again in the new one.
+  private wire(tab: Tab, adopted: boolean) {
+    const page = tab.view.webContents;
+    const { on, off } = listeners(page);
+    const untrack = this.environment.track(page, adopted);
+    tab.unwire = () => {
+      untrack();
+      off();
+    };
+    const update = () => {
+      if (this.disposed || page.isDestroyed() || !this.tabs.includes(tab))
+        return;
+      tab.state = {
+        ...tab.state,
+        title: page.getTitle() || tab.state.title,
+        loading: page.isLoading(),
+        canGoBack: page.navigationHistory.canGoBack(),
+        canGoForward: page.navigationHistory.canGoForward(),
+        audible: page.isCurrentlyAudible(),
+      };
+      this.emit();
+    };
+    on('did-start-navigation', (_event, url, _inPlace, mainFrame) => {
+      if (mainFrame) {
+        tab.navigationURL = url;
+        if (isPageURL(url)) tab.state.url = url;
+        tab.state.error = null;
+        tab.state.favicon = null;
+      }
+    });
+    on('did-start-loading', () => {
+      tab.state.error = null;
+      update();
+    });
+    on('did-stop-loading', () => {
+      update();
+      if (isWebURL(tab.state.url)) void this.remember(tab, false);
+    });
+    on('did-navigate', (_event, url) => {
+      if (isPageURL(url)) tab.state.url = url;
+      this.visited(url, page.getTitle(), true);
+      update();
+    });
+    on('did-navigate-in-page', (_event, url, mainFrame) => {
+      if (mainFrame && isPageURL(url)) {
+        tab.state.url = url;
+        this.visited(url, page.getTitle(), true);
+      }
+      update();
+    });
+    on('page-title-updated', () => {
+      this.visited(tab.state.url, page.getTitle(), false);
+      update();
+    });
+    on('audio-state-changed', update);
+    on('page-favicon-updated', (_event, urls) => {
+      tab.state.favicon = urls.find(isWebURL) ?? null;
+      update();
+    });
+    on('did-fail-load', (_event, code, _description, url, mainFrame) => {
+      if (mainFrame && code !== -3 && url === tab.navigationURL) {
+        tab.state.error =
+          'This page could not be loaded. Check the address and your connection.';
+        update();
+      }
+    });
+    on('render-process-gone', () => {
+      tab.state.error = 'The page stopped responding. Reload to try again.';
+      update();
+    });
+    on('will-navigate', (event, url) => {
+      if (page.getURL() === NEW_TAB_URL && url === `${NEW_TAB_URL}?settings`) {
+        event.preventDefault();
+        void this.openSettings();
+      } else if (
+        page.getURL() === NEW_TAB_URL &&
+        url === `${NEW_TAB_URL}?add-site`
+      ) {
+        event.preventDefault();
+        void this.openOverlay('bookmarks');
+      } else if (!isPageURL(url)) event.preventDefault();
+    });
+    on('will-redirect', (event, url) => {
+      if (!isPageURL(url)) event.preventDefault();
+    });
+    page.setWindowOpenHandler(({ url }) => {
+      if (isWebURL(url)) this.create(url);
+      return { action: 'deny' };
+    });
+    on('before-input-event', (event, input) => {
+      if (this.shortcut(input)) event.preventDefault();
+    });
+    on('enter-html-full-screen', () => {
+      if (this.disposed) return;
+      this.select(tab.state.id);
+      this.environment.closeFind();
+      this.htmlFullscreen = true;
+      this.compactPreview = null;
+      this.layout();
+      this.emit();
+    });
+    on('leave-html-full-screen', () => {
+      this.htmlFullscreen = false;
+      if (!this.disposed && !this.win.isDestroyed()) {
+        this.layout();
+        this.emit();
+      }
+    });
+    on('focus', () => {
+      if (
+        this.split?.ids.includes(tab.state.id) &&
+        this.activeId !== tab.state.id
+      ) {
+        this.activeId = tab.state.id;
+        this.environment.closeFind();
+        tab.lastActive = Date.now();
+        this.emit();
+      }
+    });
+    return update;
+  }
   select(id: string) {
     if (!this.tabs.some((tab) => tab.state.id === id))
       throw new Error('Unknown tab.');
@@ -318,11 +418,19 @@ export class TabManager {
     if (this.split && !this.split.ids.includes(id))
       this.split.ids[this.split.ids.indexOf(this.activeId)] = id;
     this.workspaceId = chosen.state.workspaceId;
+    // Idle time for the tab being left starts now, not when it was opened.
+    const previous = this.tabs.find((t) => t.state.id === this.activeId);
+    if (changedTab && previous) {
+      previous.lastActive = Date.now();
+      // Its preview is taken now, so the hover card still has one once it sleeps.
+      void this.remember(previous, true);
+    }
     this.activeId = id;
     if (changedTab) this.environment.closeFind();
     chosen.lastActive = Date.now();
     this.layout();
     this.emit();
+    this.limitAwake();
   }
   close(id: string) {
     const index = this.tabs.findIndex((tab) => tab.state.id === id);
@@ -369,6 +477,54 @@ export class TabManager {
     const tab = this.create(closed.tab.url, closed.tab, true, closed);
     this.move(tab.state.id, Math.min(closed.index, this.tabs.length - 1));
   }
+  // Takes a tab out of this window without closing its page.
+  detach(id: string): MovedTab {
+    const index = this.tabs.findIndex((tab) => tab.state.id === id);
+    if (index < 0) throw new Error('Unknown tab.');
+    const tab = this.tabs[index];
+    if (this.htmlFullscreen && id === this.activeId) {
+      this.htmlFullscreen = false;
+      this.win.setFullScreen(false);
+    }
+    if (id === this.activeId) this.environment.closeFind();
+    tab.unwire?.();
+    if (this.win.contentView.children.includes(tab.view))
+      this.win.contentView.removeChildView(tab.view);
+    this.tabs.splice(index, 1);
+    if (this.split?.ids.includes(id)) this.split = null;
+    const siblings = this.tabs.filter(
+      (t) => t.state.workspaceId === this.workspaceId,
+    );
+    if (!siblings.length) this.create();
+    else if (this.activeId === id)
+      this.select(siblings[Math.min(index, siblings.length - 1)].state.id);
+    this.layout();
+    this.emit();
+    return {
+      tab,
+      workspaces: this.workspaces.map((w) => ({ ...w })),
+      sidebar: { pinned: this.sidebar.pinned, width: this.sidebar.width },
+    };
+  }
+  // Takes in a tab detached from another window. A fresh window inherits the
+  // source window's workspaces; an existing one files it under the current one.
+  adopt({ tab, workspaces, sidebar }: MovedTab) {
+    if (!this.tabs.length) {
+      this.workspaces = workspaces;
+      this.workspaceId = tab.state.workspaceId;
+      this.sidebar = { ...this.sidebar, ...sidebar, expanded: sidebar.pinned };
+    } else tab.state.workspaceId = this.workspaceId;
+    if (tab.suspended) tab.suspended.tab.workspaceId = tab.state.workspaceId;
+    tab.lastActive = Date.now();
+    this.tabs.push(tab);
+    // A sleeping tab has no page left; selecting it wakes it in this window.
+    if (tab.view.webContents && !tab.view.webContents.isDestroyed()) {
+      this.win.contentView.addChildView(tab.view);
+      tab.view.setVisible(false);
+      this.wire(tab, true);
+    }
+    this.select(tab.state.id);
+  }
   private move(id: string, index: number) {
     const current = this.tabs.findIndex((tab) => tab.state.id === id);
     if (current < 0 || index >= this.tabs.length)
@@ -388,7 +544,6 @@ export class TabManager {
     switch (command.type) {
       case 'select':
         this.select(command.id);
-        if (tab.state.url === SETTINGS_URL) void this.openOverlay('settings');
         break;
       case 'close':
         this.close(command.id);
@@ -519,7 +674,70 @@ export class TabManager {
     else if (action === 'forward' && page.navigationHistory.canGoForward())
       page.navigationHistory.goForward();
   }
+  private topbar() {
+    const settings = this.environment.settings();
+    const inset =
+      this.compact || this.htmlFullscreen
+        ? 0
+        : settings.contentInset
+          ? CONTENT_INSET
+          : 0;
+    // The sidebar layout keeps every control in the sidebar, so pages start at the top.
+    const top = settings.toolbarLayout === 'top' && !this.htmlFullscreen;
+    const topbarVisible = top && (!settings.autoHideTopBar || this.topbarShown);
+    return {
+      topbarVisible,
+      topInset: !top
+        ? 0
+        : topbarVisible
+          ? TOP_BAR
+          : Math.max(0, HOT_ZONE - inset),
+    };
+  }
+  // Moves pages with the toolbar instead of jumping. The renderer eases
+  // --topinset over the same duration and curve, so the chrome keeps pace.
+  private slideTop(from: number) {
+    clearInterval(this.slideTimer);
+    const to = this.topbar().topInset;
+    this.slidingTop = null;
+    if (
+      from === to ||
+      systemPreferences.getAnimationSettings().prefersReducedMotion
+    ) {
+      this.layout();
+      return;
+    }
+    const start = Date.now();
+    const step = () => {
+      const t = Math.min(1, (Date.now() - start) / TOPBAR_SLIDE);
+      // Ease-out cubic, matching --ease-out in renderer/style.css.
+      this.slidingTop =
+        t < 1 ? Math.round(from + (to - from) * (1 - (1 - t) ** 3)) : null;
+      if (t === 1) clearInterval(this.slideTimer);
+      if (!this.disposed && !this.win.isDestroyed()) this.layout();
+    };
+    this.slideTimer = setInterval(step, 16);
+    step();
+  }
   updateSidebar(update: SidebarUpdate) {
+    if (update.topbar !== undefined) {
+      const from = this.slidingTop ?? this.topbar().topInset;
+      const changed = this.topbarShown !== update.topbar;
+      this.topbarShown = update.topbar;
+      update = { ...update };
+      delete update.topbar;
+      // The renderer and the cursor watcher can both ask to show it.
+      if (changed) this.slideTop(from);
+      if (!Object.keys(update).length) {
+        this.emit();
+        return;
+      }
+    }
+    if (this.environment.settings().lockCollapsed && !this.compact) {
+      // Permanently collapsed: width changes are still allowed.
+      if (update.pinned) update = { ...update, pinned: false };
+      if (update.expanded) update = { ...update, expanded: false };
+    }
     if (this.compact && update.pinned !== undefined) this.toggleCompact();
     if (this.compact && update.expanded !== undefined) {
       void this.peek(update.expanded);
@@ -580,7 +798,14 @@ export class TabManager {
         tab.view.webContents.reload();
   }
   openSettings() {
-    return this.openOverlay('settings');
+    if (this.overlay) this.closeOverlay();
+    const existing = this.tabs.find(
+      (tab) =>
+        tab.state.url === SETTINGS_URL &&
+        tab.state.workspaceId === this.workspaceId,
+    );
+    if (existing) this.select(existing.state.id);
+    else this.create(SETTINGS_URL);
   }
   workspace(command: WorkspaceCommand) {
     if (command.type === 'save') {
@@ -718,9 +943,24 @@ export class TabManager {
     this.emit();
   }
   private sleepInactive() {
-    const cutoff =
-      Date.now() - this.environment.settings().unloadMinutes * 60000;
+    if (this.disposed) return;
+    // Under memory pressure, any background tab idle for a minute sleeps early.
+    const { total, free } = process.getSystemMemoryInfo();
+    const minutes =
+      free / total < 0.15 ? 1 : this.environment.settings().unloadMinutes;
+    const cutoff = Date.now() - minutes * 60000;
     for (const tab of this.tabs) if (tab.lastActive < cutoff) this.sleep(tab);
+    this.limitAwake();
+  }
+  // Keeps at most maxAwakeTabs sleepable background tabs alive, least recently
+  // used first to go. Loading tabs are skipped and caught on the next check.
+  private limitAwake() {
+    if (this.disposed) return;
+    const awake = this.tabs
+      .filter((tab) => this.canSleep(tab))
+      .sort((a, b) => b.lastActive - a.lastActive);
+    for (const tab of awake.slice(this.environment.settings().maxAwakeTabs))
+      this.sleep(tab);
   }
   private wake(id: string): Tab {
     const tab = this.tabs.find((t) => t.state.id === id)!;
@@ -740,7 +980,52 @@ export class TabManager {
     );
     this.tabs.splice(this.tabs.indexOf(replacement), 1);
     this.tabs.splice(index, 0, replacement);
+    replacement.details = tab.details;
     return replacement;
+  }
+  // Reads a live page's description and, if asked, its preview. A reading that
+  // fails keeps the previous one.
+  private async remember(tab: Tab, snapshot: boolean) {
+    const page = tab.view.webContents;
+    if (tab.state.unloaded || page.isDestroyed() || !isWebURL(tab.state.url))
+      return;
+    const url = tab.state.url;
+    const [description, image] = await Promise.all([
+      readDescription(page),
+      snapshot ? readSnapshot(page) : null,
+    ]);
+    if (tab.state.url !== url) return;
+    const previous = tab.details?.url === url ? tab.details : undefined;
+    tab.details = {
+      url,
+      description: description ?? previous?.description ?? '',
+      snapshot: image ?? previous?.snapshot ?? null,
+    };
+  }
+  // What the sidebar's hover card shows for a tab.
+  async cardDetails(id: string): Promise<TabCardDetails | null> {
+    const tab = this.tabs.find((t) => t.state.id === id);
+    if (!tab) return null;
+    // The current page is already on screen, so only other tabs get a preview.
+    const active = tab.state.id === this.activeId;
+    if (tab.state.url !== SETTINGS_URL && tab.state.url !== NEW_TAB_URL)
+      await this.remember(tab, !active);
+    if (!this.tabs.includes(tab)) return null;
+    const internal =
+      tab.state.url === SETTINGS_URL
+        ? 'Appearance, privacy, shortcuts and other Drift preferences.'
+        : tab.state.url === NEW_TAB_URL
+          ? 'Start page with search and your favourites.'
+          : null;
+    const details =
+      tab.details?.url === tab.state.url ? tab.details : undefined;
+    return {
+      ...tab.state,
+      description: internal ?? details?.description ?? '',
+      snapshot: internal || active ? null : (details?.snapshot ?? null),
+      active,
+      lastActive: tab.lastActive,
+    };
   }
   shortcut(input: Input): boolean {
     if (
@@ -869,19 +1154,26 @@ export class TabManager {
         : this.sidebar.expanded
           ? this.sidebar.width
           : settings.collapsedWidth;
-    const x = settings.sidebarPosition === 'left' ? sidebar : inset;
-    const available = Math.max(0, width - sidebar - inset);
+    // Inset leaves a gap on every side of the page, including next to the sidebar.
+    const x = (settings.sidebarPosition === 'left' ? sidebar : 0) + inset;
+    const available = Math.max(0, width - sidebar - inset * 2);
     const split = this.htmlFullscreen ? null : this.split;
     const first = split ? Math.floor((available - 8) * split.ratio) : available;
     const findHeight = this.environment.findActive() ? 48 : 0;
+    const top = this.slidingTop ?? this.topbar().topInset;
     for (const tab of this.tabs) {
       if (tab.state.unloaded) continue;
+      tab.view.setBackgroundColor(
+        tab.state.url === NEW_TAB_URL || tab.state.url === SETTINGS_URL
+          ? '#00000000'
+          : '#ffffff',
+      );
       const second = split?.ids[1] === tab.state.id;
       tab.view.setBounds({
         x: x + (second ? first + 8 : 0),
-        y: inset + findHeight,
+        y: top + inset + findHeight,
         width: second ? available - first - 8 : first,
-        height: Math.max(0, height - inset * 2 - findHeight),
+        height: Math.max(0, height - top - inset * 2 - findHeight),
       });
       tab.view.setBorderRadius(
         !this.compact && !this.htmlFullscreen && settings.contentInset
@@ -890,6 +1182,7 @@ export class TabManager {
       );
       tab.view.setVisible(
         !this.overlay &&
+          tab.state.url !== SETTINGS_URL &&
           !this.compactPreview &&
           (split
             ? split.ids.includes(tab.state.id)
@@ -900,6 +1193,8 @@ export class TabManager {
   dispose() {
     this.disposed = true;
     clearInterval(this.sleepTimer);
+    clearInterval(this.cursorTimer);
+    clearInterval(this.slideTimer);
     for (const tab of this.tabs)
       if (tab.view.webContents && !tab.view.webContents.isDestroyed())
         tab.view.webContents.close();

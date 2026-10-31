@@ -1,3 +1,5 @@
+import { isExtensionURL } from './extensions';
+
 export const NEW_TAB_URL = 'drift://newtab/';
 export const SETTINGS_URL = 'drift://settings/';
 export function navigationURL(value: unknown): string {
@@ -12,6 +14,9 @@ export function navigationURL(value: unknown): string {
   if (input === 'drift://newtab' || input === NEW_TAB_URL) return NEW_TAB_URL;
   if (input === 'drift://settings' || input === SETTINGS_URL)
     return SETTINGS_URL;
+  // Extension pages (options, popups opened as tabs) are trusted Drift-side
+  // because only installed extensions resolve.
+  if (isExtensionURL(input)) return new URL(input).href;
   const candidate =
     /^[a-z][a-z\d+.-]*:/i.test(input) && !/^[\w.-]+:\d+(\/|$)/.test(input)
       ? input
@@ -37,7 +42,12 @@ export function navigationURL(value: unknown): string {
 }
 
 export function isPageURL(value: string): boolean {
-  return value === NEW_TAB_URL || value === SETTINGS_URL || isWebURL(value);
+  return (
+    value === NEW_TAB_URL ||
+    value === SETTINGS_URL ||
+    isWebURL(value) ||
+    isExtensionURL(value)
+  );
 }
 
 export function resolveInput(

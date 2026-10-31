@@ -35,6 +35,18 @@ try {
     path: app.getAppPath(),
   }));
   if (!metadata.packaged) throw new Error('Expected a packaged application');
+  await expect
+    .poll(() =>
+      app.evaluate(({ webContents }) => {
+        const home = webContents
+          .getAllWebContents()
+          .find((page) => page.getURL() === 'drift://newtab/');
+        return home?.executeJavaScript(
+          "getComputedStyle(document.querySelector('main')).backdropFilter",
+        );
+      }),
+    )
+    .toBe('blur(20px)');
   await chrome.evaluate(() => window.drift.action('show-shields'));
   await expect(
     chrome.getByRole('dialog', { name: 'Shields', exact: true }),
@@ -43,6 +55,17 @@ try {
   await chrome.evaluate(() => window.drift.action('show-settings'));
   await expect(
     chrome.getByRole('dialog', { name: 'Settings', exact: true }),
+  ).toBeVisible();
+  await chrome
+    .getByRole('button', { name: 'Look and feel', exact: true })
+    .click();
+  await expect(
+    chrome.getByLabel('Glass effect', { exact: true }),
+  ).toBeChecked();
+  await expect(
+    chrome.getByText(
+      'Frosted home panel and tinted sidebar. Turn off for an opaque appearance.',
+    ),
   ).toBeVisible();
   await chrome.getByText('Browser tools', { exact: true }).click();
   await expect(

@@ -1,108 +1,65 @@
+/* Drift new tab, after Zen: one line of greeting, a floating search field and
+   your favourites, on a frosted sheet over the window's tinted backdrop.
+   Bricolage Grotesque sets the words and Junicode's italic the accent, the
+   pairing Zen uses on its own site. Colour tokens come from themeCSS(),
+   appended to this file; the values here are the light fallback. */
+@font-face {
+  font-family: 'Bricolage Grotesque';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 200 800;
+  font-stretch: 75% 100%;
+  src: url(/display.woff2) format('woff2-variations');
+}
+@font-face {
+  font-family: 'Junicode';
+  font-style: italic;
+  font-display: swap;
+  font-weight: 400;
+  src: url(/serif.woff) format('woff');
+}
 :root {
-  font-family: 'Segoe UI Variable', 'Segoe UI', system-ui, sans-serif;
-  color: #303833;
-  background: #f8f8f5;
+  --surface: #ffffff;
+  --text: #1d1d1f;
+  --muted: #6e6e73;
+  --hairline: #0000001a;
+  --glass: #ffffff8c;
+  --glass-strong: #ffffffd9;
+  --glass-edge: #ffffffb3;
+  --glass-blur: 24px;
+  --input-bg: #0000000d;
+  --accent: #5856d6;
+  --accent-text: #ffffff;
+  --error: #d70015;
+  --font-sans:
+    'Bricolage Grotesque', -apple-system, 'Segoe UI Variable Text', 'Segoe UI',
+    system-ui, sans-serif;
+  --font-serif:
+    'Junicode', 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+  font: 14px/1.4 var(--font-sans);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
   font-synthesis: none;
 }
 * {
   box-sizing: border-box;
 }
 body {
-  margin: 0;
-}
-main {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px 24px;
-}
-.date {
-  color: #535f55;
-  font-size: 14px;
   margin: 0;
+  background: color-mix(in srgb, var(--surface) 62%, transparent);
+  overflow-x: hidden;
 }
-h1 {
-  font-size: clamp(56px, 10vw, 88px);
-  font-weight: 350;
-  letter-spacing: -3px;
-  margin: 10px 0 36px;
-  line-height: 1.2;
+html[data-glass='false'] body {
+  background: var(--surface);
 }
-form {
-  display: flex;
-  width: min(520px, 100%);
-  border: 1px solid #b8c1b6;
-  border-radius: 10px;
-  background: #fff;
-  padding: 5px;
-  gap: 8px;
+html[data-wallpaper='true'] body {
+  background: var(--wallpaper-image) center / cover;
 }
-input,
-button {
-  font: inherit;
-}
-input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  padding: 12px;
-  color: inherit;
-}
-input::placeholder {
-  color: #58635a;
-}
-button {
-  background: #466a55;
-  color: white;
-  border: 0;
-  border-radius: 6px;
-  padding: 0 18px;
-  cursor: pointer;
-}
-input:focus-visible,
-button:focus-visible,
-a:focus-visible {
-  outline: 2px solid #466a55;
-  outline-offset: 3px;
-}
-nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-  max-width: 540px;
-  margin-top: 26px;
-}
-nav a {
-  color: #303833;
-  text-decoration: none;
-  background: #eeede9;
-  border-radius: 8px;
-  padding: 12px 16px;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-nav a:hover {
-  background: #dce4da;
-}
-nav p,
-.signature {
-  font-size: 12px;
-  color: #535f55;
-}
-.signature {
-  margin-top: 56px;
-}
-#error {
-  color: #8d2e25;
-  font-size: 13px;
-  max-width: 520px;
+h1,
+h2,
+p {
+  margin: 0;
 }
 .sr-only {
   position: absolute;
@@ -110,37 +67,226 @@ nav p,
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
+  white-space: nowrap;
 }
-:root {
-  color: var(--text, #303833);
-  background: var(--surface, #f8f8f5);
+a,
+button,
+input {
+  font: inherit;
+  color: inherit;
 }
-.date,
-nav p,
-.signature {
-  color: var(--muted, #535f55);
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  outline-offset: 2px;
 }
+.gear {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--muted);
+  transition:
+    background-color 140ms,
+    color 140ms;
+}
+.gear:hover {
+  background: var(--glass);
+  color: var(--text);
+}
+main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 26px;
+  width: min(760px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 48px 24px 16vh;
+}
+.greeting {
+  font: 500 clamp(30px, 4.4vw, 46px) / 1.1 var(--font-sans);
+  font-stretch: 90%;
+  letter-spacing: -0.035em;
+  text-align: center;
+  text-wrap: balance;
+}
+.greeting em {
+  font: italic 400 1.14em / 1 var(--font-serif);
+  letter-spacing: -0.01em;
+  color: color-mix(in srgb, var(--accent) 60%, var(--text));
+}
+/* The floating field Zen opens on a new tab: a soft-cornered sheet rather
+   than a pill, lit at the edge, lifted by a long shadow. */
 form {
-  background: var(--input-bg, #fff);
-  border-color: var(--border, #b8c1b6);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(640px, 100%);
+  height: 58px;
+  padding: 0 9px 0 20px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface) 55%, var(--glass-strong));
+  box-shadow:
+    inset 0 0 0 1px var(--glass-edge),
+    0 1px 2px #0000000f,
+    0 18px 48px -16px #1e14504d;
+  backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+  transition: box-shadow 180ms;
 }
-button {
-  background: var(--accent, #466a55);
-  color: var(--accent-text, #fff);
+form:focus-within {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 22px 56px -16px #1e145066;
+}
+form svg {
+  flex-shrink: 0;
+  color: var(--muted);
 }
 input {
-  color: var(--text, #303833);
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+input:focus-visible {
+  outline: none;
 }
 input::placeholder {
-  color: var(--muted, #535f55);
+  color: var(--muted);
 }
-nav a {
-  background: var(--chrome-bg, #eeede9);
-  color: var(--text, #303833);
+form button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--input-bg);
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 140ms,
+    color 140ms;
 }
-nav a:hover {
-  background: var(--selection, #dce4da);
+form button svg {
+  color: inherit;
+}
+form:has(input:not(:placeholder-shown)) button {
+  background: var(--accent);
+  color: var(--accent-text);
 }
 #error {
-  color: var(--error, #8d2e25);
+  margin-top: -14px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--error);
+}
+#error:empty {
+  display: none;
+}
+.favorites {
+  width: 100%;
+}
+.favorites nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 76px;
+  padding: 10px 4px 8px;
+  border-radius: 14px;
+  text-decoration: none;
+  transition: background-color 140ms;
+}
+.tile:hover {
+  background: var(--glass);
+}
+.tile-icon {
+  --tint: var(--muted);
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--tint) 16%, var(--glass-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 24%, transparent);
+  font: 600 19px/1 var(--font-sans);
+  color: var(--tint);
+}
+.tile-icon.c0 {
+  --tint: #0a84ff;
+}
+.tile-icon.c1 {
+  --tint: #ff9f0a;
+}
+.tile-icon.c2 {
+  --tint: #30b158;
+}
+.tile-icon.c3 {
+  --tint: #bf5af2;
+}
+.tile-icon.c4 {
+  --tint: #ff453a;
+}
+.tile-icon.c5 {
+  --tint: #5e5ce6;
+}
+.tile.add .tile-icon {
+  background: transparent;
+  box-shadow: none;
+  border: 1.5px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  font-weight: 300;
+  font-size: 24px;
+}
+.tile-name {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--muted);
+}
+.tile:hover .tile-name {
+  color: var(--text);
+}
+@media (max-width: 520px) {
+  main {
+    justify-content: flex-start;
+    padding-top: 72px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  body {
+    background: var(--surface);
+  }
+  form {
+    backdrop-filter: none;
+    background: var(--surface);
+  }
+}
+@media (forced-colors: active) {
+  form,
+  .tile-icon {
+    border: 1px solid CanvasText;
+  }
 }

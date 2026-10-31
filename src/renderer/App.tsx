@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,6 +19,9 @@ import {
   Settings as SettingsIcon,
   Pin,
   Moon,
+  Search,
+  Star,
+  Menu as MenuIcon,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -30,8 +33,10 @@ import type {
   OverlayEvent,
 } from '../shared/browser';
 import Overlay from './Overlay';
+import Settings from './Settings';
 import FindBar from './FindBar';
-import { NEW_TAB_URL } from '../shared/navigation';
+import { ExtensionActions, ExtensionsButton } from './Extensions';
+import { NEW_TAB_URL, SETTINGS_URL, isWebURL } from '../shared/navigation';
 
 declare global {
   interface Window {
@@ -41,6 +46,7 @@ declare global {
 function Favicon({ tab }: { tab: TabState }) {
   const [failed, setFailed] = useState<string | null>(null);
   if (tab.loading) return <LoaderCircle size={16} className="spinner" />;
+  if (tab.url === SETTINGS_URL) return <SettingsIcon size={16} />;
   if (tab.favicon && failed !== tab.favicon)
     return (
       <img
@@ -61,8 +67,13 @@ export default function App() {
   const sidebar = useRef<HTMLElement>(null);
   const hover = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const dragged = useRef<string | null>(null);
+  const cardTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const cardOpen = useRef(false);
   const resizing = useRef(false);
   const splitting = useRef(false);
+  const [bookmarkId, setBookmarkId] = useState<string | null>(null);
   const report = () => setInputError('The action could not be completed.');
   const action = (name: BrowserAction) => {
     void window.drift.action(name).catch(report);
@@ -72,6 +83,11 @@ export default function App() {
   };
   const updateSidebar = (update: SidebarUpdate) => {
     void window.drift.sidebar(update).catch(report);
+  };
+  // The main process hides the auto-hide toolbar once the cursor leaves it,
+  // since its drag region never reports hover here.
+  const showTopbar = () => {
+    void window.drift.sidebar({ topbar: true }).catch(report);
   };
   useEffect(() => {
     let received = false;
@@ -95,8 +111,44 @@ export default function App() {
       unsubscribe();
       unsubscribeOverlay();
       clearTimeout(hover.current);
+      clearTimeout(cardTimer.current);
     };
   }, []);
+  const topInset = state?.topInset;
+  // Before paint, so the chrome starts moving in the same frame as the bar.
+  useLayoutEffect(() => {
+    if (topInset !== undefined)
+      document.documentElement.style.setProperty('--topinset', `${topInset}px`);
+  }, [topInset]);
+  const autoHide =
+    state?.settings.toolbarLayout === 'top' && state.settings.autoHideTopBar;
+  useLayoutEffect(() => {
+    // Eases --topinset only while the bar auto-hides, in step with the page.
+    document.documentElement.toggleAttribute('data-topbar-slide', !!autoHide);
+  }, [autoHide]);
+  const pageURL = state?.url;
+  const overlayOpen = state?.overlay;
+  useEffect(() => {
+    let live = true;
+    if (!pageURL || !isWebURL(pageURL)) {
+      setBookmarkId(null);
+      return;
+    }
+    void window.drift
+      .getLibrary()
+      .then((library) => {
+        if (live)
+          setBookmarkId(
+            library.bookmarks.find((b) => b.url === pageURL)?.id ?? null,
+          );
+      })
+      .catch(() => {
+        if (live) setBookmarkId(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [pageURL, overlayOpen]);
   useEffect(() => {
     setInputError(null);
   }, [state?.url, state?.activeTabId]);
@@ -117,9 +169,185 @@ export default function App() {
   const workspace = state.workspaces.find(
     (w) => w.id === state.activeWorkspaceId,
   )!;
+  const addressLabel = (() => {
+    if (state.url === NEW_TAB_URL) return 'Search or type a URL';
+    try {
+      return new URL(state.url).hostname || state.url;
+    } catch {
+      return state.url;
+    }
+  })();
+  const toggleBookmark = () => {
+    if (!isWebURL(state.url)) {
+      action('show-bookmarks');
+      return;
+    }
+    void window.drift
+      .bookmark(
+        bookmarkId
+          ? { type: 'remove', id: bookmarkId }
+          : {
+              type: 'save',
+              url: state.url,
+              title: state.title || state.url,
+              folder: 'Bookmarks',
+            },
+      )
+      .then(() => window.drift.getLibrary())
+      .then((library) =>
+        setBookmarkId(
+          library.bookmarks.find((b) => b.url === state.url)?.id ?? null,
+        ),
+      )
+      .catch(report);
+  };
+  const firstRegular = visibleTabs.findIndex((t) => !t.pinned);
+  const hasEssentials = visibleTabs.some((t) => t.pinned);
+  const topLayout = state.settings.toolbarLayout === 'top';
+  const menuButton = (
+    <button
+      className="browser-menu-trigger"
+      aria-label="Browser menu"
+      title="Browser menu"
+      aria-haspopup="menu"
+      aria-expanded={state.overlay === 'menu'}
+      onClick={() => action('show-menu')}
+    >
+      <MenuIcon size={16} />
+    </button>
+  );
+  // Windows-style caption buttons; close turns red on hover, as on Windows 11.
+  const windowControls = (
+    <div className="window-controls" role="group" aria-label="Window">
+      <button
+        aria-label="Minimize window"
+        title="Minimize"
+        onClick={() => action('minimize')}
+      >
+        <Minus size={15} strokeWidth={1.5} />
+      </button>
+      <button
+        aria-label={state.maximized ? 'Restore window' : 'Maximize window'}
+        title={state.maximized ? 'Restore' : 'Maximize'}
+        onClick={() => action('maximize')}
+      >
+        {state.maximized ? (
+          <Copy size={12} strokeWidth={1.5} />
+        ) : (
+          <Square size={11.5} strokeWidth={1.5} />
+        )}
+      </button>
+      <button
+        className="close"
+        aria-label="Close window"
+        title="Close"
+        onClick={() => action('close')}
+      >
+        <X size={15} strokeWidth={1.5} />
+      </button>
+    </div>
+  );
+  // Back, forward and reload share one glass capsule, as macOS groups toolbar buttons.
+  const navigation = (
+    <div className="capsule" role="group" aria-label="Navigation">
+      <button
+        aria-label="Back"
+        title="Back"
+        disabled={!state.canGoBack}
+        onClick={() => action('back')}
+      >
+        <ArrowLeft size={16} />
+      </button>
+      <button
+        aria-label="Forward"
+        title="Forward"
+        disabled={!state.canGoForward}
+        onClick={() => action('forward')}
+      >
+        <ArrowRight size={16} />
+      </button>
+      <button
+        aria-label="Reload"
+        title="Reload"
+        onClick={() => action('reload')}
+      >
+        <RotateCw size={15} />
+      </button>
+    </div>
+  );
+  const addressButton = (
+    <button
+      className="url-pill"
+      aria-label="Edit web address"
+      title={state.url}
+      onClick={() => action('open-command')}
+    >
+      <Search size={14} />
+      <span>{addressLabel}</span>
+    </button>
+  );
+  const bookmarkButton = (
+    <button
+      className="bookmark-star"
+      aria-label={bookmarkId ? 'Remove bookmark' : 'Bookmark this page'}
+      title={bookmarkId ? 'Remove bookmark' : 'Bookmark this page'}
+      aria-pressed={bookmarkId !== null}
+      onClick={toggleBookmark}
+    >
+      <Star size={14} fill={bookmarkId ? 'currentColor' : 'none'} />
+    </button>
+  );
+  const sidebarPin = !state.settings.lockCollapsed && (
+    <button
+      className="sidebar-pin"
+      aria-label={state.sidebar.pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+      title={state.sidebar.pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
+      aria-pressed={state.sidebar.pinned}
+      onClick={() => updateSidebar({ pinned: !state.sidebar.pinned })}
+    >
+      {state.sidebar.pinned ? (
+        <PanelLeftClose size={16} />
+      ) : (
+        <PanelLeftOpen size={16} />
+      )}
+    </button>
+  );
+
   const error = inputError || state.error || state.storageError;
   const title = (tab: TabState) =>
     tab.title || (tab.loading ? 'Opening page…' : tab.url || 'No page open');
+  // The hover card waits half a second, then follows the cursor from tab to tab
+  // without waiting again. The main process draws it over the page.
+  const hoverCard = (id: string, row: HTMLElement) => {
+    clearTimeout(cardTimer.current);
+    if (dragged.current) return;
+    const send = () => {
+      const aside = sidebar.current?.getBoundingClientRect();
+      if (!aside || !row.isConnected) return;
+      cardOpen.current = true;
+      void window.drift
+        .tabCard({
+          id,
+          top: Math.round(row.getBoundingClientRect().top),
+          edge: Math.round(
+            state.sidebarPosition === 'right' ? aside.left : aside.right,
+          ),
+        })
+        .catch(() => undefined);
+    };
+    if (cardOpen.current) send();
+    else cardTimer.current = setTimeout(send, 500);
+  };
+  const dismissCard = (delay = 0) => {
+    clearTimeout(cardTimer.current);
+    const hide = () => {
+      cardOpen.current = false;
+      void window.drift.tabCard(null).catch(() => undefined);
+    };
+    if (!cardOpen.current) return;
+    if (delay) cardTimer.current = setTimeout(hide, delay);
+    else hide();
+  };
   const collapse = () => {
     clearTimeout(hover.current);
     hover.current = setTimeout(() => {
@@ -155,14 +383,47 @@ export default function App() {
       {state.compact && !state.htmlFullscreen && (
         <div
           className="compact-edge"
-          style={{ [state.settings.sidebarPosition]: 0 }}
+          style={{ [state.sidebarPosition]: 0 }}
           onMouseEnter={() => updateSidebar({ expanded: true })}
         />
+      )}
+      {topLayout &&
+        state.settings.autoHideTopBar &&
+        !state.topbarVisible &&
+        !state.htmlFullscreen && (
+          <div className="topbar-hot" onMouseEnter={showTopbar} />
+        )}
+      {topLayout && (
+        <div
+          className="topbar"
+          role="toolbar"
+          aria-label="Browser toolbar"
+          hidden={state.htmlFullscreen}
+          data-hidden={!state.topbarVisible || undefined}
+          inert={!state.topbarVisible}
+        >
+          {navigation}
+          <div className="address">
+            {addressButton}
+            {bookmarkButton}
+          </div>
+          <ExtensionActions state={state} alignment="bottom left" />
+          {state.extensions && (
+            <div className="capsule" role="group" aria-label="Extensions menu">
+              <ExtensionsButton />
+            </div>
+          )}
+          <div className="capsule" role="group" aria-label="Sidebar">
+            {sidebarPin}
+          </div>
+          <div className="capsule">{menuButton}</div>
+          {windowControls}
+        </div>
       )}
       <aside
         ref={sidebar}
         aria-label="Browser sidebar"
-        className={expanded ? 'expanded' : 'collapsed'}
+        className={`${expanded ? 'expanded' : 'collapsed'}${state.compact ? ' floating' : ''}`}
         style={{
           position: state.compact ? 'fixed' : 'relative',
           zIndex: 2,
@@ -171,14 +432,17 @@ export default function App() {
             (state.compact && !expanded && !state.overlay)
               ? 'hidden'
               : 'visible',
-          right: state.settings.sidebarPosition === 'right' ? 0 : undefined,
-          background: 'var(--chrome-bg)',
+          right: state.sidebarPosition === 'right' ? 0 : undefined,
           width: expanded ? state.sidebar.width : state.settings.collapsedWidth,
-          marginLeft: state.settings.sidebarPosition === 'right' ? 'auto' : 0,
+          marginLeft: state.sidebarPosition === 'right' ? 'auto' : 0,
         }}
         onMouseEnter={() => {
           clearTimeout(hover.current);
-          if (!expanded && (state.settings.hoverExpand || state.compact))
+          if (
+            !expanded &&
+            (state.compact ||
+              (state.settings.hoverExpand && !state.settings.lockCollapsed))
+          )
             hover.current = setTimeout(
               () => updateSidebar({ expanded: true }),
               150,
@@ -208,150 +472,102 @@ export default function App() {
           }
         }}
       >
-        <header>
-          <span className="wordmark">{expanded ? 'Drift' : 'D'}</span>
-          <div className="window-controls">
-            <button
-              aria-label="Minimize window"
-              title="Minimize"
-              onClick={() => action('minimize')}
-            >
-              <Minus size={13} />
-            </button>
+        {!topLayout && (
+          <>
+            <header>
+              {expanded && navigation}
+              {windowControls}
+            </header>
+            <div className="sidebar-menu-trigger">{menuButton}</div>
+            {expanded ? (
+              <div className="address">
+                {addressButton}
+                {bookmarkButton}
+              </div>
+            ) : (
+              <button
+                className="rail-search"
+                aria-label="Edit web address"
+                title="Search or enter an address"
+                onClick={() => action('open-command')}
+              >
+                <Search size={16} />
+              </button>
+            )}
+            <ExtensionActions
+              state={state}
+              alignment={
+                state.sidebarPosition === 'right'
+                  ? 'bottom left'
+                  : 'bottom right'
+              }
+            />
+          </>
+        )}
+        {!hasEssentials && (
+          <div
+            className="essentials-drop"
+            onDragOver={(e) => {
+              if (dragged.current) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const tab = state.tabs.find((t) => t.id === dragged.current);
+              if (tab && !tab.pinned) tabCommand({ type: 'pin', id: tab.id });
+              dragged.current = null;
+            }}
+          >
             <button
               aria-label={
-                state.maximized ? 'Restore window' : 'Maximize window'
+                state.tabs.find((t) => t.id === state.activeTabId)?.pinned
+                  ? 'Unpin current tab'
+                  : 'Pin current tab'
               }
-              title={state.maximized ? 'Restore' : 'Maximize'}
-              onClick={() => action('maximize')}
+              title="Essentials: drop a tab here to keep it"
+              onClick={() => tabCommand({ type: 'pin', id: state.activeTabId })}
             >
-              {state.maximized ? <Copy size={12} /> : <Square size={12} />}
-            </button>
-            <button
-              className="close"
-              aria-label="Close window"
-              title="Close"
-              onClick={() => action('close')}
-            >
-              <X size={14} />
+              <Pin size={14} />
+              {expanded && <span>Drop a tab here to keep it</span>}
             </button>
           </div>
-        </header>
-        <div className="sidebar-toggle">
-          <button
-            aria-label={
-              state.sidebar.pinned ? 'Unpin sidebar' : 'Pin sidebar open'
-            }
-            title={state.sidebar.pinned ? 'Unpin sidebar' : 'Pin sidebar open'}
-            aria-pressed={state.sidebar.pinned}
-            onClick={() => updateSidebar({ pinned: !state.sidebar.pinned })}
-          >
-            {state.sidebar.pinned ? (
-              <PanelLeftClose size={17} />
-            ) : (
-              <PanelLeftOpen size={17} />
-            )}
-          </button>
-        </div>
-        <nav aria-label="Page navigation">
-          <button
-            aria-label="Back"
-            title="Back"
-            disabled={!state.canGoBack}
-            onClick={() => action('back')}
-          >
-            <ArrowLeft size={17} />
-          </button>
-          <button
-            aria-label="Forward"
-            title="Forward"
-            disabled={!state.canGoForward}
-            onClick={() => action('forward')}
-          >
-            <ArrowRight size={17} />
-          </button>
-          <button
-            aria-label="Reload"
-            title="Reload"
-            onClick={() => action('reload')}
-          >
-            <RotateCw size={16} />
-          </button>
-        </nav>
-        <button
-          className={expanded ? 'url-pill' : ''}
-          aria-label="Edit web address"
-          title={state.url}
-          onClick={() => action('open-command')}
-        >
-          <Globe size={17} />
-          {expanded && (
-            <span>
-              {state.url === NEW_TAB_URL
-                ? 'New tab'
-                : new URL(state.url).hostname}
-            </span>
-          )}
-        </button>
-        <div className="tab-tools">
-          <button
-            className="new-tab"
-            aria-label="New tab"
-            title={`New tab (${state.settings.shortcuts['new-tab']})`}
-            onClick={() => action('new-tab')}
-          >
-            <Plus size={17} />
-            <span>New tab</span>
-          </button>
-        </div>
+        )}
         <div
-          className="essentials-drop"
-          onDragOver={(e) => {
-            if (dragged.current) e.preventDefault();
-          }}
-          onDrop={(e) => {
-            e.preventDefault();
-            const tab = state.tabs.find((t) => t.id === dragged.current);
-            if (tab && !tab.pinned) tabCommand({ type: 'pin', id: tab.id });
-            dragged.current = null;
-          }}
-        >
-          <button
-            aria-label={
-              state.tabs.find((t) => t.id === state.activeTabId)?.pinned
-                ? 'Unpin current tab'
-                : 'Pin current tab'
-            }
-            title="Essentials · drop a tab here to pin"
-            onClick={() => tabCommand({ type: 'pin', id: state.activeTabId })}
-          >
-            <Pin size={14} />
-            {expanded && <span>Essentials</span>}
-          </button>
-        </div>
-        <div
-          className="tabs"
           role="tablist"
           aria-label="Open tabs"
           aria-orientation="vertical"
-        >
-          {visibleTabs.map((tab, index) => (
+          aria-owns={visibleTabs.map((tab) => `tab-${tab.id}`).join(' ')}
+        />
+        <div className="tabs" onScroll={() => dismissCard()}>
+          {visibleTabs.map((tab, index) => [
+            expanded && index === firstRegular && (
+              <div className="workspace-label" key="workspace-label">
+                <span aria-hidden="true">{workspace.icon}</span>
+                <span>{workspace.name}</span>
+              </div>
+            ),
             <div
               key={tab.id}
+              role="presentation"
               className={`tab-row ${tab.id === state.activeTabId ? 'active' : ''} ${tab.pinned ? 'essential' : 'regular'} ${tab.unloaded ? 'sleeping' : ''}`}
-              style={
-                tab.id === state.activeTabId
-                  ? { boxShadow: `inset 3px 0 ${workspace.accent}` }
-                  : undefined
-              }
               data-tab-id={tab.id}
               draggable
+              onMouseEnter={(event) => hoverCard(tab.id, event.currentTarget)}
+              onMouseLeave={() => dismissCard(120)}
+              onMouseDown={() => dismissCard()}
               onDragStart={(event) => {
+                dismissCard();
                 dragged.current = tab.id;
                 event.dataTransfer.setData('text/plain', tab.id);
                 event.dataTransfer.effectAllowed = 'move';
               }}
-              onDragEnd={() => {
+              onDragEnd={(event) => {
+                // Nothing in Drift took the drop; if it landed outside this
+                // window, the tab moves to another window.
+                if (
+                  dragged.current === tab.id &&
+                  event.dataTransfer.dropEffect === 'none'
+                )
+                  tabCommand({ type: 'detach', id: tab.id });
                 dragged.current = null;
               }}
               onDragOver={(event) => {
@@ -389,10 +605,10 @@ export default function App() {
             >
               <button
                 role="tab"
+                id={`tab-${tab.id}`}
                 aria-selected={tab.id === state.activeTabId}
                 tabIndex={tab.id === state.activeTabId ? 0 : -1}
                 aria-label={title(tab)}
-                title={title(tab)}
                 className="tab-select"
                 onClick={() => tabCommand({ type: 'select', id: tab.id })}
                 onKeyDown={(event) => {
@@ -472,8 +688,17 @@ export default function App() {
               >
                 <X size={13} />
               </button>
-            </div>
-          ))}
+            </div>,
+          ])}
+          <button
+            className="new-tab"
+            aria-label="New tab"
+            title={`New tab (${state.settings.shortcuts['new-tab']})`}
+            onClick={() => action('new-tab')}
+          >
+            <Plus size={17} />
+            <span>New tab</span>
+          </button>
         </div>
         {error &&
           (expanded ? (
@@ -490,31 +715,6 @@ export default function App() {
               <CircleAlert size={17} />
             </button>
           ))}
-        {state.workspaces.length > 1 && (
-          <div className="workspace-switcher" aria-label="Workspaces">
-            {state.workspaces.map((w) => (
-              <button
-                key={w.id}
-                title={w.name}
-                aria-label={`Workspace ${w.name}`}
-                aria-pressed={w.id === workspace.id}
-                style={{
-                  borderBottom:
-                    w.id === workspace.id
-                      ? `3px solid ${w.accent}`
-                      : '3px solid transparent',
-                }}
-                onClick={() => {
-                  void window.drift
-                    .workspace({ type: 'select', id: w.id })
-                    .catch(report);
-                }}
-              >
-                {w.icon}
-              </button>
-            ))}
-          </div>
-        )}
         <footer>
           <button
             aria-label="Settings"
@@ -523,6 +723,29 @@ export default function App() {
           >
             <SettingsIcon size={16} />
           </button>
+          {expanded && state.workspaces.length > 1 && (
+            <div className="workspace-switcher" aria-label="Workspaces">
+              {state.workspaces.map((w) => (
+                <button
+                  key={w.id}
+                  title={w.name}
+                  aria-label={`Workspace ${w.name}`}
+                  aria-pressed={w.id === workspace.id}
+                  style={{
+                    color: w.id === workspace.id ? w.accent : undefined,
+                  }}
+                  onClick={() => {
+                    void window.drift
+                      .workspace({ type: 'select', id: w.id })
+                      .catch(report);
+                  }}
+                >
+                  {w.icon}
+                </button>
+              ))}
+            </div>
+          )}
+          {!topLayout && state.extensions && <ExtensionsButton />}
           <button
             aria-label="Shields"
             title="Shields"
@@ -530,6 +753,7 @@ export default function App() {
           >
             <Shield size={16} />
           </button>
+          {!topLayout && expanded && sidebarPin}
         </footer>
         <span role="status" className="sr-only">
           {state.loading
@@ -544,20 +768,20 @@ export default function App() {
             tabIndex={0}
             aria-label="Sidebar width"
             aria-orientation="vertical"
-            aria-valuemin={220}
+            aria-valuemin={208}
             aria-valuemax={360}
             aria-valuenow={state.sidebar.width}
             className="resize-handle"
             style={{
-              right: state.settings.sidebarPosition === 'left' ? 0 : undefined,
-              left: state.settings.sidebarPosition === 'right' ? 0 : undefined,
+              right: state.sidebarPosition === 'left' ? 0 : undefined,
+              left: state.sidebarPosition === 'right' ? 0 : undefined,
             }}
             onKeyDown={(event) => {
               if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                 event.preventDefault();
                 updateSidebar({
                   width: Math.max(
-                    220,
+                    208,
                     Math.min(
                       360,
                       state.sidebar.width +
@@ -575,11 +799,11 @@ export default function App() {
               if (resizing.current)
                 updateSidebar({
                   width: Math.max(
-                    220,
+                    208,
                     Math.min(
                       360,
                       Math.round(
-                        state.settings.sidebarPosition === 'left'
+                        state.sidebarPosition === 'left'
                           ? event.clientX
                           : window.innerWidth - event.clientX,
                       ),
@@ -612,7 +836,7 @@ export default function App() {
             tabIndex={0}
             className="split-divider"
             style={{
-              left: `calc(${state.settings.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : state.compact ? 0 : state.settings.contentInset ? 8 : 0}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 8 : 0) + 8}px) * ${state.split.ratio})`,
+              left: `calc(${(state.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : 0) + (!state.compact && state.settings.contentInset ? 8 : 0)}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 16 : 0) + 8}px) * ${state.split.ratio})`,
             }}
             onPointerDown={(e) => {
               splitting.current = true;
@@ -627,8 +851,7 @@ export default function App() {
                     : state.settings.collapsedWidth;
                 const inset =
                   !state.compact && state.settings.contentInset ? 8 : 0;
-                const x =
-                  state.settings.sidebarPosition === 'left' ? side : inset;
+                const x = (state.sidebarPosition === 'left' ? side : 0) + inset;
                 void window.drift
                   .splitRatio(
                     Math.max(
@@ -636,7 +859,7 @@ export default function App() {
                       Math.min(
                         0.8,
                         (e.clientX - x) /
-                          (window.innerWidth - side - inset - 8),
+                          (window.innerWidth - side - inset * 2 - 8),
                       ),
                     ),
                   )
@@ -669,28 +892,68 @@ export default function App() {
             }}
           />
         )}
-      {state.settings.contentShadow && state.settings.contentInset && (
-        <div
-          className="content-shadow"
-          style={{
-            top: 8,
-            bottom: 8,
-            left:
-              state.settings.sidebarPosition === 'left'
-                ? expanded
-                  ? state.sidebar.width
-                  : state.settings.collapsedWidth
-                : 8,
-            right:
-              state.settings.sidebarPosition === 'right'
-                ? expanded
-                  ? state.sidebar.width
-                  : state.settings.collapsedWidth
-                : 8,
-            borderRadius: state.settings.radius,
-          }}
-        />
-      )}
+      {state.settings.contentShadow &&
+        state.settings.contentInset &&
+        !state.compact &&
+        !state.htmlFullscreen && (
+          <div
+            className="content-shadow"
+            style={{
+              top: 'calc(var(--topinset) + 8px)',
+              bottom: 8,
+              left:
+                8 +
+                (state.sidebarPosition === 'left'
+                  ? expanded
+                    ? state.sidebar.width
+                    : state.settings.collapsedWidth
+                  : 0),
+              right:
+                8 +
+                (state.sidebarPosition === 'right'
+                  ? expanded
+                    ? state.sidebar.width
+                    : state.settings.collapsedWidth
+                  : 0),
+              borderRadius: state.settings.radius,
+            }}
+          />
+        )}
+      {state.url === SETTINGS_URL &&
+        (!state.overlay || state.overlay === 'menu') && (
+          <div
+            className="settings-dialog settings-page"
+            role="main"
+            aria-label="Settings"
+            style={{
+              top:
+                state.compact || !state.settings.contentInset
+                  ? 'var(--topinset)'
+                  : 'calc(var(--topinset) + 8px)',
+              bottom: state.compact || !state.settings.contentInset ? 0 : 8,
+              left:
+                (state.compact
+                  ? 6
+                  : state.sidebarPosition === 'left'
+                    ? expanded
+                      ? state.sidebar.width
+                      : state.settings.collapsedWidth
+                    : 0) +
+                (!state.compact && state.settings.contentInset ? 8 : 0),
+              right:
+                (state.sidebarPosition === 'right' && !state.compact
+                  ? expanded
+                    ? state.sidebar.width
+                    : state.settings.collapsedWidth
+                  : 0) +
+                (!state.compact && state.settings.contentInset ? 8 : 0),
+            }}
+          >
+            <div className="dialog-content">
+              <Settings state={state} />
+            </div>
+          </div>
+        )}
       {overlay && <Overlay key={overlay.kind} event={overlay} state={state} />}
     </>
   );

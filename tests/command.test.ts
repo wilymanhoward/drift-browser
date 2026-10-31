@@ -142,6 +142,7 @@ describe('library storage boundary', () => {
     ]);
     expect(html).toContain('&lt;script&gt;');
     expect(html).not.toContain('<script>alert(1)</script>');
+    expect(html).toContain('Add site');
     const response = await newTabResponse(NEW_TAB_URL, []);
     expect(response.headers.get('Content-Security-Policy')).toContain(
       "script-src 'self'",

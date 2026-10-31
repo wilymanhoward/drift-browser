@@ -79,7 +79,7 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
       )
       .toBe(120);
     await expect(
-      chrome.getByRole('dialog', { name: 'Settings', exact: true }),
+      chrome.getByRole('main', { name: 'Settings', exact: true }),
     ).toBeVisible();
     await chrome.getByRole('button', { name: 'Zoom out', exact: true }).click();
     await expect
@@ -89,7 +89,6 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
         ),
       )
       .toBe(110);
-    await chrome.getByLabel('Close dialog', { exact: true }).click();
     await chrome.evaluate((url) => window.drift.navigate(url), origin + '/two');
     expect(
       (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
@@ -189,7 +188,9 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
         'show-downloads',
       ] as const) {
         await chrome.evaluate((action) => window.drift.action(action), action);
-        await expect(chrome.getByRole('dialog')).toBeVisible();
+        await expect(
+          chrome.getByRole(action === 'show-settings' ? 'main' : 'dialog'),
+        ).toBeVisible();
         if (action === 'show-settings')
           await chrome.getByText('Browser tools', { exact: true }).click();
         const results = await new AxeBuilder({ page: chrome })
@@ -199,7 +200,10 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
         expect(
           results.violations.map((v) => ({
             id: v.id,
-            nodes: v.nodes.map((n) => n.target),
+            nodes: v.nodes.map((n) => ({
+              target: n.target,
+              summary: n.failureSummary,
+            })),
           })),
         ).toEqual([]);
         await chrome.getByLabel('Close dialog', { exact: true }).click();

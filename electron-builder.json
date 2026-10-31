@@ -5,6 +5,7 @@
   "files": [
     "dist/**/*",
     "assets/filters/**/*",
+    "assets/icon/icon.png",
     "package.json",
     "THIRD-PARTY-NOTICES.md",
     "!**/*.map"
@@ -16,11 +17,15 @@
       { "target": "nsis", "arch": ["x64"] },
       { "target": "portable", "arch": ["x64"] }
     ],
+    "icon": "assets/icon/icon.ico",
     "signExecutable": false
   },
   "nsis": {
     "artifactName": "Drift-Setup-${version}-${arch}.${ext}",
     "oneClick": false,
+    "installerIcon": "assets/icon/icon.ico",
+    "uninstallerIcon": "assets/icon/icon.ico",
+    "installerHeaderIcon": "assets/icon/icon.ico",
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false

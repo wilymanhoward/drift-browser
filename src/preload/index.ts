@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { injectBrowserAction } from 'electron-chrome-extensions/browser-action';
 import type { BrowserState, DriftAPI } from '../shared/browser';
 
 const api: DriftAPI = {
@@ -13,6 +14,7 @@ const api: DriftAPI = {
   action: (action) => ipcRenderer.invoke('drift:action', action),
   tab: (command) => ipcRenderer.invoke('drift:tab', command),
   sidebar: (update) => ipcRenderer.invoke('drift:sidebar', update),
+  tabCard: (anchor) => ipcRenderer.invoke('drift:tab-card', anchor),
   closeOverlay: () => ipcRenderer.invoke('drift:close-overlay'),
   getLibrary: () => ipcRenderer.invoke('drift:library'),
   bookmark: (command) => ipcRenderer.invoke('drift:bookmark', command),
@@ -21,10 +23,14 @@ const api: DriftAPI = {
   privacy: (command) => ipcRenderer.invoke('drift:privacy', command),
   settings: (value) => ipcRenderer.invoke('drift:settings', value),
   settingsFile: (mode) => ipcRenderer.invoke('drift:settings-file', mode),
+  detectBrowsers: () => ipcRenderer.invoke('drift:detect-browsers'),
+  importBrowser: (request) =>
+    ipcRenderer.invoke('drift:import-browser', request),
   workspace: (command) => ipcRenderer.invoke('drift:workspace', command),
   splitRatio: (ratio) => ipcRenderer.invoke('drift:split-ratio', ratio),
   getDownloads: () => ipcRenderer.invoke('drift:downloads'),
   download: (command) => ipcRenderer.invoke('drift:download', command),
+  extension: (command) => ipcRenderer.invoke('drift:extension', command),
   onOverlay: (callback) => {
     const listener = (
       _event: Electron.IpcRendererEvent,
@@ -41,3 +47,5 @@ const api: DriftAPI = {
   },
 };
 contextBridge.exposeInMainWorld('drift', api);
+// Exposes window.browserAction, which the toolbar uses for extension buttons.
+injectBrowserAction();

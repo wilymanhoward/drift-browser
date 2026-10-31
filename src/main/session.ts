@@ -5,6 +5,7 @@ import type { Workspace } from '../shared/power';
 import type {
   SidebarPreferences,
   SidebarUpdate,
+  TabCardAnchor,
   TabCommand,
 } from '../shared/browser';
 
@@ -36,20 +37,35 @@ export function parseSidebar(value: unknown): SidebarUpdate {
     !record(value) ||
     Object.keys(value).length === 0 ||
     Object.keys(value).some(
-      (key) => !['pinned', 'width', 'expanded'].includes(key),
+      (key) => !['pinned', 'width', 'expanded', 'topbar'].includes(key),
     )
   )
     throw new Error('Invalid sidebar preferences.');
   if (
     ('pinned' in value && typeof value.pinned !== 'boolean') ||
     ('expanded' in value && typeof value.expanded !== 'boolean') ||
+    ('topbar' in value && typeof value.topbar !== 'boolean') ||
     ('width' in value &&
       (!Number.isInteger(value.width) ||
-        (value.width as number) < 220 ||
+        (value.width as number) < 208 ||
         (value.width as number) > 360))
   )
     throw new Error('Invalid sidebar preferences.');
   return value as SidebarUpdate;
+}
+export function parseTabCardAnchor(value: unknown): TabCardAnchor | null {
+  if (value === null) return null;
+  if (
+    !record(value) ||
+    Object.keys(value).length !== 3 ||
+    typeof value.id !== 'string' ||
+    value.id.length === 0 ||
+    value.id.length > 80 ||
+    !Number.isFinite(value.top) ||
+    !Number.isFinite(value.edge)
+  )
+    throw new Error('Invalid tab card anchor.');
+  return value as unknown as TabCardAnchor;
 }
 export function parseTabCommand(value: unknown): TabCommand {
   if (
@@ -69,6 +85,7 @@ export function parseTabCommand(value: unknown): TabCommand {
       'pin',
       'sleep',
       'split',
+      'detach',
     ].includes(value.type)
   )
     throw new Error('Invalid tab command.');

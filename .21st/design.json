@@ -31,11 +31,14 @@
     "avoid": []
   },
   "decisions": [
+    "Use the user's Brave menu screenshot for the grouped browser-menu structure, keeping Drift surfaces, tokens, font and icons. Add browser-profile migration as a dedicated Settings category with explicit bookmark, preference and extension selections.",
+    "Use the user's supplied 21st glass-calendar CSS treatment on the home panel: one bounded 20px blur, translucent tint, fine light border and 24px corners. Reuse existing clock/search/favorites, with no calendar or new dependencies. Keep sidebar and Settings free of blur and provide an opaque fallback.",
+    "Use the user's Zen screenshot for a content-area Settings page with searchable category rail and grouped controls. Preserve access to sidebar tabs.",
     "Keep the sidebar footer to Settings and Shields. Put secondary browser tools and zoom in a collapsible Settings section, and show workspace icons only when multiple workspaces exist, as requested by the user.",
     "Preserve DESIGN.md: warm neutral chrome, forest-green selection, Segoe UI, Lucide navigation icons.",
     "Use a 48px collapsed rail, 150ms hover expansion, and 220-360px resizable pinned panel.",
     "Reuse local React/CSS controls. Catalog search required authentication; no external components were retrieved.",
-    "Use a centered native dialog over a temporary captured page for command entry; use the existing neutral/green palette for the local clock/search/favorites page."
+    "Use a centered native dialog over a temporary captured page for command entry; keep the local clock/search/favorites on the user's frosted home panel."
   ],
   "evidence": [
     {
