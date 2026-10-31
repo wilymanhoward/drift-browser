@@ -4,3 +4,14 @@ test-results/
 playwright-report/
 *.log
 release/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*

@@ -6,6 +6,7 @@
     "dist/**/*",
     "assets/filters/**/*",
     "assets/icon/icon.png",
+    "src/renderer/fonts/OFL.txt",
     "package.json",
     "THIRD-PARTY-NOTICES.md",
     "!**/*.map"
