@@ -19,7 +19,7 @@
     "test:packaged": "node scripts/smoke-packaged.mjs"
   },
   "dependencies": {
-    "@ghostery/adblocker-content": "2.20.1",
+    "@ghostery/adblocker-content": "2.20.2",
     "@ghostery/adblocker-electron": "2.20.1",
     "electron-chrome-extensions": "4.9.0",
     "electron-chrome-web-store": "0.13.0",
