@@ -1,10 +1,14 @@
 # Drift
 
+New tabs rotate through 12 short, conversational greetings without consecutive repeats. Greetings are chosen locally and keep Drift's existing typography, search and favourites layout.
+
 Phases 1 through 7 of a personal Chromium desktop browser for Windows. Electron 45, strict TypeScript, React, and Vite.
 
 The sidebar footer contains only Settings and Shields. Open **Settings → Browser tools** for history, bookmarks, downloads, workspace management, find, print, compact/split/fullscreen controls, reopening a tab, and page zoom. Workspace icons appear only when more than one workspace exists. All keyboard shortcuts remain available.
 
 ## Run
+
+To use Drift as the default browser for web links, install the Windows setup executable, then open **Settings → General → Make default**. In Windows Default apps, choose Drift and select **Set default** (on Windows 10, choose Drift under Web browser). The installer registers HTTP/HTTPS handling for the current user; it does not replace your current default automatically. Portable and development builds do not offer this action. Existing windows receive external links as new regular tabs, including when a private window is focused.
 
 Use Node.js 22.12+ or a current supported release and npm.
 
@@ -90,6 +94,9 @@ Validation: [Phase 5](PHASE-5.md).
 - Drop a tab onto Essentials, use the pin button, or choose Pin in its menu. Pinned tiles form a grid; drag them to regular tabs to unpin. The menu can move tabs to another workspace. Removing a workspace preserves its tabs by moving them to another workspace.
 - Ctrl+Alt+C hides the sidebar. A six-pixel edge on the chosen side reveals it over a captured frame; the live page returns on exit. The frame is held briefly while the sidebar is hovered, avoiding native-view layering problems.
 - Ctrl+Shift+S splits the current and another tab in the workspace. The tab menu can choose a specific partner. Drag the divider or focus it and use Left/Right to resize. Clicking a pane makes it the navigation target. Toggle split again to return to one page.
+- Hold Ctrl and left-click a web link to open a temporary preview beside its source page. The preview has no sidebar tab, is excluded from session restore and reuses the same pane for further Ctrl-clicked links. Middle-click keeps its normal tab-opening behavior.
+- A circular X floats at the top-right of the preview, without a reserved header row. It stays in place when scrolling and closes the preview with a short fade-and-slide when clicked; reduced motion skips the animation. Escape also dismisses it after Find has closed. Switching to another tab/workspace, closing its source or closing the window discards the preview. Ordinary browsing history and site storage still follow the window's privacy settings.
+- For a regular two-tab split, the close button exits split view and keeps both tabs. Ctrl+Shift+S remains available for regular splits and to dismiss a preview.
 - Eligible inactive tabs unload after the chosen timeout (15 minutes by default), checked every 30 seconds. At most six background tabs stay awake by default (Settings → Background tabs kept awake); beyond that, the least recently used sleep immediately. When less than 15% of system memory is free, tabs idle for a minute sleep early. Active, split, pinned, loading, audible and DevTools tabs are excluded. The tab menu can sleep a background tab immediately. Selecting it recreates the renderer and navigation history; unsaved page/form state may be lost.
 - Ctrl+J opens downloads with progress, pause/resume, cancel, and Show in folder. Files use the native save dialog and never open automatically. The list lasts for the window; closing the window cancels its active transfers. Resume depends on server support.
 - Sessions preserve workspace definitions, tab membership/order and pins. Old sessions migrate to Personal. Compact/split presentation and download records are not persisted.

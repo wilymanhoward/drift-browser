@@ -31,6 +31,10 @@
     "avoid": []
   },
   "decisions": [
+    "Place the Windows default-browser option in General settings using an existing preference row and text button. Show current status, open the Windows app-specific default settings, and require the installed build without adding prompts or banners.",
+    "Vary new-tab greetings with 12 local conversational phrases and no consecutive repeats, keeping the existing Drift layout and type pairing. Add a 180ms fade/slide only when the floating preview X is clicked; reduced motion skips it.",
+    "Float a circular X inside the preview's top-right corner and remove its reserved header row. Preserve the source/preview full height, close on trusted user activation, and add no extra renderer or background timer.",
+    "Ctrl+left-click opens a temporary side-by-side preview inspired by Zen, without a sidebar tab. Reuse the existing split layout and right-pane close control; release the preview on dismissal and exclude it from session restoration. Keep normal two-tab split view available.",
     "Use the user's Brave menu screenshot for the grouped browser-menu structure, keeping Drift surfaces, tokens, font and icons. Add browser-profile migration as a dedicated Settings category with explicit bookmark, preference and extension selections.",
     "Use the user's supplied 21st glass-calendar CSS treatment on the home panel: one bounded 20px blur, translucent tint, fine light border and 24px corners. Reuse existing clock/search/favorites, with no calendar or new dependencies. Keep sidebar and Settings free of blur and provide an opaque fallback.",
     "Use the user's Zen screenshot for a content-area Settings page with searchable category rail and grouped controls. Preserve access to sidebar tabs.",

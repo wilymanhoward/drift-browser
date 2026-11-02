@@ -22,6 +22,7 @@
     "signExecutable": false
   },
   "nsis": {
+    "include": "build/installer.nsh",
     "artifactName": "Drift-Setup-${version}-${arch}.${ext}",
     "oneClick": false,
     "installerIcon": "assets/icon/icon.ico",

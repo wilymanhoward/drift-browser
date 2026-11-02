@@ -46,9 +46,15 @@ import {
 } from './browser-import';
 import { parseBrowserImport } from '../shared/browser-import';
 import type { BrowserImportResult } from '../shared/browser-import';
+import { defaultBrowser } from './default-browser';
+import { externalLink } from '../shared/external-links';
+import { enableGoogleSignIn } from './google-signin';
 
 app.setName('Drift');
 app.enableSandbox();
+enableGoogleSignIn();
+const primaryInstance = app.requestSingleInstanceLock();
+if (!primaryInstance) app.quit();
 app.commandLine.appendSwitch('test-third-party-cookie-phaseout');
 // Chromium keeps a pre-started renderer ready for the next navigation; Drift
 // trades that small speedup for one fewer idle process.
@@ -536,6 +542,7 @@ async function createWindow(
     });
   };
   handle('drift:state', 0, state);
+  handle('drift:default-browser', 1, defaultBrowser);
   handle('drift:find', 1, (input) => pageTools.findCommand(parseFind(input)));
   handle('drift:workspace', 1, (input) =>
     tabs.workspace(parseWorkspace(input)),
@@ -796,29 +803,72 @@ async function createWindow(
   save();
   win.show();
 }
-void app
-  .whenReady()
-  .then(async () => {
-    await loadFilters();
-    for (const target of [session.defaultSession]) {
-      target.setPermissionRequestHandler((_contents, _permission, callback) =>
-        callback(false),
-      );
-      target.setPermissionCheckHandler(() => false);
+let linksReady = false;
+let openingLinks = false;
+const firstLink = externalLink(process.argv);
+const pendingLinks: string[] = firstLink ? [firstLink] : [];
+async function openPendingLinks() {
+  if (!linksReady || openingLinks) return;
+  openingLinks = true;
+  try {
+    while (pendingLinks.length) {
+      const url = pendingLinks.shift()!;
+      let target =
+        [...windowHandles].find(
+          (handle) => !handle.profile.privateWindow && handle.win.isFocused(),
+        ) ?? [...windowHandles].find((handle) => !handle.profile.privateWindow);
+      if (!target) {
+        await createWindow();
+        target = [...windowHandles].find(
+          (handle) => !handle.profile.privateWindow,
+        )!;
+      }
+      if (target.tabs.state.overlay) target.tabs.closeOverlay();
+      target.tabs.create(url);
+      if (target.win.isMinimized()) target.win.restore();
+      target.win.show();
+      target.win.focus();
     }
-    await createWindow();
-    screen.on('display-metrics-changed', updateWindowPositions);
-    screen.on('display-removed', updateWindowPositions);
-    screen.on('display-added', updateWindowPositions);
-    app.on('activate', () => {
-      if (!BrowserWindow.getAllWindows().length) void createWindow();
+  } finally {
+    openingLinks = false;
+  }
+}
+app.on('second-instance', (_event, argv) => {
+  const url = externalLink(argv);
+  if (url && pendingLinks.length < 32) pendingLinks.push(url);
+  void openPendingLinks().catch(console.error);
+  if (!url) {
+    const win = BrowserWindow.getAllWindows()[0];
+    if (win?.isMinimized()) win.restore();
+    win?.focus();
+  }
+});
+if (primaryInstance)
+  void app
+    .whenReady()
+    .then(async () => {
+      await loadFilters();
+      for (const target of [session.defaultSession]) {
+        target.setPermissionRequestHandler((_contents, _permission, callback) =>
+          callback(false),
+        );
+        target.setPermissionCheckHandler(() => false);
+      }
+      await createWindow();
+      linksReady = true;
+      await openPendingLinks();
+      screen.on('display-metrics-changed', updateWindowPositions);
+      screen.on('display-removed', updateWindowPositions);
+      screen.on('display-added', updateWindowPositions);
+      app.on('activate', () => {
+        if (!BrowserWindow.getAllWindows().length) void createWindow();
+      });
+    })
+    .catch((error) => {
+      console.error(error);
+      app.quit();
+      process.exitCode = 1;
     });
-  })
-  .catch((error) => {
-    console.error(error);
-    app.quit();
-    process.exitCode = 1;
-  });
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
 });

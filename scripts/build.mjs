@@ -29,6 +29,7 @@ export async function buildElectron() {
     entryPoints: {
       'preload/index': 'src/preload/index.ts',
       'preload/shields': 'src/preload/shields.ts',
+      'preload/preview': 'src/preload/preview.ts',
     },
     external: ['electron'],
   });

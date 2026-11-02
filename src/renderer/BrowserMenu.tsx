@@ -158,6 +158,7 @@ export default function BrowserMenu({
               disabled={
                 (action === 'show-extensions' && !state.extensions) ||
                 (action === 'split' &&
+                  !state.split &&
                   state.tabs.filter(
                     (tab) => tab.workspaceId === state.activeWorkspaceId,
                   ).length < 2)

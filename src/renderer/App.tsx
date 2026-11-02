@@ -32,6 +32,7 @@ import type {
   TabState,
   OverlayEvent,
 } from '../shared/browser';
+import { SPLIT_TOOLBAR_HEIGHT } from '../shared/browser';
 import Overlay from './Overlay';
 import Settings from './Settings';
 import FindBar from './FindBar';
@@ -826,71 +827,98 @@ export default function App() {
         !state.htmlFullscreen &&
         !state.overlay &&
         !state.compactPreview && (
-          <div
-            role="separator"
-            aria-label="Split view width"
-            aria-orientation="vertical"
-            aria-valuemin={20}
-            aria-valuemax={80}
-            aria-valuenow={Math.round(state.split.ratio * 100)}
-            tabIndex={0}
-            className="split-divider"
-            style={{
-              left: `calc(${(state.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : 0) + (!state.compact && state.settings.contentInset ? 8 : 0)}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 16 : 0) + 8}px) * ${state.split.ratio})`,
-            }}
-            onPointerDown={(e) => {
-              splitting.current = true;
-              e.currentTarget.setPointerCapture(e.pointerId);
-            }}
-            onPointerMove={(e) => {
-              if (splitting.current) {
-                const side = state.compact
-                  ? 6
-                  : expanded
-                    ? state.sidebar.width
-                    : state.settings.collapsedWidth;
-                const inset =
-                  !state.compact && state.settings.contentInset ? 8 : 0;
-                const x = (state.sidebarPosition === 'left' ? side : 0) + inset;
-                void window.drift
-                  .splitRatio(
-                    Math.max(
-                      0.2,
-                      Math.min(
-                        0.8,
-                        (e.clientX - x) /
-                          (window.innerWidth - side - inset * 2 - 8),
+          <>
+            {!state.split.preview && (
+              <button
+                className="split-close"
+                aria-label="Close split view"
+                title="Close split view"
+                style={{
+                  top: `calc(var(--topinset, 0px) + ${(!state.compact && state.settings.contentInset ? 8 : 0) + (state.find ? 48 : 0) + 2}px)`,
+                  right:
+                    (state.sidebarPosition === 'right'
+                      ? state.compact
+                        ? 6
+                        : expanded
+                          ? state.sidebar.width
+                          : state.settings.collapsedWidth
+                      : 0) +
+                    (!state.compact && state.settings.contentInset ? 8 : 0) +
+                    4,
+                  height: SPLIT_TOOLBAR_HEIGHT - 4,
+                }}
+                onClick={() => action('split')}
+              >
+                <X size={15} />
+              </button>
+            )}
+            <div
+              role="separator"
+              aria-label="Split view width"
+              aria-orientation="vertical"
+              aria-valuemin={20}
+              aria-valuemax={80}
+              aria-valuenow={Math.round(state.split.ratio * 100)}
+              tabIndex={0}
+              className="split-divider"
+              style={{
+                left: `calc(${(state.sidebarPosition === 'left' ? (state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) : 0) + (!state.compact && state.settings.contentInset ? 8 : 0)}px + (100vw - ${(state.compact ? 6 : expanded ? state.sidebar.width : state.settings.collapsedWidth) + (!state.compact && state.settings.contentInset ? 16 : 0) + 8}px) * ${state.split.ratio})`,
+              }}
+              onPointerDown={(e) => {
+                splitting.current = true;
+                e.currentTarget.setPointerCapture(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (splitting.current) {
+                  const side = state.compact
+                    ? 6
+                    : expanded
+                      ? state.sidebar.width
+                      : state.settings.collapsedWidth;
+                  const inset =
+                    !state.compact && state.settings.contentInset ? 8 : 0;
+                  const x =
+                    (state.sidebarPosition === 'left' ? side : 0) + inset;
+                  void window.drift
+                    .splitRatio(
+                      Math.max(
+                        0.2,
+                        Math.min(
+                          0.8,
+                          (e.clientX - x) /
+                            (window.innerWidth - side - inset * 2 - 8),
+                        ),
                       ),
-                    ),
-                  )
-                  .catch(report);
-              }
-            }}
-            onPointerUp={(e) => {
-              splitting.current = false;
-              e.currentTarget.releasePointerCapture(e.pointerId);
-            }}
-            onPointerCancel={() => {
-              splitting.current = false;
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-                e.preventDefault();
-                void window.drift
-                  .splitRatio(
-                    Math.max(
-                      0.2,
-                      Math.min(
-                        0.8,
-                        state.split!.ratio +
-                          (e.key === 'ArrowRight' ? 0.05 : -0.05),
+                    )
+                    .catch(report);
+                }
+              }}
+              onPointerUp={(e) => {
+                splitting.current = false;
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              }}
+              onPointerCancel={() => {
+                splitting.current = false;
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                  e.preventDefault();
+                  void window.drift
+                    .splitRatio(
+                      Math.max(
+                        0.2,
+                        Math.min(
+                          0.8,
+                          state.split!.ratio +
+                            (e.key === 'ArrowRight' ? 0.05 : -0.05),
+                        ),
                       ),
-                    ),
-                  )
-                  .catch(report);
-              }
-            }}
-          />
+                    )
+                    .catch(report);
+                }
+              }}
+            />
+          </>
         )}
       {state.settings.contentShadow &&
         state.settings.contentInset &&

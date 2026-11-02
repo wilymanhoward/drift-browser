@@ -3,6 +3,21 @@ import path from 'node:path';
 import type { Bookmark } from '../shared/browser';
 import { DEFAULT_SETTINGS, searchTemplate, themeCSS } from '../shared/settings';
 import type { Settings } from '../shared/settings';
+const GREETINGS = [
+  ['Where to ', 'next?'],
+  ['What’s on your ', 'mind?'],
+  ['What are we ', 'exploring?'],
+  ['Let’s find ', 'something new.'],
+  ['A fresh ', 'start.'],
+  ['Where shall we ', 'begin?'],
+  ['Follow your ', 'curiosity.'],
+  ['What caught your ', 'interest?'],
+  ['Ready for a new ', 'idea?'],
+  ['What will you ', 'discover?'],
+  ['A little room to ', 'wander.'],
+  ['What would you like to ', 'find?'],
+];
+let lastGreeting = -1;
 function escapeHTML(value: string): string {
   return value.replace(
     /[&<>"']/g,
@@ -24,6 +39,14 @@ export function newTabHTML(
   bookmarks: Bookmark[],
   settings = DEFAULT_SETTINGS,
 ): string {
+  lastGreeting =
+    lastGreeting < 0
+      ? Math.floor(Math.random() * GREETINGS.length)
+      : (lastGreeting +
+          1 +
+          Math.floor(Math.random() * (GREETINGS.length - 1))) %
+        GREETINGS.length;
+  const [greeting, accent] = GREETINGS[lastGreeting];
   const tiles = bookmarks
     .slice(0, 8)
     .map((item, index) => {
@@ -33,7 +56,7 @@ export function newTabHTML(
     .join('');
   const favorites = `${tiles}<a class="tile add" href="drift://newtab/?add-site"><span class="tile-icon" aria-hidden="true">+</span><span class="tile-name">Add site</span></a>`;
   // Zen's pairing: a grotesque for the words, an italic serif for the accent.
-  return `<!doctype html><html lang="en" data-glass="${settings.glassEffect}" data-wallpaper="${settings.wallpaper !== ''}" data-search="${escapeHTML(searchTemplate(settings))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New tab</title><link rel="stylesheet" href="/newtab.css"><script defer src="/newtab.js"></script></head><body><a class="gear" href="drift://newtab/?settings" aria-label="Settings" title="Settings">${GEAR}</a><main><h1 class="greeting">Where to <em>next?</em></h1><form id="search" role="search"><label class="sr-only" for="query">Search or enter an address</label>${SEARCH}<input id="query" placeholder="Search or enter address" autocomplete="off" spellcheck="false"><button type="submit" aria-label="Go" title="Go">${ARROW}</button></form><p role="alert" id="error"></p><section class="favorites" aria-labelledby="favorites-title"><h2 class="sr-only" id="favorites-title">Favourites</h2><nav aria-label="Favourite sites">${favorites}</nav></section></main></body></html>`;
+  return `<!doctype html><html lang="en" data-glass="${settings.glassEffect}" data-wallpaper="${settings.wallpaper !== ''}" data-search="${escapeHTML(searchTemplate(settings))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New tab</title><link rel="stylesheet" href="/newtab.css"><script defer src="/newtab.js"></script></head><body><a class="gear" href="drift://newtab/?settings" aria-label="Settings" title="Settings">${GEAR}</a><main><h1 class="greeting">${escapeHTML(greeting)}<em>${escapeHTML(accent)}</em></h1><form id="search" role="search"><label class="sr-only" for="query">Search or enter an address</label>${SEARCH}<input id="query" placeholder="Search or enter address" autocomplete="off" spellcheck="false"><button type="submit" aria-label="Go" title="Go">${ARROW}</button></form><p role="alert" id="error"></p><section class="favorites" aria-labelledby="favorites-title"><h2 class="sr-only" id="favorites-title">Favourites</h2><nav aria-label="Favourite sites">${favorites}</nav></section></main></body></html>`;
 }
 export async function newTabResponse(
   url: string,

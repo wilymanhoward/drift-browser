@@ -3,6 +3,8 @@ import { injectBrowserAction } from 'electron-chrome-extensions/browser-action';
 import type { BrowserState, DriftAPI } from '../shared/browser';
 
 const api: DriftAPI = {
+  defaultBrowser: (command) =>
+    ipcRenderer.invoke('drift:default-browser', command),
   getState: () => ipcRenderer.invoke('drift:state'),
   find: (command) => ipcRenderer.invoke('drift:find', command),
   onFindFocus: (callback) => {

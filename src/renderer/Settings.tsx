@@ -18,6 +18,7 @@ import type { Settings as Preferences } from '../shared/settings';
 import Workspaces from './Workspaces';
 import Shields from './Shields';
 import BrowserImport from './BrowserImport';
+import DefaultBrowser from './DefaultBrowser';
 
 function Field({
   label,
@@ -174,9 +175,11 @@ export default function Settings({ state }: { state: BrowserState }) {
       label: 'General',
       icon: GeneralIcon,
       description: 'Make Drift work the way you browse.',
-      keywords: 'startup restore session new tab behavior',
+      keywords:
+        'startup restore session new tab behavior default browser windows links',
       body: (
         <div className="settings-card settings-fields">
+          <DefaultBrowser />
           {choice('startup', 'Startup', [
             ['restore', 'Restore session'],
             ['new-tab', 'New tab'],
@@ -427,6 +430,7 @@ export default function Settings({ state }: { state: BrowserState }) {
                 disabled={
                   (action === 'reopen-tab' && !state.canReopen) ||
                   (action === 'split' &&
+                    !state.split &&
                     state.tabs.filter(
                       (t) => t.workspaceId === state.activeWorkspaceId,
                     ).length < 2)

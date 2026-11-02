@@ -17,6 +17,12 @@ import type {
 } from '../shared/privacy';
 import { isWebURL } from '../shared/navigation';
 import { enableCosmetics } from './cosmetics';
+import {
+  cleanChromeUserAgent,
+  firefoxUserAgent,
+  isGoogleSignIn,
+  signInHeaders,
+} from '../shared/google-signin';
 
 // Ship network rules, cosmetics and their scriptlets together so the first
 // page never starts with only half of the blocking rules.
@@ -269,12 +275,11 @@ export class PrivacyController {
   }
   private attach() {
     const session = this.session;
-    session.setUserAgent(
-      session
-        .getUserAgent()
-        .replace(/\s(?:Drift|Electron|drift-browser)\/[^ ]+/g, '')
-        .replace(/Chrome\/(\d+)\.[\d.]+/, 'Chrome/$1.0.0.0'),
-    );
+    const userAgent = cleanChromeUserAgent(session.getUserAgent());
+    session.setUserAgent(userAgent);
+    // Service workers and other contexts without a session UA fall back here.
+    app.userAgentFallback = cleanChromeUserAgent(app.userAgentFallback);
+    const signInAgent = firefoxUserAgent();
     enableCosmetics(
       session,
       () => engine,
@@ -348,7 +353,9 @@ export class PrivacyController {
       );
     });
     session.webRequest.onBeforeSendHeaders((details, callback) => {
-      const headers = { ...details.requestHeaders };
+      const headers = isGoogleSignIn(details.url)
+        ? signInHeaders(details.requestHeaders, signInAgent)
+        : { ...details.requestHeaders };
       if (
         details.resourceType !== 'mainFrame' &&
         thirdParty(details.url, top(details.webContentsId))

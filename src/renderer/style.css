@@ -717,6 +717,19 @@ aside.collapsed footer > button:last-child {
   height: 100vh;
   object-fit: fill;
 }
+.split-close {
+  position: fixed;
+  z-index: 2;
+  width: 28px;
+  min-height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  -webkit-app-region: no-drag;
+}
+.split-close:hover {
+  background: var(--glass);
+  color: var(--text);
+}
 .split-divider {
   position: fixed;
   top: calc(var(--topinset, 0px) + 8px);

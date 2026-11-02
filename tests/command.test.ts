@@ -9,6 +9,26 @@ import {
 import { newTabHTML, newTabResponse } from '../src/main/new-tab';
 
 describe('command navigation', () => {
+  it('varies consecutive new-tab greetings even when random picks repeat', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    try {
+      const headings = Array.from(
+        { length: 24 },
+        () => newTabHTML([]).match(/<h1 class="greeting">(.*?)<\/h1>/)![1],
+      );
+      expect(new Set(headings).size).toBe(12);
+      expect(
+        headings.every(
+          (heading, index) => !index || heading !== headings[index - 1],
+        ),
+      ).toBe(true);
+      expect(
+        headings.every((heading) => /<em>[^<]+<\/em>$/.test(heading)),
+      ).toBe(true);
+    } finally {
+      random.mockRestore();
+    }
+  });
   it('bounds encoded addresses while retaining matches late in long titles', () => {
     expect(() => resolveInput('長'.repeat(1000))).toThrow();
     expect(

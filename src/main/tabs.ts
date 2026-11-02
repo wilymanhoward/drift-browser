@@ -4,15 +4,18 @@ import {
   WebContentsView,
   screen,
   systemPreferences,
+  nativeTheme,
 } from 'electron';
 import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { DEFAULT_WORKSPACE } from '../shared/power';
 import type { Workspace, WorkspaceCommand } from '../shared/power';
 import {
   CONTENT_INSET,
   HOT_ZONE,
   TOP_BAR,
+  SPLIT_TOOLBAR_HEIGHT,
   TOPBAR_SLIDE,
 } from '../shared/browser';
 import type {
@@ -37,6 +40,7 @@ import {
 } from '../shared/navigation';
 
 interface Tab {
+  previewSourceId?: string;
   view: WebContentsView;
   state: TabState;
   navigationURL: string;
@@ -73,6 +77,10 @@ export class TabManager {
   private compactPreview: BrowserState['compactPreview'] = null;
   private peekVersion = 0;
   private split: BrowserState['split'] = null;
+  private previewClosing: {
+    id: string;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
   private htmlFullscreen = false;
   private topbarShown = false;
   private cursorTimer: ReturnType<typeof setInterval>;
@@ -156,17 +164,14 @@ export class TabManager {
   }
   get state(): Omit<
     BrowserState,
-    | 'storageError'
-    | 'settings'
-    | 'dark'
-    | 'find'
-    | 'zoomPercent'
-    | 'extensions'
+    'storageError' | 'settings' | 'dark' | 'find' | 'zoomPercent' | 'extensions'
   > {
     return {
       ...this.active.state,
-      tabs: this.tabs.map((tab) => ({ ...tab.state })),
-      activeTabId: this.activeId,
+      tabs: this.tabs
+        .filter((tab) => !tab.previewSourceId)
+        .map((tab) => ({ ...tab.state })),
+      activeTabId: this.active.previewSourceId ?? this.activeId,
       maximized: this.win.isMaximized(),
       canReopen: this.closed.length > 0,
       sidebar: { ...this.sidebar },
@@ -185,15 +190,17 @@ export class TabManager {
   get saved(): SavedSession {
     return {
       version: 1,
-      tabs: this.tabs.map(({ state }) => ({
-        id: state.id,
-        url: state.url,
-        title: state.title.slice(0, 1024),
-        muted: state.muted,
-        workspaceId: state.workspaceId,
-        pinned: state.pinned,
-      })),
-      activeTabId: this.activeId,
+      tabs: this.tabs
+        .filter((tab) => !tab.previewSourceId)
+        .map(({ state }) => ({
+          id: state.id,
+          url: state.url,
+          title: state.title.slice(0, 1024),
+          muted: state.muted,
+          workspaceId: state.workspaceId,
+          pinned: state.pinned,
+        })),
+      activeTabId: this.active.previewSourceId ?? this.activeId,
       sidebar: { pinned: this.sidebar.pinned, width: this.sidebar.width },
       workspaces: this.workspaces,
       activeWorkspaceId: this.workspaceId,
@@ -222,6 +229,7 @@ export class TabManager {
     select = true,
     history?: ClosedTab,
     deferred = false,
+    previewSourceId?: string,
   ): Tab {
     const target = navigationURL(url);
     const view = new WebContentsView({
@@ -231,9 +239,13 @@ export class TabManager {
         nodeIntegration: false,
         partition: this.environment.partition,
         navigateOnDragDrop: false,
+        ...(previewSourceId && {
+          preload: path.join(__dirname, '../preload/preview.cjs'),
+        }),
       },
     });
     const tab: Tab = {
+      previewSourceId,
       view,
       navigationURL: target,
       lastActive: Date.now(),
@@ -293,6 +305,25 @@ export class TabManager {
     const page = tab.view.webContents;
     const { on, off } = listeners(page);
     const untrack = this.environment.track(page, adopted);
+    if (tab.previewSourceId) {
+      on('dom-ready', () => this.updatePreviewControl(tab));
+      on('ipc-message', (event, channel, ...args) => {
+        if (event.senderFrame !== page.mainFrame || this.preview !== tab)
+          return;
+        if (
+          channel === 'drift:close-preview' &&
+          args.length === 1 &&
+          typeof args[0] === 'boolean'
+        )
+          this.animatePreviewClose(tab, args[0]);
+        else if (
+          channel === 'drift:preview-close-finished' &&
+          !args.length &&
+          this.previewClosing?.id === tab.state.id
+        )
+          this.close(tab.state.id);
+      });
+    }
     tab.unwire = () => {
       untrack();
       off();
@@ -373,8 +404,21 @@ export class TabManager {
     on('will-redirect', (event, url) => {
       if (!isPageURL(url)) event.preventDefault();
     });
-    page.setWindowOpenHandler(({ url }) => {
-      if (isWebURL(url)) this.create(url);
+    let splitClickAt = 0;
+    on('before-mouse-event', (_event, mouse) => {
+      if (mouse.type !== 'mouseDown' && mouse.type !== 'mouseUp') return;
+      splitClickAt = mouse.button === 'left' ? Date.now() : 0;
+    });
+    page.setWindowOpenHandler(({ url, disposition }) => {
+      // Chromium distinguishes modified clicks; the mouse button excludes middle-click.
+      const splitLink =
+        disposition === 'background-tab' && Date.now() - splitClickAt < 1000;
+      splitClickAt = 0;
+      if (isWebURL(url)) {
+        if (splitLink) {
+          this.openPreview(tab, url);
+        } else this.create(url);
+      }
       return { action: 'deny' };
     });
     on('before-input-event', (event, input) => {
@@ -412,6 +456,7 @@ export class TabManager {
   select(id: string) {
     if (!this.tabs.some((tab) => tab.state.id === id))
       throw new Error('Unknown tab.');
+    if (this.preview && !this.split?.ids.includes(id)) this.dismissPreview();
     const chosen = this.wake(id);
     const changedTab = id !== this.activeId;
     if (this.workspaceId !== chosen.state.workspaceId) this.split = null;
@@ -433,6 +478,13 @@ export class TabManager {
     this.limitAwake();
   }
   close(id: string) {
+    if (this.preview?.state.id === id) {
+      this.dismissPreview();
+      this.layout();
+      this.emit();
+      return;
+    }
+    if (this.preview?.previewSourceId === id) this.dismissPreview();
     const index = this.tabs.findIndex((tab) => tab.state.id === id);
     if (index < 0) throw new Error('Unknown tab.');
     const tab = this.tabs[index];
@@ -479,6 +531,9 @@ export class TabManager {
   }
   // Takes a tab out of this window without closing its page.
   detach(id: string): MovedTab {
+    if (this.preview?.state.id === id)
+      throw new Error('Preview pages cannot be moved.');
+    if (this.preview?.previewSourceId === id) this.dismissPreview();
     const index = this.tabs.findIndex((tab) => tab.state.id === id);
     if (index < 0) throw new Error('Unknown tab.');
     const tab = this.tabs[index];
@@ -537,6 +592,7 @@ export class TabManager {
     if (!tab) throw new Error('Unknown tab.');
     const peers = this.tabs.filter(
       (t) =>
+        !t.previewSourceId &&
         t.state.workspaceId === tab.state.workspaceId &&
         t.state.pinned === tab.state.pinned,
     );
@@ -808,6 +864,7 @@ export class TabManager {
     else this.create(SETTINGS_URL);
   }
   workspace(command: WorkspaceCommand) {
+    if (command.type !== 'save') this.dismissPreview();
     if (command.type === 'save') {
       const existing = this.workspaces.find((w) => w.id === command.id);
       if (command.id && !existing) throw new Error('Unknown workspace');
@@ -887,7 +944,75 @@ export class TabManager {
     this.layout();
     this.emit();
   }
+  private get preview() {
+    return this.tabs.find((tab) => tab.previewSourceId);
+  }
+  private updatePreviewControl(tab: Tab) {
+    const settings = this.environment.settings();
+    tab.view.webContents.send('drift:preview-control', {
+      dark:
+        settings.theme === 'dark' ||
+        (settings.theme === 'system' && nativeTheme.shouldUseDarkColors),
+      accent: settings.accent,
+      zoom: tab.view.webContents.getZoomFactor(),
+      visible: !this.htmlFullscreen,
+    });
+  }
+  private dismissPreview() {
+    clearTimeout(this.previewClosing?.timer);
+    this.previewClosing = null;
+    const preview = this.preview;
+    if (!preview) return;
+    if (this.activeId === preview.state.id) {
+      this.environment.closeFind();
+      this.activeId = preview.previewSourceId!;
+      if (this.htmlFullscreen) {
+        this.htmlFullscreen = false;
+        this.win.setFullScreen(false);
+      }
+    }
+    this.split = null;
+    preview.unwire?.();
+    this.tabs.splice(this.tabs.indexOf(preview), 1);
+    this.win.contentView.removeChildView(preview.view);
+    preview.view.webContents.close();
+  }
+  private openPreview(source: Tab, url: string) {
+    const sourceId = source.previewSourceId ?? source.state.id;
+    if (this.previewClosing) this.dismissPreview();
+    const existing = this.preview;
+    if (existing?.previewSourceId === sourceId) {
+      this.select(existing.state.id);
+      void this.navigate(url);
+      return;
+    }
+    this.dismissPreview();
+    this.select(sourceId);
+    const preview = this.create(
+      url,
+      undefined,
+      false,
+      undefined,
+      false,
+      sourceId,
+    );
+    this.split = {
+      ids: [sourceId, preview.state.id],
+      ratio: 0.5,
+      preview: true,
+    };
+    this.layout();
+    this.emit();
+  }
   toggleSplit(id?: string) {
+    if (this.preview) {
+      this.dismissPreview();
+      if (!id) {
+        this.layout();
+        this.emit();
+        return;
+      }
+    }
     if (this.split && !id) this.split = null;
     else {
       const other = id
@@ -906,6 +1031,23 @@ export class TabManager {
     this.layout();
     this.emit();
   }
+  private animatePreviewClose(tab: Tab, reducedMotion: boolean) {
+    if (this.previewClosing) return;
+    if (
+      reducedMotion ||
+      systemPreferences.getAnimationSettings().prefersReducedMotion
+    ) {
+      this.close(tab.state.id);
+      return;
+    }
+    this.previewClosing = {
+      id: tab.state.id,
+      timer: setTimeout(() => {
+        if (this.preview === tab) this.close(tab.state.id);
+      }, 300),
+    };
+    tab.view.webContents.send('drift:preview-close-animation', 180);
+  }
   setSplitRatio(ratio: unknown) {
     if (
       typeof ratio !== 'number' ||
@@ -920,6 +1062,7 @@ export class TabManager {
   }
   private canSleep(tab: Tab) {
     return (
+      !tab.previewSourceId &&
       !tab.state.unloaded &&
       tab.state.id !== this.activeId &&
       !this.split?.ids.includes(tab.state.id) &&
@@ -1037,6 +1180,18 @@ export class TabManager {
       this.active.view.webContents.focus();
       return true;
     }
+    if (
+      input.type === 'keyDown' &&
+      input.key === 'Escape' &&
+      !this.overlay &&
+      this.preview
+    ) {
+      this.dismissPreview();
+      this.layout();
+      this.emit();
+      this.active.view.webContents.focus();
+      return true;
+    }
     if (input.type === 'keyDown') {
       const chord = [
         input.control || input.meta ? 'Ctrl' : '',
@@ -1127,9 +1282,12 @@ export class TabManager {
     else if (key === 'tab') {
       if (this.overlay) this.closeOverlay();
       const tabs = this.tabs.filter(
-        (t) => t.state.workspaceId === this.workspaceId,
+        (t) => !t.previewSourceId && t.state.workspaceId === this.workspaceId,
       );
-      const index = tabs.indexOf(this.active);
+      const index = tabs.findIndex(
+        (tab) =>
+          tab.state.id === (this.active.previewSourceId ?? this.activeId),
+      );
       this.select(
         tabs[(index + (input.shift ? -1 : 1) + tabs.length) % tabs.length].state
           .id,
@@ -1169,11 +1327,16 @@ export class TabManager {
           : '#ffffff',
       );
       const second = split?.ids[1] === tab.state.id;
+      const splitToolbar = second && !split?.preview ? SPLIT_TOOLBAR_HEIGHT : 0;
+      if (tab.previewSourceId) this.updatePreviewControl(tab);
       tab.view.setBounds({
         x: x + (second ? first + 8 : 0),
-        y: top + inset + findHeight,
+        y: top + inset + findHeight + splitToolbar,
         width: second ? available - first - 8 : first,
-        height: Math.max(0, height - top - inset * 2 - findHeight),
+        height: Math.max(
+          0,
+          height - top - inset * 2 - findHeight - splitToolbar,
+        ),
       });
       tab.view.setBorderRadius(
         !this.compact && !this.htmlFullscreen && settings.contentInset
@@ -1195,6 +1358,7 @@ export class TabManager {
     clearInterval(this.sleepTimer);
     clearInterval(this.cursorTimer);
     clearInterval(this.slideTimer);
+    clearTimeout(this.previewClosing?.timer);
     for (const tab of this.tabs)
       if (tab.view.webContents && !tab.view.webContents.isDestroyed())
         tab.view.webContents.close();

@@ -4,6 +4,7 @@ export const CONTENT_INSET = 8;
 // Height of the top toolbar in the top layout; keep in sync with --topbar in
 // renderer/style.css.
 export const TOP_BAR = 40;
+export const SPLIT_TOOLBAR_HEIGHT = 32;
 // Strip kept free of page content when the toolbar auto-hides, so hovering it reveals the bar.
 export const HOT_ZONE = 4;
 // Duration in ms of the toolbar's slide; keep in sync with --topbar-slide in
@@ -92,7 +93,7 @@ export interface BrowserState extends Omit<TabState, 'id'> {
         bounds: { x: number; y: number; width: number; height: number };
       }[]
     | null;
-  split: { ids: [string, string]; ratio: number } | null;
+  split: { ids: [string, string]; ratio: number; preview?: boolean } | null;
   privateWindow: boolean;
   settings: import('./settings').Settings;
   sidebarPosition: 'left' | 'right';
@@ -126,6 +127,9 @@ export type SidebarUpdate = Partial<SidebarPreferences> & {
   topbar?: boolean;
 };
 export interface DriftAPI {
+  defaultBrowser(
+    command: 'status' | 'open-settings',
+  ): Promise<import('./default-browser').DefaultBrowserStatus>;
   getState(): Promise<BrowserState>;
   navigate(url: string): Promise<void>;
   action(action: BrowserAction): Promise<void>;
