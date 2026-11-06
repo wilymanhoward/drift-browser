@@ -6,6 +6,8 @@ Phases 1 through 7 of a personal Chromium desktop browser for Windows. Electron 
 
 The sidebar footer contains only Settings and Shields. Open **Settings → Browser tools** for history, bookmarks, downloads, workspace management, find, print, compact/split/fullscreen controls, reopening a tab, and page zoom. Workspace icons appear only when more than one workspace exists. All keyboard shortcuts remain available.
 
+PDF links open in Chromium's built-in viewer inside regular and private tabs, with thumbnails, page navigation, zoom, rotation, download, and print controls. Sites that explicitly send a PDF as an attachment still download it. The viewer uses the existing browser engine; no separate PDF library is loaded.
+
 ## Run
 
 To use Drift as the default browser for web links, install the Windows setup executable, then open **Settings → General → Make default**. In Windows Default apps, choose Drift and select **Set default** (on Windows 10, choose Drift under Web browser). The installer registers HTTP/HTTPS handling for the current user; it does not replace your current default automatically. Portable and development builds do not offer this action. Existing windows receive external links as new regular tabs, including when a private window is focused.

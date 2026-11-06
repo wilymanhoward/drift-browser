@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { BrowserState, BrowserAction } from '../shared/browser';
 import type { Settings as Preferences } from '../shared/settings';
+import { SETTINGS_URL } from '../shared/navigation';
 import Workspaces from './Workspaces';
 import Shields from './Shields';
 import BrowserImport from './BrowserImport';
@@ -42,12 +43,31 @@ function Field({
 export default function Settings({ state }: { state: BrowserState }) {
   const [draft, setDraft] = useState(state.settings);
   const [error, setError] = useState('');
+  // Out-of-range text in a number field, shown until it is fixed or left.
+  const [typed, setTyped] = useState<Partial<Record<string, string>>>({});
   const [category, setCategory] = useState('general');
   const [query, setQuery] = useState('');
   const content = useRef<HTMLElement>(null);
   const search = useRef<HTMLInputElement>(null);
   const signature = JSON.stringify(state.settings);
-  useEffect(() => setDraft(state.settings), [signature]);
+  // The last settings the main process accepted. Each change is applied on top
+  // of these, so one invalid field left in the form never blocks the others.
+  const saved = useRef(state.settings);
+  useEffect(() => {
+    const previous = saved.current;
+    saved.current = state.settings;
+    // Fields the user is still editing keep their text; the rest follow.
+    setDraft((current) => {
+      const next = { ...current };
+      for (const key of Object.keys(state.settings) as (keyof Preferences)[])
+        if (
+          JSON.stringify(current[key]) === JSON.stringify(previous[key]) ||
+          JSON.stringify(current[key]) === JSON.stringify(state.settings[key])
+        )
+          (next as Record<string, unknown>)[key] = state.settings[key];
+      return next;
+    });
+  }, [signature]);
   useEffect(() => {
     content.current?.scrollTo(0, 0);
   }, [category, query]);
@@ -55,14 +75,15 @@ export default function Settings({ state }: { state: BrowserState }) {
     search.current?.focus();
   }, []);
   const update = async (patch: Partial<Preferences>) => {
-    const next = { ...draft, ...patch };
-    setDraft(next);
+    setDraft((current) => ({ ...current, ...patch }));
+    const next = { ...saved.current, ...patch };
     try {
       await window.drift.settings(next);
+      saved.current = next;
       setError('');
     } catch {
       setError(
-        'Settings were not saved. Check values and use unique shortcuts.',
+        'That change was not saved. Check the value; shortcuts must be valid and unique.',
       );
     }
   };
@@ -130,8 +151,23 @@ export default function Settings({ state }: { state: BrowserState }) {
         type="number"
         min={min}
         max={max}
-        value={draft[key]}
-        onChange={(e) => void update({ [key]: Number(e.target.value) })}
+        value={typed[key] ?? draft[key]}
+        onChange={(e) => {
+          const value = e.target.valueAsNumber;
+          // Partial input such as the "2" of "250" waits until it is in range.
+          if (Number.isInteger(value) && value >= min && value <= max) {
+            setTyped((current) => ({ ...current, [key]: undefined }));
+            void update({ [key]: value });
+          } else {
+            setTyped((current) => ({ ...current, [key]: e.target.value }));
+            setError(`${label} must be a whole number from ${min} to ${max}.`);
+          }
+        }}
+        onBlur={() => {
+          if (typed[key] === undefined) return;
+          setTyped((current) => ({ ...current, [key]: undefined }));
+          setError('');
+        }}
       />
     </Field>
   );
@@ -140,7 +176,6 @@ export default function Settings({ state }: { state: BrowserState }) {
       | 'glassEffect'
       | 'contentInset'
       | 'contentShadow'
-      | 'hoverExpand'
       | 'lockCollapsed'
       | 'autoHideTopBar',
     label: string,
@@ -238,7 +273,28 @@ export default function Settings({ state }: { state: BrowserState }) {
             {choice('sidebarPosition', 'Sidebar position', ['left', 'right'])}
             {number('collapsedWidth', 'Collapsed width', 40, 80)}
             {number('expandedWidth', 'Expanded width', 208, 360)}
-            {toggle('hoverExpand', 'Expand sidebar on hover')}
+            <label className="toggle-preference">
+              <input
+                type="checkbox"
+                aria-label="Expand sidebar on hover"
+                checked={draft.hoverExpand && !draft.lockCollapsed}
+                onChange={(e) =>
+                  void update({
+                    hoverExpand: e.target.checked,
+                    // Hover can only expand a sidebar that is not kept collapsed.
+                    ...(e.target.checked && { lockCollapsed: false }),
+                  })
+                }
+              />
+              <span>
+                Expand sidebar on hover
+                {draft.lockCollapsed && (
+                  <small>
+                    Turning this on also stops keeping the sidebar collapsed.
+                  </small>
+                )}
+              </span>
+            </label>
             {toggle(
               'lockCollapsed',
               'Keep sidebar collapsed',
@@ -392,7 +448,11 @@ export default function Settings({ state }: { state: BrowserState }) {
                     shortcuts: { ...draft.shortcuts, [key]: e.target.value },
                   })
                 }
-                onBlur={() => void update({ shortcuts: draft.shortcuts })}
+                onBlur={() =>
+                  void update({
+                    shortcuts: { ...saved.current.shortcuts, [key]: value },
+                  })
+                }
               />
             </Field>
           ))}
@@ -428,6 +488,8 @@ export default function Settings({ state }: { state: BrowserState }) {
                 aria-label={label}
                 className="text-button"
                 disabled={
+                  (state.url === SETTINGS_URL &&
+                    ['find', 'print'].includes(action)) ||
                   (action === 'reopen-tab' && !state.canReopen) ||
                   (action === 'split' &&
                     !state.split &&
@@ -455,7 +517,7 @@ export default function Settings({ state }: { state: BrowserState }) {
             <span>Page zoom</span>
             <button
               aria-label="Zoom out"
-              disabled={state.zoomPercent <= 25}
+              disabled={state.url === SETTINGS_URL || state.zoomPercent <= 25}
               onClick={() => void tool('zoom-out')}
             >
               −
@@ -463,18 +525,22 @@ export default function Settings({ state }: { state: BrowserState }) {
             <button
               className="zoom-value"
               aria-label={`Reset zoom (${state.zoomPercent}%)`}
+              disabled={state.url === SETTINGS_URL}
               onClick={() => void tool('zoom-reset')}
             >
               {state.zoomPercent}%
             </button>
             <button
               aria-label="Zoom in"
-              disabled={state.zoomPercent >= 300}
+              disabled={state.url === SETTINGS_URL || state.zoomPercent >= 300}
               onClick={() => void tool('zoom-in')}
             >
               +
             </button>
           </div>
+          {state.url === SETTINGS_URL && (
+            <p>Switch to a browsing tab to use page zoom, find, or print.</p>
+          )}
         </div>
       ),
     },

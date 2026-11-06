@@ -1,0 +1,866 @@
+{
+  "measuredAt": "2026-11-03T18:06:59.922Z",
+  "platform": "win32 10.0.26300",
+  "totalRAMGB": 32,
+  "method": "Win32_Process PrivatePageCount and WorkingSetSize summed over the browser root process, its descendants and anything naming the temp profile. Working sets double-count shared pages. Drift per-process detail from app.getAppMetrics() joined to webContents by OS pid.",
+  "sites": [
+    "https://wikipedia.org",
+    "https://github.com",
+    "https://youtube.com",
+    "https://reddit.com",
+    "https://news.ycombinator.com",
+    "https://bbc.com",
+    "https://amazon.com",
+    "https://stackoverflow.com",
+    "https://x.com",
+    "https://nytimes.com",
+    "https://cnn.com",
+    "https://twitch.tv",
+    "https://imdb.com",
+    "https://weather.com",
+    "https://espn.com",
+    "https://medium.com",
+    "https://bing.com",
+    "https://duckduckgo.com",
+    "https://google.com/maps",
+    "https://theverge.com"
+  ],
+  "results": [
+    {
+      "browser": "Drift",
+      "build": "electron 45.2.1",
+      "run": 1,
+      "scenario": "diagnose, glass on",
+      "youtubeEmbeds": [
+        {
+          "pid": 14496,
+          "privateMB": 60,
+          "kind": "iframe",
+          "url": "https://www.youtube.com/embed/ZkOim2mwFbg?rel=0&enablejsapi=1",
+          "tab": "https://www.theverge.com/"
+        }
+      ],
+      "wake": {
+        "url": "https://www.wikipedia.org/",
+        "unloaded": false,
+        "loading": false,
+        "error": null,
+        "title": "Wikipedia"
+      },
+      "tabs": 20,
+      "awakeTabs": 8,
+      "processCount": 18,
+      "privateMB": 2332,
+      "workingSetMB": 4129,
+      "gpuPrivateMB": 639,
+      "pids": [
+        10996,
+        6856,
+        22708,
+        42176,
+        40184,
+        41748,
+        13480,
+        10832,
+        33204,
+        46620,
+        11888,
+        44340,
+        32876,
+        8996,
+        4408,
+        38028,
+        14256,
+        14496
+      ],
+      "gpuAppMetricsMB": 639,
+      "overlaysOpened": 19,
+      "uiBefore": {
+        "usedJSHeapMB": 10,
+        "totalJSHeapMB": 10,
+        "domNodes": 67,
+        "dataImgs": 0,
+        "dataImgsOver100KB": 0,
+        "dataImgsTotalKB": 0,
+        "inlineBgOver100KB": 0,
+        "inlineBgTotalKB": 0,
+        "rendererPrivateMB": 34
+      },
+      "uiAfter": {
+        "usedJSHeapMB": 10,
+        "totalJSHeapMB": 10,
+        "domNodes": 265,
+        "dataImgs": 14,
+        "dataImgsOver100KB": 0,
+        "dataImgsTotalKB": 73,
+        "inlineBgOver100KB": 0,
+        "inlineBgTotalKB": 0,
+        "rendererPrivateMB": 55
+      },
+      "unattributed": [],
+      "sleptTabs": [
+        {
+          "url": "https://www.wikipedia.org/",
+          "type": "window",
+          "pid": 10872,
+          "closedAt": 1793728624166,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://github.com/",
+          "type": "window",
+          "pid": 45516,
+          "closedAt": 1793728630260,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.youtube.com/",
+          "type": "window",
+          "pid": 37340,
+          "closedAt": 1793728635331,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.reddit.com/?solution=244dc9770d7acf4a244dc9770d7acf4a&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c3313c3420747eb0af3cfde2ac4f8f390bca&jsc_orig_r=",
+          "type": "window",
+          "pid": 10016,
+          "closedAt": 1793728646448,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://news.ycombinator.com/",
+          "type": "window",
+          "pid": 24248,
+          "closedAt": 1793728656953,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.bbc.com/",
+          "type": "window",
+          "pid": 17936,
+          "closedAt": 1793728662459,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.amazon.com/",
+          "type": "window",
+          "pid": 25136,
+          "closedAt": 1793728662459,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://stackoverflow.com/questions",
+          "type": "window",
+          "pid": 1236,
+          "closedAt": 1793728676961,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://x.com/",
+          "type": "window",
+          "pid": 28564,
+          "closedAt": 1793728696965,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.nytimes.com/",
+          "type": "window",
+          "pid": 18708,
+          "closedAt": 1793728701971,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://edition.cnn.com/",
+          "type": "window",
+          "pid": 37756,
+          "closedAt": 1793728707479,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.imdb.com/",
+          "type": "window",
+          "pid": 46012,
+          "closedAt": 1793728733996,
+          "alive10s": false,
+          "reusedByLive": false
+        }
+      ],
+      "processes": [
+        {
+          "pid": 22708,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "sandboxed": true,
+          "privateMB": 639,
+          "owners": []
+        },
+        {
+          "pid": 10832,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 279,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.twitch.tv/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 33204,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 204,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://weather.com/?Goto=Redirected",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 11888,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 192,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://global.espn.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 8996,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 162,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=9C17D4F02D6D48EBAA0572D9F5E2E202",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 6856,
+          "type": "Browser",
+          "sandboxed": false,
+          "privateMB": 150,
+          "owners": []
+        },
+        {
+          "pid": 38028,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 139,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8278784,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 14256,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 138,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.theverge.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 32876,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 71,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://medium.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 4408,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 62,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://duckduckgo.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 13480,
+          "type": "Utility",
+          "name": "Video Capture",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "sandboxed": false,
+          "privateMB": 60,
+          "owners": []
+        },
+        {
+          "pid": 14496,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 60,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://www.youtube.com/embed/ZkOim2mwFbg?rel=0&enablejsapi=1",
+              "tab": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 40184,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 57,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 44340,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 45,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://cdn.registerdisney.go.com/v4/bundle/web/ESPN-ONESITE.WEB/en-WW?cssOverride=https%3A%2F%2Fsecure.espncdn.com%2Fcombiner%2Fc%3Fcss%3Ddisneyid%2Fcorev4.css&logLevel=INFO",
+              "tab": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 42176,
+          "type": "Utility",
+          "name": "Network Service",
+          "serviceName": "network.mojom.NetworkService",
+          "sandboxed": false,
+          "privateMB": 31,
+          "owners": []
+        },
+        {
+          "pid": 46620,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 30,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://imasdk.googleapis.com/js/core/bridge3.797.1_en.html#compression_dictionary_version=%22m202611030101%22&deid=%22%22&eventfe_experiment_ids=%5B%5D&fid=%22goog_1315115071%22&genotype_experiment_data=%7B%22experimentStateProto%22%3A%22%5B%5B%5B45713128%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45848619%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45869267%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B957164676%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45816264%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45761044%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45803173%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45722344%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45801847%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45784857%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45668885%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45843251%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45685340%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45734716%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45735891%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45663239%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45676441%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2C45645574%2Cnull%2C%5B%5D%5D%2C%5B45688859%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45870731%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45870732%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45685601%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5Bnull%2C45685602%2Cnull%2C%5Bnull%2C100%5D%5D%2C%5B45830425%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45820997%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2C45812678%2Cnull%2C%5B%5D%5D%2C%5B1009155880%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45756824%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45794243%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45747172%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B775241416%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107959%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107958%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B792614055%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107957%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45729602%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45753603%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45753604%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45868504%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45867420%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45851551%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2Cnull%2Cnull%2C%5B%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%2C%5B%5B16%2C%5B%5Bnull%2C%5B%5B83323635%5D%2C%5B83323636%2C%5B%5Bnull%2C45812678%2Cnull%2C%5Bnull%2C100%5D%5D%5D%5D%5D%5D%2C%5B100%2C%5B%5B83323870%5D%2C%5B83323871%2C%5B%5B45830425%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B1000%2C%5B%5B95332046%5D%5D%5D%2C%5Bnull%2C%5B%5B95332047%5D%5D%5D%2C%5B10%2C%5B%5B95338769%2C%5B%5Bnull%2C45645574%2Cnull%2C%5Bnull%2C1%5D%5D%5D%5D%2C%5B95338770%2C%5B%5Bnull%2C45645574%2Cnull%2C%5Bnull%2C2%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95351425%5D%2C%5B95351426%2C%5B%5B45676441%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B1%2C%5B%5B95373378%2C%5B%5B792614055%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95373379%2C%5B%5B45747172%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B781107959%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B792614055%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B781107957%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95378629%5D%2C%5B95378630%2C%5B%5B45729602%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95404887%2C%5B%5B45729602%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95389581%5D%2C%5B95389582%2C%5B%5B635466687%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95394237%5D%2C%5B95394238%2C%5B%5B45801847%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B100%2C%5B%5B95394594%5D%2C%5B95394595%2C%5B%5B45803173%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95398837%5D%2C%5B95398838%2C%5B%5Bnull%2C960449109%2Cnull%2C%5Bnull%2C1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95401453%5D%2C%5B95401454%2C%5B%5B45668885%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95403043%2C%5B%5B45668885%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45843251%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95405338%5D%2C%5B95405339%2C%5B%5B45816264%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95407374%5D%2C%5B95407375%2C%5B%5B45867420%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95407513%5D%2C%5B95407514%2C%5B%5B45868504%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95408328%5D%2C%5B95408329%2C%5B%5B45870731%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95408330%2C%5B%5B45870731%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45870732%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%5D%5D%2C%5B34%2C%5B%5B10%2C%5B%5B95404718%2C%5B%5Bnull%2Cnull%2Cnull%2C%5Bnull%2Cnull%2Cnull%2C%5B%5C%22CgUIsIW%2FLQ%3D%3D%5C%22%5D%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%5D%2C%5B95404719%2C%5B%5Bnull%2Cnull%2Cnull%2C%5Bnull%2Cnull%2Cnull%2C%5B%5C%22CgUIsYW%2FLRIJCJ%2FH7hUSAggB%5C%22%5D%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%5D%5D%2C%5B4%2Cnull%2C114%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5C%2245851551%5C%22%5D%5D%5D%5D%5D%2C%5B35%2C%5B%5Bnull%2C%5B%5B95404720%5D%2C%5B95404721%2C%5B%5B45851551%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%2C%5B4%2Cnull%2C114%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5C%2245851551%5C%22%5D%5D%5D%5D%5D%5D%2Cnull%2Cnull%2C%5Bnull%2C1000%2C1%2C1000%5D%5D%22%7D&imalib_experiments=%5B95331589%2C95332046%2C95394595%5D&is_eap_loader=false&managed_js_experiment_id=0&page_correlator=4019580112984603&pvsid=7419144597888494&top_accessible_page_url=%22https%3A%2F%2Fweather.com%2F%3FGoto%3DRedirected%22",
+              "tab": "https://weather.com/?Goto=Redirected"
+            }
+          ]
+        },
+        {
+          "pid": 41748,
+          "type": "Utility",
+          "name": "Audio Service",
+          "serviceName": "audio.mojom.AudioService",
+          "sandboxed": true,
+          "privateMB": 10,
+          "owners": []
+        }
+      ]
+    },
+    {
+      "browser": "Drift",
+      "build": "electron 45.2.1",
+      "run": 2,
+      "scenario": "diagnose, glass on",
+      "youtubeEmbeds": [
+        {
+          "pid": 42068,
+          "privateMB": 62,
+          "kind": "iframe",
+          "url": "https://www.youtube.com/embed/ZkOim2mwFbg?rel=0&enablejsapi=1",
+          "tab": "https://www.theverge.com/"
+        }
+      ],
+      "wake": {
+        "url": "https://wikipedia.org/",
+        "unloaded": false,
+        "loading": true,
+        "error": null,
+        "title": "wikipedia.org"
+      },
+      "tabs": 20,
+      "awakeTabs": 8,
+      "processCount": 18,
+      "privateMB": 2377,
+      "workingSetMB": 4113,
+      "gpuPrivateMB": 661,
+      "pids": [
+        42884,
+        12120,
+        14124,
+        18076,
+        20024,
+        25292,
+        20028,
+        27324,
+        33976,
+        41500,
+        18448,
+        45180,
+        45080,
+        20328,
+        19796,
+        42788,
+        5448,
+        42068
+      ],
+      "gpuAppMetricsMB": 661,
+      "overlaysOpened": 19,
+      "uiBefore": {
+        "usedJSHeapMB": 10,
+        "totalJSHeapMB": 10,
+        "domNodes": 67,
+        "dataImgs": 0,
+        "dataImgsOver100KB": 0,
+        "dataImgsTotalKB": 0,
+        "inlineBgOver100KB": 0,
+        "inlineBgTotalKB": 0,
+        "rendererPrivateMB": 35
+      },
+      "uiAfter": {
+        "usedJSHeapMB": 10,
+        "totalJSHeapMB": 10,
+        "domNodes": 265,
+        "dataImgs": 14,
+        "dataImgsOver100KB": 0,
+        "dataImgsTotalKB": 71,
+        "inlineBgOver100KB": 0,
+        "inlineBgTotalKB": 0,
+        "rendererPrivateMB": 59
+      },
+      "unattributed": [],
+      "sleptTabs": [
+        {
+          "url": "https://wikipedia.org/",
+          "type": "window",
+          "pid": 38088,
+          "closedAt": 1793728863888,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://github.com/",
+          "type": "window",
+          "pid": 30864,
+          "closedAt": 1793728868964,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.youtube.com/",
+          "type": "window",
+          "pid": 22164,
+          "closedAt": 1793728874555,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.reddit.com/?solution=0a577c7b07d6352d0a577c7b07d6352d&js_challenge=1&jsc_token=2824be10929bdc604753c70a67a1c33172a9183cb956df21028b818ba3deeb31&jsc_orig_r=",
+          "type": "window",
+          "pid": 39652,
+          "closedAt": 1793728886220,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://news.ycombinator.com/",
+          "type": "window",
+          "pid": 29400,
+          "closedAt": 1793728903720,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.bbc.com/",
+          "type": "window",
+          "pid": 41624,
+          "closedAt": 1793728908720,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.amazon.com/",
+          "type": "window",
+          "pid": 30060,
+          "closedAt": 1793728913720,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://stackoverflow.com/questions",
+          "type": "window",
+          "pid": 26744,
+          "closedAt": 1793728945221,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://x.com/",
+          "type": "window",
+          "pid": 14800,
+          "closedAt": 1793728945221,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.nytimes.com/",
+          "type": "window",
+          "pid": 22604,
+          "closedAt": 1793728950721,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://edition.cnn.com/",
+          "type": "window",
+          "pid": 43624,
+          "closedAt": 1793728955727,
+          "alive10s": false,
+          "reusedByLive": false
+        },
+        {
+          "url": "https://www.imdb.com/",
+          "type": "window",
+          "pid": 27572,
+          "closedAt": 1793728982272,
+          "alive10s": false,
+          "reusedByLive": false
+        }
+      ],
+      "processes": [
+        {
+          "pid": 14124,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "sandboxed": true,
+          "privateMB": 661,
+          "owners": []
+        },
+        {
+          "pid": 27324,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 298,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.twitch.tv/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 33976,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 206,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://weather.com/?Goto=Redirected",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 18448,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 191,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://global.espn.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 20328,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 157,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=562D4F042BD44E86944DBDD8344CAC23",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 12120,
+          "type": "Browser",
+          "sandboxed": false,
+          "privateMB": 145,
+          "owners": []
+        },
+        {
+          "pid": 42788,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 140,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8311552,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 5448,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 134,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://www.theverge.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 45080,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 72,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://medium.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 19796,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 62,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "https://duckduckgo.com/",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 42068,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 62,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://www.youtube.com/embed/ZkOim2mwFbg?rel=0&enablejsapi=1",
+              "tab": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 20024,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 60,
+          "owners": [
+            {
+              "kind": "webContents",
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html",
+              "crashed": false
+            }
+          ]
+        },
+        {
+          "pid": 20028,
+          "type": "Utility",
+          "name": "Video Capture",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "sandboxed": false,
+          "privateMB": 59,
+          "owners": []
+        },
+        {
+          "pid": 45180,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 50,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://cdn.registerdisney.go.com/v4/bundle/web/ESPN-ONESITE.WEB/en-WW?cssOverride=https%3A%2F%2Fsecure.espncdn.com%2Fcombiner%2Fc%3Fcss%3Ddisneyid%2Fcorev4.css&logLevel=INFO",
+              "tab": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 41500,
+          "type": "Tab",
+          "sandboxed": true,
+          "privateMB": 33,
+          "owners": [
+            {
+              "kind": "iframe",
+              "url": "https://imasdk.googleapis.com/js/core/bridge3.797.1_en.html#compression_dictionary_version=%22m202611030101%22&deid=%22%22&eventfe_experiment_ids=%5B%5D&fid=%22goog_1874096777%22&genotype_experiment_data=%7B%22experimentStateProto%22%3A%22%5B%5B%5B45713128%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45848619%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45869267%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B957164676%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45816264%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45761044%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45803173%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45722344%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45801847%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45784857%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45668885%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45843251%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45685340%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45734716%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45735891%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45663239%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45676441%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2C45645574%2Cnull%2C%5B%5D%5D%2C%5B45688859%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45870731%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45870732%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45685601%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5Bnull%2C45685602%2Cnull%2C%5Bnull%2C100%5D%5D%2C%5B45830425%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45820997%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2C45812678%2Cnull%2C%5B%5D%5D%2C%5B1009155880%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45756824%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45794243%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45747172%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B775241416%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107959%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107958%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B792614055%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B781107957%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45729602%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45753603%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45753604%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45868504%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45867420%2Cnull%2Cnull%2C%5B%5D%5D%2C%5B45851551%2Cnull%2Cnull%2C%5B%5D%5D%2C%5Bnull%2Cnull%2Cnull%2C%5B%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%2C%5B%5B16%2C%5B%5Bnull%2C%5B%5B83323635%5D%2C%5B83323636%2C%5B%5Bnull%2C45812678%2Cnull%2C%5Bnull%2C100%5D%5D%5D%5D%5D%5D%2C%5B100%2C%5B%5B83323870%5D%2C%5B83323871%2C%5B%5B45830425%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B1000%2C%5B%5B95332046%5D%5D%5D%2C%5Bnull%2C%5B%5B95332047%5D%5D%5D%2C%5B10%2C%5B%5B95338769%2C%5B%5Bnull%2C45645574%2Cnull%2C%5Bnull%2C1%5D%5D%5D%5D%2C%5B95338770%2C%5B%5Bnull%2C45645574%2Cnull%2C%5Bnull%2C2%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95351425%5D%2C%5B95351426%2C%5B%5B45676441%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B1%2C%5B%5B95373378%2C%5B%5B792614055%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95373379%2C%5B%5B45747172%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B781107959%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B792614055%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B781107957%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95378629%5D%2C%5B95378630%2C%5B%5B45729602%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95404887%2C%5B%5B45729602%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95389581%5D%2C%5B95389582%2C%5B%5B635466687%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95394237%5D%2C%5B95394238%2C%5B%5B45801847%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B100%2C%5B%5B95394594%5D%2C%5B95394595%2C%5B%5B45803173%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95398837%5D%2C%5B95398838%2C%5B%5Bnull%2C960449109%2Cnull%2C%5Bnull%2C1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95401453%5D%2C%5B95401454%2C%5B%5B45668885%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95403043%2C%5B%5B45668885%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45843251%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B50%2C%5B%5B95405338%5D%2C%5B95405339%2C%5B%5B45816264%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95407374%5D%2C%5B95407375%2C%5B%5B45867420%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95407513%5D%2C%5B95407514%2C%5B%5B45868504%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%2C%5B10%2C%5B%5B95408328%5D%2C%5B95408329%2C%5B%5B45870731%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%2C%5B95408330%2C%5B%5B45870731%2Cnull%2Cnull%2C%5B1%5D%5D%2C%5B45870732%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%5D%5D%5D%2C%5B34%2C%5B%5B10%2C%5B%5B95404718%2C%5B%5Bnull%2Cnull%2Cnull%2C%5Bnull%2Cnull%2Cnull%2C%5B%5C%22CgUIsIW%2FLQ%3D%3D%5C%22%5D%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%5D%2C%5B95404719%2C%5B%5Bnull%2Cnull%2Cnull%2C%5Bnull%2Cnull%2Cnull%2C%5B%5C%22CgUIsYW%2FLRIJCJ%2FH7hUSAggB%5C%22%5D%5D%2Cnull%2Cnull%2Cnull%2C45823412%5D%5D%5D%5D%2C%5B4%2Cnull%2C114%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5C%2245851551%5C%22%5D%5D%5D%5D%5D%2C%5B35%2C%5B%5Bnull%2C%5B%5B95404720%5D%2C%5B95404721%2C%5B%5B45851551%2Cnull%2Cnull%2C%5B1%5D%5D%5D%5D%5D%2C%5B4%2Cnull%2C114%2Cnull%2Cnull%2Cnull%2Cnull%2C%5B%5C%2245851551%5C%22%5D%5D%5D%5D%5D%5D%2Cnull%2Cnull%2C%5Bnull%2C1000%2C1%2C1000%5D%5D%22%7D&imalib_experiments=%5B95331589%2C95332046%2C95351425%5D&is_eap_loader=false&managed_js_experiment_id=0&page_correlator=148739754274280&pvsid=6936453053008936&top_accessible_page_url=%22https%3A%2F%2Fweather.com%2F%3FGoto%3DRedirected%22",
+              "tab": "https://weather.com/?Goto=Redirected"
+            }
+          ]
+        },
+        {
+          "pid": 18076,
+          "type": "Utility",
+          "name": "Network Service",
+          "serviceName": "network.mojom.NetworkService",
+          "sandboxed": false,
+          "privateMB": 31,
+          "owners": []
+        },
+        {
+          "pid": 25292,
+          "type": "Utility",
+          "name": "Audio Service",
+          "serviceName": "audio.mojom.AudioService",
+          "sandboxed": true,
+          "privateMB": 10,
+          "owners": []
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "browser": "Brave",
+      "scenario": "20 sites (args)",
+      "tabs": 20,
+      "awakeTabs": null,
+      "processCount": 63,
+      "privateMB": 3797,
+      "workingSetMB": 6079,
+      "gpuPrivateMB": 454,
+      "pids": [
+        32568,
+        27432,
+        12452,
+        41584,
+        5068,
+        45812,
+        11572,
+        41436,
+        45784,
+        30900,
+        41480,
+        19024,
+        21840,
+        18600,
+        30576,
+        32048,
+        14492,
+        30200,
+        46900,
+        36096,
+        42692,
+        31420,
+        7280,
+        21696,
+        25852,
+        556,
+        26220,
+        42008,
+        516,
+        44972,
+        22984,
+        42924,
+        33748,
+        21272,
+        41052,
+        35076,
+        19432,
+        46132,
+        41360,
+        19072,
+        27628,
+        35484,
+        8048,
+        18764,
+        38204,
+        12320,
+        28576,
+        46248,
+        13364,
+        6224,
+        28476,
+        38872,
+        7828,
+        7756,
+        33276,
+        38524,
+        44608,
+        46752,
+        36132,
+        18884,
+        32392,
+        43252,
+        9864
+      ]
+    }
+  ]
+}

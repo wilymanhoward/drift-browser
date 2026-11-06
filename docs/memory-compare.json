@@ -1,0 +1,1147 @@
+{
+  "measuredAt": "2026-11-03T17:41:08.512Z",
+  "platform": "win32 10.0.26300",
+  "totalRAMGB": 32,
+  "method": "Win32_Process PrivatePageCount and WorkingSetSize summed over the browser root process, its descendants and anything naming the temp profile. Working sets double-count shared pages. Drift per-process detail from app.getAppMetrics() joined to webContents by OS pid.",
+  "sites": [
+    "https://wikipedia.org",
+    "https://github.com",
+    "https://youtube.com",
+    "https://reddit.com",
+    "https://news.ycombinator.com",
+    "https://bbc.com",
+    "https://amazon.com",
+    "https://stackoverflow.com",
+    "https://x.com",
+    "https://nytimes.com",
+    "https://cnn.com",
+    "https://twitch.tv",
+    "https://imdb.com",
+    "https://weather.com",
+    "https://espn.com",
+    "https://medium.com",
+    "https://bing.com",
+    "https://duckduckgo.com",
+    "https://google.com/maps",
+    "https://theverge.com"
+  ],
+  "results": [
+    {
+      "run": 1,
+      "browser": "Drift",
+      "scenario": "idle, 1 new tab",
+      "tabs": 1,
+      "awakeTabs": 1,
+      "sleepingTabs": 0,
+      "processCount": 6,
+      "privateMB": 477,
+      "workingSetMB": 716,
+      "pids": [
+        28948,
+        43124,
+        46784,
+        24068,
+        40664,
+        13820
+      ],
+      "appMetricsPrivateMB": 471,
+      "main": {
+        "rssMB": 296,
+        "heapUsedMB": 85,
+        "heapTotalMB": 149,
+        "externalMB": 24,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 43124,
+          "type": "Browser",
+          "privateMB": 253,
+          "workingSetMB": 296,
+          "webContents": []
+        },
+        {
+          "pid": 46784,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 141,
+          "workingSetMB": 174,
+          "webContents": []
+        },
+        {
+          "pid": 40664,
+          "type": "Tab",
+          "privateMB": 33,
+          "workingSetMB": 90,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 13820,
+          "type": "Tab",
+          "privateMB": 32,
+          "workingSetMB": 95,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "drift://newtab/"
+            }
+          ]
+        },
+        {
+          "pid": 24068,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 12,
+          "workingSetMB": 54,
+          "webContents": []
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "browser": "Drift",
+      "scenario": "20 sites",
+      "tabs": 20,
+      "awakeTabs": 7,
+      "sleepingTabs": 13,
+      "processCount": 19,
+      "privateMB": 2357,
+      "workingSetMB": 4210,
+      "pids": [
+        6024,
+        42628,
+        46592,
+        30060,
+        21924,
+        14088,
+        32824,
+        26176,
+        19636,
+        19032,
+        6236,
+        10500,
+        20420,
+        46956,
+        35496,
+        1964,
+        44084,
+        36336,
+        28956
+      ],
+      "appMetricsPrivateMB": 2348,
+      "main": {
+        "rssMB": 219,
+        "heapUsedMB": 29,
+        "heapTotalMB": 32,
+        "externalMB": 10,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 46592,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 438,
+          "workingSetMB": 499,
+          "webContents": []
+        },
+        {
+          "pid": 10500,
+          "type": "Tab",
+          "privateMB": 295,
+          "workingSetMB": 385,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.twitch.tv/"
+            }
+          ]
+        },
+        {
+          "pid": 6236,
+          "type": "Tab",
+          "privateMB": 211,
+          "workingSetMB": 328,
+          "webContents": []
+        },
+        {
+          "pid": 20420,
+          "type": "Tab",
+          "privateMB": 201,
+          "workingSetMB": 322,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 28956,
+          "type": "Tab",
+          "privateMB": 146,
+          "workingSetMB": 272,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 42628,
+          "type": "Browser",
+          "privateMB": 144,
+          "workingSetMB": 219,
+          "webContents": []
+        },
+        {
+          "pid": 1964,
+          "type": "Tab",
+          "privateMB": 143,
+          "workingSetMB": 270,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=081E5752B9FD462CAF579CC38B101409"
+            }
+          ]
+        },
+        {
+          "pid": 14088,
+          "type": "Tab",
+          "privateMB": 140,
+          "workingSetMB": 240,
+          "webContents": []
+        },
+        {
+          "pid": 36336,
+          "type": "Tab",
+          "privateMB": 127,
+          "workingSetMB": 240,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8311552,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D"
+            }
+          ]
+        },
+        {
+          "pid": 19636,
+          "type": "Tab",
+          "privateMB": 78,
+          "workingSetMB": 187,
+          "webContents": []
+        },
+        {
+          "pid": 19032,
+          "type": "Tab",
+          "privateMB": 77,
+          "workingSetMB": 188,
+          "webContents": []
+        },
+        {
+          "pid": 21924,
+          "type": "Tab",
+          "privateMB": 71,
+          "workingSetMB": 141,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 35496,
+          "type": "Tab",
+          "privateMB": 66,
+          "workingSetMB": 191,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://medium.com/"
+            }
+          ]
+        },
+        {
+          "pid": 44084,
+          "type": "Tab",
+          "privateMB": 65,
+          "workingSetMB": 188,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://duckduckgo.com/"
+            }
+          ]
+        },
+        {
+          "pid": 26176,
+          "type": "Utility",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "privateMB": 58,
+          "workingSetMB": 162,
+          "webContents": []
+        },
+        {
+          "pid": 46956,
+          "type": "Tab",
+          "privateMB": 44,
+          "workingSetMB": 165,
+          "webContents": []
+        },
+        {
+          "pid": 30060,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 34,
+          "workingSetMB": 85,
+          "webContents": []
+        },
+        {
+          "pid": 32824,
+          "type": "Utility",
+          "serviceName": "audio.mojom.AudioService",
+          "privateMB": 10,
+          "workingSetMB": 119,
+          "webContents": []
+        }
+      ]
+    },
+    {
+      "run": 1,
+      "browser": "Drift",
+      "scenario": "20 sites + hover card",
+      "tabs": 20,
+      "awakeTabs": 7,
+      "sleepingTabs": 13,
+      "processCount": 19,
+      "privateMB": 2350,
+      "workingSetMB": 4192,
+      "pids": [
+        6024,
+        42628,
+        46592,
+        30060,
+        21924,
+        14088,
+        32824,
+        26176,
+        19636,
+        19032,
+        6236,
+        10500,
+        20420,
+        46956,
+        35496,
+        1964,
+        44084,
+        36336,
+        28956
+      ],
+      "appMetricsPrivateMB": 2344,
+      "main": {
+        "rssMB": 219,
+        "heapUsedMB": 29,
+        "heapTotalMB": 32,
+        "externalMB": 10,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 46592,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 430,
+          "workingSetMB": 488,
+          "webContents": []
+        },
+        {
+          "pid": 10500,
+          "type": "Tab",
+          "privateMB": 291,
+          "workingSetMB": 379,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.twitch.tv/"
+            }
+          ]
+        },
+        {
+          "pid": 6236,
+          "type": "Tab",
+          "privateMB": 211,
+          "workingSetMB": 327,
+          "webContents": []
+        },
+        {
+          "pid": 20420,
+          "type": "Tab",
+          "privateMB": 201,
+          "workingSetMB": 317,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 28956,
+          "type": "Tab",
+          "privateMB": 153,
+          "workingSetMB": 280,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 42628,
+          "type": "Browser",
+          "privateMB": 144,
+          "workingSetMB": 219,
+          "webContents": []
+        },
+        {
+          "pid": 1964,
+          "type": "Tab",
+          "privateMB": 143,
+          "workingSetMB": 269,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=081E5752B9FD462CAF579CC38B101409"
+            }
+          ]
+        },
+        {
+          "pid": 14088,
+          "type": "Tab",
+          "privateMB": 140,
+          "workingSetMB": 239,
+          "webContents": []
+        },
+        {
+          "pid": 36336,
+          "type": "Tab",
+          "privateMB": 127,
+          "workingSetMB": 240,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8311552,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D"
+            }
+          ]
+        },
+        {
+          "pid": 19636,
+          "type": "Tab",
+          "privateMB": 78,
+          "workingSetMB": 187,
+          "webContents": []
+        },
+        {
+          "pid": 19032,
+          "type": "Tab",
+          "privateMB": 77,
+          "workingSetMB": 188,
+          "webContents": []
+        },
+        {
+          "pid": 21924,
+          "type": "Tab",
+          "privateMB": 71,
+          "workingSetMB": 140,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 35496,
+          "type": "Tab",
+          "privateMB": 67,
+          "workingSetMB": 191,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://medium.com/"
+            }
+          ]
+        },
+        {
+          "pid": 44084,
+          "type": "Tab",
+          "privateMB": 65,
+          "workingSetMB": 186,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://duckduckgo.com/"
+            }
+          ]
+        },
+        {
+          "pid": 26176,
+          "type": "Utility",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "privateMB": 58,
+          "workingSetMB": 162,
+          "webContents": []
+        },
+        {
+          "pid": 46956,
+          "type": "Tab",
+          "privateMB": 44,
+          "workingSetMB": 165,
+          "webContents": []
+        },
+        {
+          "pid": 30060,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 34,
+          "workingSetMB": 85,
+          "webContents": []
+        },
+        {
+          "pid": 32824,
+          "type": "Utility",
+          "serviceName": "audio.mojom.AudioService",
+          "privateMB": 10,
+          "workingSetMB": 119,
+          "webContents": []
+        }
+      ],
+      "hoverMethod": "mouse"
+    },
+    {
+      "run": 2,
+      "browser": "Drift",
+      "scenario": "idle, 1 new tab",
+      "tabs": 1,
+      "awakeTabs": 1,
+      "sleepingTabs": 0,
+      "processCount": 6,
+      "privateMB": 469,
+      "workingSetMB": 706,
+      "pids": [
+        23104,
+        18808,
+        17944,
+        45508,
+        17784,
+        17084
+      ],
+      "appMetricsPrivateMB": 462,
+      "main": {
+        "rssMB": 292,
+        "heapUsedMB": 85,
+        "heapTotalMB": 146,
+        "externalMB": 24,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 18808,
+          "type": "Browser",
+          "privateMB": 250,
+          "workingSetMB": 292,
+          "webContents": []
+        },
+        {
+          "pid": 17944,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 134,
+          "workingSetMB": 167,
+          "webContents": []
+        },
+        {
+          "pid": 17784,
+          "type": "Tab",
+          "privateMB": 33,
+          "workingSetMB": 89,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 17084,
+          "type": "Tab",
+          "privateMB": 33,
+          "workingSetMB": 95,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "drift://newtab/"
+            }
+          ]
+        },
+        {
+          "pid": 45508,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 12,
+          "workingSetMB": 53,
+          "webContents": []
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "browser": "Drift",
+      "scenario": "20 sites",
+      "tabs": 20,
+      "awakeTabs": 8,
+      "sleepingTabs": 12,
+      "processCount": 21,
+      "privateMB": 2575,
+      "workingSetMB": 4625,
+      "pids": [
+        22000,
+        7568,
+        22232,
+        11572,
+        42244,
+        35668,
+        6848,
+        27528,
+        21120,
+        27336,
+        23872,
+        37872,
+        26740,
+        3972,
+        46956,
+        24592,
+        34680,
+        4372,
+        7544,
+        30144,
+        34328
+      ],
+      "appMetricsPrivateMB": 2574,
+      "main": {
+        "rssMB": 213,
+        "heapUsedMB": 29,
+        "heapTotalMB": 31,
+        "externalMB": 10,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 22232,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 382,
+          "workingSetMB": 444,
+          "webContents": []
+        },
+        {
+          "pid": 37872,
+          "type": "Tab",
+          "privateMB": 318,
+          "workingSetMB": 406,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.twitch.tv/"
+            }
+          ]
+        },
+        {
+          "pid": 26740,
+          "type": "Tab",
+          "privateMB": 248,
+          "workingSetMB": 364,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://weather.com/?Goto=Redirected"
+            }
+          ]
+        },
+        {
+          "pid": 23872,
+          "type": "Tab",
+          "privateMB": 213,
+          "workingSetMB": 325,
+          "webContents": []
+        },
+        {
+          "pid": 35668,
+          "type": "Tab",
+          "privateMB": 166,
+          "workingSetMB": 262,
+          "webContents": []
+        },
+        {
+          "pid": 7568,
+          "type": "Browser",
+          "privateMB": 147,
+          "workingSetMB": 213,
+          "webContents": []
+        },
+        {
+          "pid": 46956,
+          "type": "Tab",
+          "privateMB": 138,
+          "workingSetMB": 256,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 4372,
+          "type": "Tab",
+          "privateMB": 134,
+          "workingSetMB": 262,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=1EE206F7451C4C6FBE3036E0F25BB66A"
+            }
+          ]
+        },
+        {
+          "pid": 30144,
+          "type": "Tab",
+          "privateMB": 128,
+          "workingSetMB": 240,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8311552,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D"
+            }
+          ]
+        },
+        {
+          "pid": 42244,
+          "type": "Tab",
+          "privateMB": 126,
+          "workingSetMB": 189,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 34328,
+          "type": "Tab",
+          "privateMB": 117,
+          "workingSetMB": 239,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 27336,
+          "type": "Tab",
+          "privateMB": 77,
+          "workingSetMB": 187,
+          "webContents": []
+        },
+        {
+          "pid": 24592,
+          "type": "Tab",
+          "privateMB": 67,
+          "workingSetMB": 188,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://medium.com/"
+            }
+          ]
+        },
+        {
+          "pid": 21120,
+          "type": "Tab",
+          "privateMB": 65,
+          "workingSetMB": 172,
+          "webContents": []
+        },
+        {
+          "pid": 7544,
+          "type": "Tab",
+          "privateMB": 62,
+          "workingSetMB": 185,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://duckduckgo.com/"
+            }
+          ]
+        },
+        {
+          "pid": 6848,
+          "type": "Utility",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "privateMB": 60,
+          "workingSetMB": 163,
+          "webContents": []
+        },
+        {
+          "pid": 34680,
+          "type": "Tab",
+          "privateMB": 51,
+          "workingSetMB": 169,
+          "webContents": []
+        },
+        {
+          "pid": 3972,
+          "type": "Tab",
+          "privateMB": 34,
+          "workingSetMB": 153,
+          "webContents": []
+        },
+        {
+          "pid": 11572,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 31,
+          "workingSetMB": 81,
+          "webContents": []
+        },
+        {
+          "pid": 27528,
+          "type": "Utility",
+          "serviceName": "audio.mojom.AudioService",
+          "privateMB": 10,
+          "workingSetMB": 119,
+          "webContents": []
+        }
+      ]
+    },
+    {
+      "run": 2,
+      "browser": "Drift",
+      "scenario": "20 sites + hover card",
+      "tabs": 20,
+      "awakeTabs": 8,
+      "sleepingTabs": 12,
+      "processCount": 21,
+      "privateMB": 2608,
+      "workingSetMB": 4647,
+      "pids": [
+        22000,
+        7568,
+        22232,
+        11572,
+        42244,
+        35668,
+        6848,
+        27528,
+        21120,
+        27336,
+        23872,
+        37872,
+        26740,
+        3972,
+        46956,
+        24592,
+        34680,
+        4372,
+        7544,
+        30144,
+        34328
+      ],
+      "appMetricsPrivateMB": 2601,
+      "main": {
+        "rssMB": 211,
+        "heapUsedMB": 29,
+        "heapTotalMB": 32,
+        "externalMB": 10,
+        "arrayBuffersMB": 0
+      },
+      "processes": [
+        {
+          "pid": 22232,
+          "type": "GPU",
+          "serviceName": "GPU",
+          "privateMB": 400,
+          "workingSetMB": 461,
+          "webContents": []
+        },
+        {
+          "pid": 37872,
+          "type": "Tab",
+          "privateMB": 325,
+          "workingSetMB": 410,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.twitch.tv/"
+            }
+          ]
+        },
+        {
+          "pid": 26740,
+          "type": "Tab",
+          "privateMB": 249,
+          "workingSetMB": 365,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://weather.com/?Goto=Redirected"
+            }
+          ]
+        },
+        {
+          "pid": 23872,
+          "type": "Tab",
+          "privateMB": 213,
+          "workingSetMB": 325,
+          "webContents": []
+        },
+        {
+          "pid": 35668,
+          "type": "Tab",
+          "privateMB": 166,
+          "workingSetMB": 262,
+          "webContents": []
+        },
+        {
+          "pid": 7568,
+          "type": "Browser",
+          "privateMB": 145,
+          "workingSetMB": 211,
+          "webContents": []
+        },
+        {
+          "pid": 46956,
+          "type": "Tab",
+          "privateMB": 138,
+          "workingSetMB": 256,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://global.espn.com/"
+            }
+          ]
+        },
+        {
+          "pid": 4372,
+          "type": "Tab",
+          "privateMB": 134,
+          "workingSetMB": 255,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.bing.com/?toWww=1&redig=1EE206F7451C4C6FBE3036E0F25BB66A"
+            }
+          ]
+        },
+        {
+          "pid": 42244,
+          "type": "Tab",
+          "privateMB": 129,
+          "workingSetMB": 193,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "file:///D:/Project/Drifts/dist/renderer/index.html"
+            }
+          ]
+        },
+        {
+          "pid": 30144,
+          "type": "Tab",
+          "privateMB": 128,
+          "workingSetMB": 240,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.google.com/maps/@2.8311552,101.7020416,14z?entry=ttu&g_ep=EgoyMDI2MTAyOC4wIKXMDSoASAFQAw%3D%3D"
+            }
+          ]
+        },
+        {
+          "pid": 34328,
+          "type": "Tab",
+          "privateMB": 117,
+          "workingSetMB": 239,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://www.theverge.com/"
+            }
+          ]
+        },
+        {
+          "pid": 27336,
+          "type": "Tab",
+          "privateMB": 77,
+          "workingSetMB": 187,
+          "webContents": []
+        },
+        {
+          "pid": 24592,
+          "type": "Tab",
+          "privateMB": 67,
+          "workingSetMB": 188,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://medium.com/"
+            }
+          ]
+        },
+        {
+          "pid": 21120,
+          "type": "Tab",
+          "privateMB": 65,
+          "workingSetMB": 172,
+          "webContents": []
+        },
+        {
+          "pid": 7544,
+          "type": "Tab",
+          "privateMB": 62,
+          "workingSetMB": 185,
+          "webContents": [
+            {
+              "type": "window",
+              "url": "https://duckduckgo.com/"
+            }
+          ]
+        },
+        {
+          "pid": 6848,
+          "type": "Utility",
+          "serviceName": "video_capture.mojom.VideoCaptureService",
+          "privateMB": 60,
+          "workingSetMB": 163,
+          "webContents": []
+        },
+        {
+          "pid": 34680,
+          "type": "Tab",
+          "privateMB": 51,
+          "workingSetMB": 169,
+          "webContents": []
+        },
+        {
+          "pid": 3972,
+          "type": "Tab",
+          "privateMB": 34,
+          "workingSetMB": 153,
+          "webContents": []
+        },
+        {
+          "pid": 11572,
+          "type": "Utility",
+          "serviceName": "network.mojom.NetworkService",
+          "privateMB": 31,
+          "workingSetMB": 83,
+          "webContents": []
+        },
+        {
+          "pid": 27528,
+          "type": "Utility",
+          "serviceName": "audio.mojom.AudioService",
+          "privateMB": 10,
+          "workingSetMB": 119,
+          "webContents": []
+        }
+      ],
+      "hoverMethod": "mouse"
+    },
+    {
+      "run": 1,
+      "browser": "Brave",
+      "scenario": "20 sites (args)",
+      "tabs": 20,
+      "awakeTabs": null,
+      "processCount": 61,
+      "privateMB": 3573,
+      "workingSetMB": 5779,
+      "pids": [
+        37300,
+        22460,
+        40660,
+        4640,
+        20716,
+        21560,
+        45844,
+        36872,
+        37216,
+        42084,
+        7504,
+        2388,
+        26896,
+        24400,
+        21700,
+        44276,
+        34284,
+        21332,
+        46404,
+        38896,
+        42404,
+        14864,
+        13764,
+        35108,
+        40996,
+        41236,
+        17940,
+        10088,
+        20732,
+        18088,
+        27580,
+        3280,
+        7864,
+        24016,
+        46072,
+        40016,
+        14268,
+        26096,
+        42336,
+        1936,
+        23620,
+        22164,
+        11124,
+        43528,
+        4452,
+        26740,
+        46508,
+        45128,
+        26528,
+        21832,
+        21564,
+        40688,
+        25204,
+        39584,
+        25316,
+        47064,
+        43472,
+        32212,
+        25008,
+        35492,
+        18624
+      ]
+    }
+  ]
+}

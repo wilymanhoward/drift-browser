@@ -21,7 +21,7 @@ test('settings apply live, export/import, and survive restart', async () => {
         .getByRole('button', { name, exact: true })
         .click();
     const initial = await chrome.evaluate(() => window.drift.getState());
-    await expect(chrome.locator('aside footer button')).toHaveCount(2);
+    await expect(chrome.locator('aside footer button')).toHaveCount(3);
     await expect(chrome.locator('.workspace-switcher')).toHaveCount(0);
     await chrome.evaluate(() => window.drift.action('show-settings'));
     await expect(
@@ -38,13 +38,16 @@ test('settings apply live, export/import, and survive restart', async () => {
       chrome.getByText('No settings found. Try a different word.'),
     ).toBeVisible();
     await chrome.getByLabel('Clear settings search', { exact: true }).click();
-    expect(
-      (await chrome.evaluate(() => window.drift.getState())).activeTabId,
-    ).toBe(initial.activeTabId);
+    expect((await chrome.evaluate(() => window.drift.getState())).url).toBe(
+      'drift://settings/',
+    );
     expect(
       (await chrome.evaluate(() => window.drift.getState())).tabs,
-    ).toHaveLength(initial.tabs.length);
-    await chrome.getByRole('tab', { selected: true }).click();
+    ).toHaveLength(initial.tabs.length + 1);
+    await chrome.evaluate(
+      (id) => window.drift.tab({ type: 'select', id }),
+      initial.activeTabId,
+    );
     await expect(
       chrome.getByRole('main', { name: 'Settings', exact: true }),
     ).toHaveCount(0);
@@ -67,7 +70,7 @@ test('settings apply live, export/import, and survive restart', async () => {
             .trim(),
         ),
       )
-      .toBe('#edf1eb');
+      .toBe('#f5f5f7');
     for (const [label, value, key] of [
       ['Collapsed width', '56', 'collapsedWidth'],
       ['Expanded width', '248', 'expandedWidth'],
@@ -164,11 +167,11 @@ test('settings apply live, export/import, and survive restart', async () => {
     await category('Advanced');
     await chrome
       .getByLabel('Custom CSS', { exact: true })
-      .fill('.wordmark { letter-spacing:3px !important; }');
+      .fill('.settings-page { letter-spacing:3px !important; }');
     await chrome
       .getByRole('button', { name: 'Apply CSS', exact: true })
       .click();
-    await expect(chrome.locator('.wordmark')).toHaveCSS(
+    await expect(chrome.locator('.settings-page')).toHaveCSS(
       'letter-spacing',
       '3px',
     );
@@ -213,7 +216,7 @@ test('settings apply live, export/import, and survive restart', async () => {
       theme: 'light',
       sidebarPosition: 'left',
       searchEngine: 'google',
-      customCSS: '.wordmark { letter-spacing: 2px !important; }',
+      customCSS: '.settings-page { letter-spacing: 2px !important; }',
     };
     await writeFile(file, JSON.stringify(imported));
     await chrome
@@ -226,7 +229,7 @@ test('settings apply live, export/import, and survive restart', async () => {
         ),
       )
       .toBe('light');
-    await expect(chrome.locator('.wordmark')).toHaveCSS(
+    await expect(chrome.locator('.settings-page')).toHaveCSS(
       'letter-spacing',
       '2px',
     );
@@ -246,7 +249,12 @@ test('settings apply live, export/import, and survive restart', async () => {
         ),
       )
       .toBe('Ctrl+K');
-    await chrome.getByLabel('Close dialog', { exact: true }).click();
+    await chrome.evaluate(async () =>
+      window.drift.tab({
+        type: 'close',
+        id: (await window.drift.getState()).activeTabId,
+      }),
+    );
     await app.evaluate(({ BrowserWindow }) => {
       const p = BrowserWindow.getAllWindows()[0].webContents;
       p.sendInputEvent({

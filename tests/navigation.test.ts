@@ -10,7 +10,12 @@ describe('navigation trust boundary', () => {
       'http://localhost:3210/test',
     );
     expect(navigationURL('localhost:3210/test')).toBe(
-      'https://localhost:3210/test',
+      'http://localhost:3210/test',
+    );
+    expect(navigationURL('127.0.0.1:8080')).toBe('http://127.0.0.1:8080/');
+    expect(navigationURL('app.localhost')).toBe('http://app.localhost/');
+    expect(navigationURL('localhost.example.com')).toBe(
+      'https://localhost.example.com/',
     );
   });
   it.each([

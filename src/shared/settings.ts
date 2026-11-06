@@ -67,8 +67,8 @@ export const DEFAULT_SETTINGS: Settings = {
   searchEngine: 'google',
   customSearch: 'https://www.google.com/search?q={query}',
   hoverExpand: true,
-  lockCollapsed: false,
-  toolbarLayout: 'sidebar',
+  lockCollapsed: true,
+  toolbarLayout: 'top',
   autoHideTopBar: true,
   unloadMinutes: 15,
   maxAwakeTabs: 6,
@@ -106,7 +106,7 @@ export function parseSettings(value: unknown): Settings {
         : (value as Settings).maxAwakeTabs,
   };
   if (
-    Object.keys(v).some((key) => !(key in DEFAULT_SETTINGS)) ||
+    Object.keys(v).some((key) => !Object.hasOwn(DEFAULT_SETTINGS, key)) ||
     !['light', 'dark', 'system'].includes(v.theme) ||
     typeof v.glassEffect !== 'boolean' ||
     !/^#[\da-f]{6}$/i.test(v.accent) ||
@@ -177,9 +177,29 @@ export function parseSettings(value: unknown): Settings {
     bindings.add(canonical.toLowerCase());
     shortcuts[key] = canonical;
   }
-  if (Object.keys(v.shortcuts).some((key) => !(key in DEFAULT_SHORTCUTS)))
+  if (
+    Object.keys(v.shortcuts).some(
+      (key) => !Object.hasOwn(DEFAULT_SHORTCUTS, key),
+    )
+  )
     throw new Error('Unknown shortcut');
   return { ...structuredClone(v), shortcuts };
+}
+// The key a binding names. Shift and AltGr change input.key ("Shift+1" types
+// "!"), so digits and punctuation come from the physical key instead; letters
+// keep the layout's own character.
+export function shortcutKey(input: { key: string; code?: string }): string {
+  if (/^[a-z]$/i.test(input.key)) return input.key.toUpperCase();
+  const digit = /^(?:Digit|Numpad)(\d)$/.exec(input.code ?? '');
+  if (digit) return digit[1];
+  const symbol = (
+    { Comma: ',', Equal: '=', Minus: '-', NumpadSubtract: '-' } as Record<
+      string,
+      string
+    >
+  )[input.code ?? ''];
+  if (symbol) return symbol;
+  return input.key.length === 1 ? input.key.toUpperCase() : input.key;
 }
 export function searchTemplate(settings: Settings): string {
   return {
@@ -242,7 +262,7 @@ export function themeCSS(
     '--hover': pick('#0000000d', '#ffffff12'),
     '--selection': tone('#ffffffd9', '#ffffff24', pick('#ffffff', '#33343a')),
     '--text': pick('#1d1d1f', '#f5f5f7'),
-    '--muted': pick('#6e6e73', '#a1a1a6'),
+    '--muted': pick('#69696e', '#a1a1a6'),
     '--border': pick('#d2d2d7', '#3a3a3f'),
     '--error': pick('#d70015', '#ff6961'),
     '--shadow-sm': pick(

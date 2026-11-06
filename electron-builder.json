@@ -13,6 +13,14 @@
   ],
   "asar": true,
   "npmRebuild": false,
+  "electronFuses": {
+    "runAsNode": false,
+    "enableCookieEncryption": true,
+    "enableNodeOptionsEnvironmentVariable": false,
+    "enableNodeCliInspectArguments": false,
+    "enableEmbeddedAsarIntegrityValidation": true,
+    "onlyLoadAppFromAsar": true
+  },
   "win": {
     "target": [
       { "target": "nsis", "arch": ["x64"] },
@@ -33,5 +41,10 @@
     "deleteAppDataOnUninstall": false
   },
   "portable": { "artifactName": "Drift-Portable-${version}-${arch}.${ext}" },
-  "publish": null
+  "publish": {
+    "provider": "github",
+    "owner": "wilymanhoward",
+    "repo": "drift-browser",
+    "releaseType": "release"
+  }
 }

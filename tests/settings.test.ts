@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   parseSettings,
   searchTemplate,
+  shortcutKey,
   themeCSS,
 } from '../src/shared/settings';
 it('validates preferences, search templates, and unique normalized shortcuts', () => {
@@ -11,11 +12,15 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
   delete legacy.glassEffect;
   expect(parseSettings(legacy).glassEffect).toBe(true);
   delete legacy.lockCollapsed;
-  expect(parseSettings(legacy).lockCollapsed).toBe(false);
+  expect(parseSettings(legacy).lockCollapsed).toBe(
+    DEFAULT_SETTINGS.lockCollapsed,
+  );
   delete legacy.autoHideTopBar;
   expect(parseSettings(legacy).autoHideTopBar).toBe(true);
   delete legacy.toolbarLayout;
-  expect(parseSettings(legacy).toolbarLayout).toBe('sidebar');
+  expect(parseSettings(legacy).toolbarLayout).toBe(
+    DEFAULT_SETTINGS.toolbarLayout,
+  );
   expect(() =>
     parseSettings({ ...DEFAULT_SETTINGS, toolbarLayout: 'bottom' as 'top' }),
   ).toThrow();
@@ -57,4 +62,15 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
       wallpaper: 'https://example.com/tracker.png',
     }),
   ).toThrow();
+});
+it('names shortcut keys by the physical key when Shift changes the character', () => {
+  expect(shortcutKey({ key: '!', code: 'Digit1' })).toBe('1');
+  expect(shortcutKey({ key: '+', code: 'Equal' })).toBe('=');
+  expect(shortcutKey({ key: '_', code: 'Minus' })).toBe('-');
+  expect(shortcutKey({ key: '<', code: 'Comma' })).toBe(',');
+  expect(shortcutKey({ key: 't', code: 'KeyT' })).toBe('T');
+  // Letters follow the keyboard layout, not the physical position.
+  expect(shortcutKey({ key: 'a', code: 'KeyQ' })).toBe('A');
+  expect(shortcutKey({ key: 'Tab', code: 'Tab' })).toBe('Tab');
+  expect(shortcutKey({ key: 'F12', code: 'F12' })).toBe('F12');
 });

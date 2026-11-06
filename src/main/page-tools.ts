@@ -7,10 +7,27 @@ import type {
   MenuItemConstructorOptions,
 } from 'electron';
 import type Store from 'electron-store';
-import { isWebURL } from '../shared/navigation';
+import { isWebURL, SETTINGS_URL } from '../shared/navigation';
 import { listeners } from './listeners';
 import { parseZoom, zoomOrigin } from '../shared/page-tools';
 import type { FindState, FindCommand, PageAction } from '../shared/page-tools';
+export class ZoomPreferences {
+  values: Record<string, number> = {};
+  store: Store<{ zoom: unknown }> | null = null;
+  error: string | null = null;
+  async load(privateWindow: boolean) {
+    try {
+      const { default: Store } = await import('electron-store');
+      const store = new Store<{ zoom: unknown }>({ name: 'zoom' });
+      const saved = store.get('zoom');
+      if (saved !== undefined) this.values = parseZoom(saved);
+      if (!privateWindow) this.store = store;
+    } catch {
+      this.error =
+        'Zoom preferences could not be read. The original file is preserved.';
+    }
+  }
+}
 export class PageTools {
   find: FindState | null = null;
   error: string | null = null;
@@ -19,26 +36,13 @@ export class PageTools {
     () => [];
   private target: WebContents | null = null;
   private request = 0;
-  private zoom: Record<string, number> = {};
-  private store: Store<{ zoom: unknown }> | null = null;
   constructor(
     private win: BrowserWindow,
     private active: () => WebContents,
     private open: (url: string) => void,
     private changed: () => void,
+    private zoom: ZoomPreferences,
   ) {}
-  async load(privateWindow: boolean) {
-    try {
-      const { default: Store } = await import('electron-store');
-      const store = new Store<{ zoom: unknown }>({ name: 'zoom' });
-      const saved = store.get('zoom');
-      if (saved !== undefined) this.zoom = parseZoom(saved);
-      if (!privateWindow) this.store = store;
-    } catch {
-      this.error =
-        'Zoom preferences could not be read. The original file is preserved.';
-    }
-  }
   // Returns a cleanup for when the page moves to another window.
   attach(page: WebContents) {
     const { on, off } = listeners(page);
@@ -123,7 +127,7 @@ export class PageTools {
   }
   private applyZoom(page: WebContents) {
     const origin = zoomOrigin(page.getURL());
-    page.setZoomFactor(origin ? (this.zoom[origin] ?? 1) : 1);
+    page.setZoomFactor(origin ? (this.zoom.values[origin] ?? 1) : 1);
     this.changed();
   }
   closeFind() {
@@ -158,6 +162,7 @@ export class PageTools {
   }
   action(action: PageAction) {
     const page = this.active();
+    if (page.getURL() === SETTINGS_URL && action !== 'fullscreen') return;
     if (action === 'find') {
       this.closeFind();
       this.target = page;
@@ -190,11 +195,11 @@ export class PageTools {
               ),
             );
       if (origin) {
-        const next = { ...this.zoom, [origin]: factor };
+        const next = { ...this.zoom.values, [origin]: factor };
         const keys = Object.keys(next);
         if (keys.length > 2000) delete next[keys[0]];
-        if (this.store) this.store.set('zoom', next);
-        this.zoom = next;
+        if (this.zoom.store) this.zoom.store.set('zoom', next);
+        this.zoom.values = next;
         for (const view of this.win.contentView.children) {
           const target = (view as Electron.WebContentsView).webContents;
           if (

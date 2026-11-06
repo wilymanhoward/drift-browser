@@ -8,7 +8,6 @@ import {
 import { getDomain } from 'tldts';
 import { readFile, writeFile, mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
 import { DEFAULT_PRIVACY } from '../shared/privacy';
 import type {
   PrivacySettings,
@@ -25,7 +24,10 @@ import {
 } from '../shared/google-signin';
 
 // Ship network rules, cosmetics and their scriptlets together so the first
-// page never starts with only half of the blocking rules.
+// page never starts with only half of the blocking rules. Refreshes download
+// filter lists only: scriptlets are code injected into every page, so they
+// always come from the bundled engine that ships with (and is reviewed in)
+// each Drift release, never from an unpinned remote branch.
 const MIRROR =
   'https://raw.githubusercontent.com/ghostery/adblocker/master/packages/adblocker/assets';
 const REMOTE = [
@@ -41,6 +43,7 @@ const REMOTE = [
 ];
 const REFRESH = 86400000;
 let engine: ElectronBlocker;
+let bundledResources: ElectronBlocker['resources'];
 let updatedAt = 0;
 let filterError: string | null = null;
 let refreshing: Promise<void> | null = null;
@@ -67,8 +70,11 @@ export async function loadFilters() {
     await readFile(path.join(bundled, 'full-engine.json'), 'utf8'),
   ) as { updatedAt: number };
   const fallback = await readFile(path.join(bundled, 'full-engine.bin'));
+  bundledResources = ElectronBlocker.deserialize(fallback).resources;
   try {
     engine = ElectronBlocker.deserialize(await readFile(cached));
+    // A cache written by an older Drift may hold downloaded scriptlets.
+    engine.resources = bundledResources;
     updatedAt = (await stat(cached)).mtimeMs;
     if (updatedAt < snapshot.updatedAt || !engine.resources.scriptlets.length)
       throw new Error('Incomplete or superseded filters');
@@ -95,22 +101,13 @@ export function refreshFilters(): Promise<void> {
         if (!response.ok) throw new Error('Filter download failed');
         return response.text();
       };
-      const [resources, ...text] = await Promise.all([
-        download('ublock-origin/resources.json'),
-        ...REMOTE.map(download),
-      ]);
-      if (
-        text.some((body) => body.length < 1000 || /^\s*</.test(body)) ||
-        !resources.startsWith('{')
-      )
+      const text = await Promise.all(REMOTE.map(download));
+      if (text.some((body) => body.length < 1000 || /^\s*</.test(body)))
         throw new Error('Invalid filter list');
       const next = ElectronBlocker.parse(text.join('\n'), {
         enableCompression: true,
       });
-      next.updateResources(
-        resources,
-        createHash('sha256').update(resources).digest('hex'),
-      );
+      next.resources = bundledResources;
       if (!next.resources.scriptlets.length)
         throw new Error('Missing scriptlets');
       await writeFile(`${cached}.tmp`, next.serialize());
@@ -157,6 +154,53 @@ export function thirdParty(url: string, top: string): boolean {
     return true;
   }
 }
+// Granted to web pages without a prompt, as Chrome does: fullscreen, clipboard
+// writes from a click (site Copy buttons) and pointer lock for games and maps.
+const SILENT_PERMISSIONS: string[] = [
+  'fullscreen',
+  'clipboard-sanitized-write',
+  'pointerLock',
+];
+// After this many blocked prompts a page gets no more until it navigates.
+const PROMPT_LIMIT = 3;
+const BLOCKED_SCHEMES = [
+  'file',
+  'javascript',
+  'vbscript',
+  'data',
+  'blob',
+  'jar',
+  'search',
+  'search-ms',
+  'shell',
+  'drift',
+  'chrome',
+  'chrome-extension',
+];
+export function permissionLabel(
+  permission: string,
+  mediaTypes?: ('video' | 'audio')[],
+): string {
+  if (permission === 'media') {
+    const video = mediaTypes?.includes('video');
+    const audio = mediaTypes?.includes('audio');
+    return video && audio
+      ? 'your camera and microphone'
+      : video
+        ? 'your camera'
+        : audio
+          ? 'your microphone'
+          : 'your camera or microphone';
+  }
+  return (
+    {
+      camera: 'your camera',
+      microphone: 'your microphone',
+      geolocation: 'your location',
+      notifications: 'notifications',
+    }[permission] ?? permission
+  );
+}
 function parse(value: unknown): PrivacySettings {
   if (!value || typeof value !== 'object')
     return structuredClone(DEFAULT_PRIVACY);
@@ -188,6 +232,8 @@ export class PrivacyController {
   private upgrades = new Map<number, string>();
   private failed = new Map<number, string>();
   private grants = new Map<number, Set<string>>();
+  // Prompts a page has had blocked, so a page cannot ask in a loop.
+  private dismissed = new Map<number, Map<string, number>>();
   private active = true;
   constructor(
     private session: Session,
@@ -228,9 +274,10 @@ export class PrivacyController {
   state(id: number, url: string): ShieldsState {
     let site = '';
     try {
-      site = new URL(url).hostname;
+      // Internal pages such as drift://settings have no site controls.
+      if (isWebURL(url)) site = new URL(url).hostname;
     } catch {
-      /* Internal pages have no site controls. */
+      /* Unparseable addresses have no site controls either. */
     }
     return {
       origin: isWebURL(url) ? new URL(url).origin : '',
@@ -250,16 +297,19 @@ export class PrivacyController {
       if (main && !inPlace) {
         this.counts.set(page.id, 0);
         this.grants.delete(page.id);
+        this.dismissed.delete(page.id);
       }
     });
     page.on('did-fail-load', (_event, code, _description, url, main) => {
       const original = this.upgrades.get(page.id);
-      if (
-        main &&
-        code !== -3 &&
-        original &&
-        new URL(original).hostname === new URL(url).hostname
-      ) {
+      let sameHost = false;
+      try {
+        sameHost =
+          !!original && new URL(original).hostname === new URL(url).hostname;
+      } catch {
+        /* An unparsable failed address is not the upgraded page. */
+      }
+      if (main && code !== -3 && original && sameHost) {
         this.failed.set(page.id, original);
         this.upgrades.delete(page.id);
         this.warning(page.id);
@@ -271,6 +321,7 @@ export class PrivacyController {
       this.upgrades.delete(page.id);
       this.failed.delete(page.id);
       this.grants.delete(page.id);
+      this.dismissed.delete(page.id);
     });
   }
   private attach() {
@@ -352,24 +403,33 @@ export class PrivacyController {
           : { cancel: blocked },
       );
     });
+    // Cookies are withheld only from requests a page makes to another site.
+    // Requests with no page (service workers, extension workers) have no top
+    // site to compare with, and a site with Shields off keeps its embeds.
+    const crossSite = (details: {
+      url: string;
+      resourceType: string;
+      webContentsId?: number;
+    }) => {
+      if (!this.active || details.resourceType === 'mainFrame') return false;
+      const page = top(details.webContentsId);
+      if (!isWebURL(page)) return false;
+      if (this.settings.disabledSites.includes(new URL(page).hostname))
+        return false;
+      return thirdParty(details.url, page);
+    };
     session.webRequest.onBeforeSendHeaders((details, callback) => {
       const headers = isGoogleSignIn(details.url)
         ? signInHeaders(details.requestHeaders, signInAgent)
         : { ...details.requestHeaders };
-      if (
-        details.resourceType !== 'mainFrame' &&
-        thirdParty(details.url, top(details.webContentsId))
-      )
+      if (crossSite(details))
         for (const key of Object.keys(headers))
           if (key.toLowerCase() === 'cookie') delete headers[key];
       callback({ requestHeaders: headers });
     });
     session.webRequest.onHeadersReceived((details, callback) => {
       const headers = { ...details.responseHeaders };
-      if (
-        details.resourceType !== 'mainFrame' &&
-        thirdParty(details.url, top(details.webContentsId))
-      )
+      if (crossSite(details))
         for (const key of Object.keys(headers))
           if (key.toLowerCase() === 'set-cookie') delete headers[key];
       callback({ responseHeaders: headers });
@@ -377,7 +437,8 @@ export class PrivacyController {
     session.setPermissionCheckHandler(
       (page, permission, origin) =>
         !!page &&
-        ((permission === 'fullscreen' && isWebURL(page.getURL())) ||
+        !this.settings.deniedPermissions[origin]?.includes(permission) &&
+        ((SILENT_PERMISSIONS.includes(permission) && isWebURL(page.getURL())) ||
           !!this.grants.get(page.id)?.has(`${origin}|${permission}`)),
     );
     session.setPermissionRequestHandler(
@@ -389,10 +450,19 @@ export class PrivacyController {
           callback(false);
           return;
         }
-        if (permission === 'fullscreen') {
+        if (SILENT_PERMISSIONS.includes(permission)) {
           callback(isWebURL(origin));
           return;
         }
+        if (permission === 'openExternal') {
+          void this.openExternal(
+            page,
+            origin,
+            'externalURL' in details ? details.externalURL : undefined,
+          ).then(callback, () => callback(false));
+          return;
+        }
+        const key = `${origin}|${permission}`;
         if (
           ![
             'media',
@@ -402,17 +472,43 @@ export class PrivacyController {
             'microphone',
           ].includes(permission) ||
           !isWebURL(origin) ||
-          this.settings.deniedPermissions[origin]?.includes(permission)
+          this.settings.deniedPermissions[origin]?.includes(permission) ||
+          (this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT
         ) {
           callback(false);
           return;
         }
+        // Electron supplies a URL rather than a frame ID; ambiguous requests stay blocked.
+        const frames = details.isMainFrame
+          ? [page.mainFrame]
+          : page.mainFrame.framesInSubtree.filter(
+              (frame) => frame.url === details.requestingUrl,
+            );
+        if (frames.length !== 1 || frames[0].origin !== origin) {
+          callback(false);
+          return;
+        }
+        const frame = frames[0];
+        let navigated = false;
+        const navigation = (
+          event: Electron.Event<Electron.WebContentsDidStartNavigationEventParams>,
+        ) => {
+          if (
+            !event.isSameDocument &&
+            (event.isMainFrame || event.frame === frame)
+          )
+            navigated = true;
+        };
+        page.on('did-start-navigation', navigation);
         const id = page.id;
         void dialog
           .showMessageBox(this.windowFor(page), {
             type: 'question',
             title: 'Site permission',
-            message: `${origin} requests ${permission} access.`,
+            message: `${origin} wants to use ${permissionLabel(
+              permission,
+              'mediaTypes' in details ? details.mediaTypes : undefined,
+            )}.`,
             detail:
               'Allow applies to this page only. Your operating system may also ask for permission.',
             buttons: ['Block', 'Allow once', 'Always block for this site'],
@@ -423,7 +519,11 @@ export class PrivacyController {
           .then(({ response }) => {
             if (
               page.isDestroyed() ||
-              new URL(page.getURL()).origin !== origin
+              navigated ||
+              frame.isDestroyed() ||
+              frame.origin !== origin ||
+              !page.mainFrame.framesInSubtree.includes(frame) ||
+              this.settings.deniedPermissions[origin]?.includes(permission)
             ) {
               callback(false);
               return;
@@ -437,6 +537,12 @@ export class PrivacyController {
               ];
               this.save();
             }
+            if (response !== 1) {
+              const counts =
+                this.dismissed.get(id) || new Map<string, number>();
+              counts.set(key, (counts.get(key) ?? 0) + 1);
+              this.dismissed.set(id, counts);
+            }
             if (response === 1) {
               const grants = this.grants.get(id) || new Set<string>();
               grants.add(`${origin}|${permission}`);
@@ -444,9 +550,48 @@ export class PrivacyController {
             }
             callback(response === 1);
           })
-          .catch(() => callback(false));
+          .catch(() => callback(false))
+          .finally(() =>
+            page.removeListener('did-start-navigation', navigation),
+          );
       },
     );
+  }
+  // Links to mailto:, tel: and app protocols leave Drift only after the user
+  // agrees; protocols that run local files or system tools never do.
+  private async openExternal(
+    page: WebContents,
+    origin: string,
+    target: string | undefined,
+  ) {
+    if (!isWebURL(origin) || !target) return false;
+    let scheme: string;
+    try {
+      scheme = new URL(target).protocol.slice(0, -1).toLowerCase();
+    } catch {
+      return false;
+    }
+    if (BLOCKED_SCHEMES.includes(scheme) || scheme.startsWith('ms-'))
+      return false;
+    const key = `${origin}|openExternal`;
+    if ((this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT)
+      return false;
+    const { response } = await dialog.showMessageBox(this.windowFor(page), {
+      type: 'question',
+      title: 'Open in another app',
+      message: `${origin} wants to open a ${scheme}: link in another app.`,
+      detail: target.length > 300 ? `${target.slice(0, 300)}…` : target,
+      buttons: ['Cancel', 'Open'],
+      defaultId: 0,
+      cancelId: 0,
+      noLink: true,
+    });
+    if (response !== 1) {
+      const counts = this.dismissed.get(page.id) || new Map<string, number>();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      this.dismissed.set(page.id, counts);
+    }
+    return response === 1 && !page.isDestroyed();
   }
   command(input: unknown, id: number, url: string) {
     if (!input || typeof input !== 'object')
@@ -503,7 +648,8 @@ export class PrivacyController {
         ).filter((x) => x !== command.permission);
         if (command.denied)
           this.settings.deniedPermissions[origin].push(command.permission);
-        this.grants.delete(id);
+        for (const grants of this.grants.values())
+          grants.delete(`${origin}|${command.permission}`);
         break;
       }
       default:

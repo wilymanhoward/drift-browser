@@ -155,7 +155,7 @@ test('an incomplete cached blocker is replaced by bundled player-safe scriptlets
       })
       .click();
     await expect(chrome.getByRole('alert')).toContainText(
-      'Existing rules remain active',
+      'rules remain active',
     );
     expect(await page(app, 'window.playerFixture')).toBeTruthy();
     const sources = JSON.parse(

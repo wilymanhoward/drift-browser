@@ -1,7 +1,7 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { chromeWindow } from './helpers';
+import { chromeWindow, pinSidebar } from './helpers';
 import type { Page } from '@playwright/test';
 async function navigate(chrome: Page, url: string) {
   await chrome.evaluate(() => window.drift.action('open-command'));
@@ -30,12 +30,16 @@ test('Phase 1 browses with isolated content and working window controls', async 
   });
   try {
     const chrome = await chromeWindow(app);
+    if (process.platform === 'win32')
+      expect(
+        await app.evaluate(({ Menu }) => Menu.getApplicationMenu()),
+      ).toBeNull();
     const errors: string[] = [];
     chrome.on('pageerror', (error) => errors.push(error.message));
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '48px');
-    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '44px');
+    await pinSidebar(chrome);
     await expect(chrome.getByLabel('Edit web address')).toBeVisible();
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '224px');
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '208px');
     await navigate(chrome, `${origin}/one`);
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'First page',
@@ -88,7 +92,7 @@ test('Phase 1 browses with isolated content and working window controls', async 
     expect(security).toMatchObject({
       globals: { node: 'undefined', require: 'undefined', bridge: 'undefined' },
     });
-    expect(security.bounds.width).toBe(security.size[0] - 232);
+    expect(security.bounds.width).toBe(security.size[0] - 224);
     expect(security.bounds.height).toBe(security.size[1] - 16);
     const rejected = await chrome.evaluate(async () => {
       try {
@@ -169,7 +173,7 @@ test('hover-expanded window controls stay reachable across the header', async ()
     const chrome = await chromeWindow(app);
     const sidebar = chrome.getByRole('complementary');
     await chrome.mouse.move(16, 140);
-    await expect(sidebar).toHaveCSS('width', '224px');
+    await expect(sidebar).toHaveCSS('width', '208px');
     // Reproduce the native mouse-exit event when entering the draggable label.
     await sidebar.dispatchEvent('mouseout', {
       bubbles: true,
@@ -178,14 +182,14 @@ test('hover-expanded window controls stay reachable across the header', async ()
       clientY: 20,
     });
     await chrome.waitForTimeout(400);
-    await expect(sidebar).toHaveCSS('width', '224px');
+    await expect(sidebar).toHaveCSS('width', '208px');
     expect(
       (await chrome.evaluate(() => window.drift.getState())).sidebar.pinned,
     ).toBe(false);
     await chrome.mouse.move(80, 20, { steps: 12 });
     await chrome.getByLabel('Maximize window', { exact: true }).hover();
     await chrome.waitForTimeout(400);
-    await expect(sidebar).toHaveCSS('width', '224px');
+    await expect(sidebar).toHaveCSS('width', '208px');
     await chrome.getByLabel('Maximize window', { exact: true }).click();
     await expect(
       chrome.getByLabel('Restore window', { exact: true }),
@@ -207,7 +211,7 @@ test('hover-expanded window controls stay reachable across the header', async ()
       win.show();
     });
     await chrome.mouse.move(16, 140);
-    await expect(sidebar).toHaveCSS('width', '224px');
+    await expect(sidebar).toHaveCSS('width', '208px');
     await chrome.getByLabel('Close window', { exact: true }).hover();
     await chrome.waitForTimeout(400);
     const closed = app.waitForEvent('close');

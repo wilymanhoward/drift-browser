@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { chromeWindow, openBrowserTool } from './helpers';
+import { chromeWindow, openBrowserTool, pinSidebar } from './helpers';
 const state = (chrome: Page) => chrome.evaluate(() => window.drift.getState());
 async function nativeShortcut(app: ElectronApplication, key: string) {
   await app.evaluate(({ BrowserWindow }, key) => {
@@ -61,7 +61,7 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
     let newTab = app
       .windows()
       .find((page) => page.url() === 'drift://newtab/')!;
-    await expect(newTab.getByLabel('Current time')).toContainText(/\d/);
+    await expect(newTab.locator('h1')).not.toBeEmpty();
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(640, 440),
     );
@@ -105,9 +105,10 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
     await expect(chrome.getByRole('tab', { selected: true })).toHaveText(
       'Quiet harbor',
     );
-    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
+    await pinSidebar(chrome);
     await openBrowserTool(chrome, 'Bookmarks');
     await chrome
+      .getByRole('dialog', { name: 'Bookmarks', exact: true })
       .getByRole('button', { name: 'Bookmark this page', exact: true })
       .click();
     await chrome.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -115,6 +116,7 @@ test('command bar, history, folders, and internal new-tab navigation persist', a
       (await chrome.evaluate(() => window.drift.getLibrary())).bookmarks,
     ).toHaveLength(0);
     await chrome
+      .getByRole('dialog', { name: 'Bookmarks', exact: true })
       .getByRole('button', { name: 'Bookmark this page', exact: true })
       .click();
     await chrome.getByLabel('Bookmark title').fill('Harbor reference');
@@ -332,7 +334,7 @@ test('a corrupt library is reported and preserved', async () => {
   });
   try {
     const chrome = await chromeWindow(app);
-    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
+    await pinSidebar(chrome);
     await expect(chrome.getByRole('alert')).toContainText(
       'History and bookmark storage is unavailable',
     );

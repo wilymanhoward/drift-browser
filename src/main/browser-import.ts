@@ -166,7 +166,8 @@ export async function detectBrowserSources(
     } catch {
       continue;
     }
-    let profiles: { directory: string; name: string }[] = [];
+    // `outside`: a Firefox profile its profiles.ini places elsewhere on disk.
+    let profiles: { directory: string; name: string; outside?: boolean }[] = [];
     if (kind === 'chromium') {
       let names: unknown = {};
       try {
@@ -213,6 +214,7 @@ export async function detectBrowserSources(
               ? path.resolve(fields.Path)
               : path.resolve(root, fields.Path),
           name: label(fields.Name, 'Default'),
+          outside: fields.IsRelative === '0',
         });
       }
     }
@@ -223,7 +225,7 @@ export async function detectBrowserSources(
       } catch {
         continue;
       }
-      if (!contained(root, directory)) continue;
+      if (!profile.outside && !contained(root, directory)) continue;
       const bookmarks = await exists(
         directory,
         kind === 'chromium' ? 'Bookmarks' : 'places.sqlite',

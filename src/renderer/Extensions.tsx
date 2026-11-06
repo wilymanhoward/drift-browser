@@ -32,7 +32,10 @@ interface BrowserActionAPI {
       anchorRect: { x: number; y: number; width: number; height: number };
     },
   ): Promise<void>;
-  addEventListener(name: 'update', listener: (state: ActionState) => void): void;
+  addEventListener(
+    name: 'update',
+    listener: (state: ActionState) => void,
+  ): void;
   removeEventListener(
     name: 'update',
     listener: (state: ActionState) => void,
@@ -172,8 +175,8 @@ export function ExtensionsPanel({ state }: { state: BrowserState }) {
   if (!state.extensions)
     return (
       <p className="panel-note">
-        Extensions don’t run in private windows. Open a regular window to use
-        or manage them.
+        Extensions don’t run in private windows. Open a regular window to use or
+        manage them.
       </p>
     );
   const { extensions } = state.extensions;
@@ -194,8 +197,8 @@ export function ExtensionsPanel({ state }: { state: BrowserState }) {
       )}
       {!extensions.length && (
         <p role="status" className="panel-note">
-          No extensions yet. Open the Chrome Web Store and choose Add to
-          Chrome on any extension to install it in Drift.
+          No extensions yet. Open the Chrome Web Store and choose Add to Chrome
+          on any extension to install it in Drift.
         </p>
       )}
       {extensions.map((extension) => (
@@ -231,7 +234,9 @@ export function ExtensionsPanel({ state }: { state: BrowserState }) {
               {extension.hasOptions && (
                 <button
                   className="text-button"
-                  onClick={() => void run({ type: 'options', id: extension.id })}
+                  onClick={() =>
+                    void run({ type: 'options', id: extension.id })
+                  }
                 >
                   Options
                 </button>
@@ -249,9 +254,8 @@ export function ExtensionsPanel({ state }: { state: BrowserState }) {
       <p className="panel-note">
         Drift runs Chrome extensions through Electron, which lacks some Chrome
         features. Ad blockers built on declarativeNetRequest (such as uBlock
-        Origin Lite) and extensions that need sync, identity sign-in or
-        keyboard shortcuts won’t fully work. Drift’s own Shields already block
-        ads.
+        Origin Lite) and extensions that need sync, identity sign-in or keyboard
+        shortcuts won’t fully work. Drift’s own Shields already block ads.
       </p>
     </div>
   );

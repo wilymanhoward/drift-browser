@@ -17,7 +17,14 @@ import {
   uninstallExtension,
   downloadExtension,
 } from 'electron-chrome-web-store';
-import { WEB_STORE_URL } from '../shared/extensions';
+import {
+  WEB_STORE_URL,
+  grantedPermissions,
+  optionalPermissions,
+  trustedInstallFrame,
+  strings,
+} from '../shared/extensions';
+import type { ExtensionManifest } from '../shared/extensions';
 import type {
   ExtensionCommand,
   ExtensionInfo,
@@ -35,7 +42,8 @@ export interface ExtensionTabs {
   close(page: WebContents): void;
   window(): BrowserWindow | undefined;
 }
-interface Manifest {
+interface Manifest extends ExtensionManifest {
+  name?: string;
   description?: string;
   icons?: Record<string, string>;
   action?: unknown;
@@ -51,15 +59,18 @@ interface PopupView {
   setSize(size: { width: number; height: number }): void;
 }
 let crxProtocol = false;
-
 // Chrome Web Store installs and the chrome.* APIs Electron lacks (tabs,
 // action popups, context menus), for the persistent profile only: Chromium
 // does not run extensions in in-memory sessions.
 export class Extensions {
   error: string | null = null;
   private api: ElectronChromeExtensions | null = null;
-  private store: Store<{ hidden: unknown }> | null = null;
+  private store: Store<{ hidden: unknown; approved: unknown }> | null = null;
   private hidden: string[] = [];
+  // Permissions the user has agreed to, per extension, so an update that asks
+  // for more is held back until they agree again.
+  private approved: Record<string, string[]> = {};
+  private reviewing = new Set<string>();
   // The library reports its own bookkeeping through the same callbacks as
   // extension requests, so Drift's calls into it are muted.
   private quiet = false;
@@ -83,12 +94,16 @@ export class Extensions {
     }
     try {
       const { default: ElectronStore } = await import('electron-store');
-      this.store = new ElectronStore<{ hidden: unknown }>({
+      this.store = new ElectronStore<{ hidden: unknown; approved: unknown }>({
         name: 'extensions',
       });
       const hidden = this.store.get('hidden');
       if (Array.isArray(hidden))
         this.hidden = hidden.filter((id) => typeof id === 'string');
+      const approved = this.store.get('approved');
+      if (approved && typeof approved === 'object' && !Array.isArray(approved))
+        for (const [id, list] of Object.entries(approved))
+          if (/^[a-p]{32}$/.test(id)) this.approved[id] = strings(list);
     } catch {
       this.store = null;
     }
@@ -114,7 +129,10 @@ export class Extensions {
       'browser-action-popup-created',
       (popup: PopupView) => void this.revealPopup(popup),
     );
-    this.session.extensions.on('extension-loaded', this.changed);
+    this.session.extensions.on('extension-loaded', (_event, extension) => {
+      this.changed();
+      this.review(extension);
+    });
     this.session.extensions.on('extension-unloaded', this.changed);
     try {
       await installChromeWebStore({
@@ -125,6 +143,75 @@ export class Extensions {
     } catch (error) {
       console.error('Extensions could not be loaded:', error);
       this.error = 'Some extensions could not be loaded.';
+    }
+  }
+  private saveApproved() {
+    try {
+      this.store?.set('approved', this.approved);
+    } catch {
+      /* Approvals are re-asked if they cannot be stored. */
+    }
+  }
+  // Store updates load silently; one that asks for more than the user agreed
+  // to is unloaded until they approve it, as Chrome does.
+  private review(extension: Extension) {
+    const id = extension.id;
+    const wanted = grantedPermissions(extension.manifest as Manifest);
+    const known = this.approved[id];
+    if (!known) {
+      // Installed before Drift tracked approvals: what it has now is the baseline.
+      this.approved[id] = wanted;
+      this.saveApproved();
+      return;
+    }
+    const added = wanted.filter((permission) => !known.includes(permission));
+    if (!added.length || this.reviewing.has(id)) return;
+    this.reviewing.add(id);
+    setImmediate(() => void this.askAgain(extension, wanted, added));
+  }
+  private async askAgain(
+    extension: Extension,
+    wanted: string[],
+    added: string[],
+  ) {
+    const id = extension.id;
+    try {
+      if (this.session.extensions.getExtension(id))
+        this.session.extensions.removeExtension(id);
+      const win = this.tabs.window();
+      const options = {
+        type: 'warning' as const,
+        title: 'Extension update',
+        message: `“${extension.name}” was updated and now asks for more access.`,
+        detail: `New: ${added.join(', ')}.\n\nIt stays turned off until you allow this.`,
+        buttons: ['Keep off', 'Allow', 'Remove extension'],
+        defaultId: 0,
+        cancelId: 0,
+        noLink: true,
+      };
+      const { response } = await (win
+        ? dialog.showMessageBox(win, options)
+        : dialog.showMessageBox(options));
+      if (response === 1) {
+        this.approved[id] = wanted;
+        this.saveApproved();
+        this.reviewing.delete(id);
+        await this.session.extensions.loadExtension(extension.path, {
+          allowFileAccess: false,
+        });
+      } else if (response === 2) {
+        await uninstallExtension(id, {
+          session: this.session,
+          extensionsPath: this.path,
+        });
+        delete this.approved[id];
+        this.saveApproved();
+      }
+    } catch (error) {
+      console.error('Extension update review failed:', error);
+    } finally {
+      this.reviewing.delete(id);
+      this.changed();
     }
   }
   // Popups size themselves from Chromium's preferred-size events, which some
@@ -259,6 +346,8 @@ export class Extensions {
       });
       this.hidden = this.hidden.filter((id) => id !== command.id);
       this.store?.set('hidden', this.hidden);
+      delete this.approved[command.id];
+      this.saveApproved();
       this.changed();
     }
   }
@@ -287,6 +376,7 @@ export class Extensions {
         host_permissions?: unknown;
       };
       const confirmation = await this.confirmInstall({
+        id,
         localizedName: manifest.name?.startsWith('__MSG_')
           ? displayName
           : manifest.name || displayName,
@@ -345,25 +435,32 @@ export class Extensions {
     }
   }
   private async confirmInstall(details: {
+    id?: string;
     localizedName: string;
-    manifest: { permissions?: unknown; host_permissions?: unknown };
+    manifest: object;
     icon: Electron.NativeImage;
     browserWindow?: BrowserWindow;
+    frame?: { url: string; parent?: unknown } | null;
   }): Promise<{ action: 'allow' | 'deny' }> {
-    const list = (value: unknown) =>
-      Array.isArray(value) ? value.map(String) : [];
-    const permissions = [
-      ...list(details.manifest.permissions),
-      ...list(details.manifest.host_permissions),
-    ];
+    // A look-alike host such as chromewebstore.google.com.example passes the
+    // library's own prefix check; only the real store may ask.
+    if (!trustedInstallFrame(details.frame)) return { action: 'deny' };
+    if (details.id !== undefined && !/^[a-p]{32}$/.test(details.id))
+      return { action: 'deny' };
+    const manifest = details.manifest as Manifest;
+    const permissions = grantedPermissions(manifest);
+    const optional = optionalPermissions(manifest);
+    const notes = [
+      permissions.length ? `It asks for: ${permissions.join(', ')}.` : '',
+      optional.length ? `It may also ask for: ${optional.join(', ')}.` : '',
+      'Some Chrome features are not available in Drift, so a few extensions may not work fully.',
+    ].filter(Boolean);
     const options = {
       type: 'question' as const,
       icon: details.icon.isEmpty() ? undefined : details.icon,
       title: 'Add extension',
       message: `Add “${details.localizedName}” to Drift?`,
-      detail: permissions.length
-        ? `It asks for: ${permissions.join(', ')}.\n\nSome Chrome features are not available in Drift, so a few extensions may not work fully.`
-        : 'Some Chrome features are not available in Drift, so a few extensions may not work fully.',
+      detail: notes.join('\n\n'),
       buttons: ['Cancel', 'Add extension'],
       defaultId: 1,
       cancelId: 0,
@@ -373,6 +470,13 @@ export class Extensions {
     const { response } = await (win
       ? dialog.showMessageBox(win, options)
       : dialog.showMessageBox(options));
-    return { action: response === 1 ? 'allow' : 'deny' };
+    if (response !== 1) return { action: 'deny' };
+    // What was shown is what is approved; the real package is checked again
+    // when it loads.
+    if (details.id) {
+      this.approved[details.id] = permissions;
+      this.saveApproved();
+    }
+    return { action: 'allow' };
   }
 }

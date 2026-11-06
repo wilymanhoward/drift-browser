@@ -377,6 +377,10 @@ for (const privateWindow of [false, true]) {
           sourceId,
         );
         preview = await peek();
+        await chrome.evaluate(
+          (id) => window.drift.tab({ type: 'select', id }),
+          sourceId,
+        );
         await app.evaluate(({ webContents }, url) => {
           const page = webContents
             .getAllWebContents()

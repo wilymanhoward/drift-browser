@@ -17,10 +17,12 @@ export function navigationURL(value: unknown): string {
   // Extension pages (options, popups opened as tabs) are trusted Drift-side
   // because only installed extensions resolve.
   if (isExtensionURL(input)) return new URL(input).href;
+  // A bare address gets https://, except this computer's own servers, which
+  // almost never have a certificate.
   const candidate =
     /^[a-z][a-z\d+.-]*:/i.test(input) && !/^[\w.-]+:\d+(\/|$)/.test(input)
       ? input
-      : `https://${input}`;
+      : `${loopback(input) ? 'http' : 'https'}://${input}`;
   let url: URL;
   try {
     url = new URL(candidate);
@@ -41,6 +43,15 @@ export function navigationURL(value: unknown): string {
   return url.href;
 }
 
+function loopback(input: string): boolean {
+  const host = /^(\[[^\]]*\]|[^/:?#]*)/.exec(input)?.[1].toLowerCase() ?? '';
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host === '[::1]' ||
+    /^127(?:\.\d{1,3}){3}$/.test(host)
+  );
+}
 export function isPageURL(value: string): boolean {
   return (
     value === NEW_TAB_URL ||

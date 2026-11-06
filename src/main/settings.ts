@@ -1,7 +1,7 @@
 import type Store from 'electron-store';
 import { nativeTheme, dialog, nativeImage } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, stat } from 'node:fs/promises';
 import { DEFAULT_SETTINGS, parseSettings } from '../shared/settings';
 import type { Settings } from '../shared/settings';
 export class SettingsStore {
@@ -78,9 +78,11 @@ export class SettingsStore {
       ],
     });
     if (result.canceled || !result.filePaths[0]) return;
-    const bytes = await readFile(result.filePaths[0]);
-    if (bytes.length > 3 * 1024 * 1024)
+    const limit = (mode === 'import' ? 6 : 3) * 1024 * 1024;
+    if ((await stat(result.filePaths[0])).size > limit)
       throw new Error('The file is too large.');
+    const bytes = await readFile(result.filePaths[0]);
+    if (bytes.length > limit) throw new Error('The file is too large.');
     if (mode === 'import') this.set(JSON.parse(bytes.toString('utf8')));
     else {
       if (nativeImage.createFromBuffer(bytes).isEmpty())

@@ -13,7 +13,9 @@ describe('Google sign-in compatibility', () => {
     expect(isGoogleSignIn('http://accounts.google.com/')).toBe(false);
     expect(isGoogleSignIn('https://mail.google.com/')).toBe(false);
     expect(isGoogleSignIn('https://chromewebstore.google.com/')).toBe(false);
-    expect(isGoogleSignIn('https://accounts.google.com.evil.test/')).toBe(false);
+    expect(isGoogleSignIn('https://accounts.google.com.evil.test/')).toBe(
+      false,
+    );
     expect(isGoogleSignIn('not a url')).toBe(false);
   });
   it('tracks the Firefox release train', () => {

@@ -2,9 +2,11 @@ import {
   BrowserWindow,
   Menu,
   WebContentsView,
+  app,
   screen,
   systemPreferences,
   nativeTheme,
+  webContents,
 } from 'electron';
 import type { Input, NavigationEntry, WebContents } from 'electron';
 import { randomUUID } from 'node:crypto';
@@ -30,6 +32,7 @@ import { readDescription, readSnapshot } from './tab-card';
 import type { TabCardDetails } from './tab-card';
 import type { SavedSession, SavedTab } from './session';
 import { PAGE_ACTIONS } from '../shared/page-tools';
+import { shortcutKey } from '../shared/settings';
 import type { PageAction } from '../shared/page-tools';
 import {
   isPageURL,
@@ -39,6 +42,79 @@ import {
   SETTINGS_URL,
 } from '../shared/navigation';
 
+// Image types a favicon may come in, told apart by their first bytes, since
+// many servers send icons as application/octet-stream, text/plain or untyped.
+function sniffImage(bytes: Buffer): string | null {
+  const head = bytes.subarray(0, 16);
+  if (head.length >= 4 && head.readUInt32BE(0) === 0x00000100)
+    return 'image/x-icon';
+  if (head.length >= 8 && head.readUInt32BE(0) === 0x89504e47)
+    return 'image/png';
+  if (head.subarray(0, 3).toString('latin1') === 'GIF') return 'image/gif';
+  if (
+    head.length >= 3 &&
+    head[0] === 0xff &&
+    head[1] === 0xd8 &&
+    head[2] === 0xff
+  )
+    return 'image/jpeg';
+  if (
+    head.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    head.subarray(8, 12).toString('latin1') === 'WEBP'
+  )
+    return 'image/webp';
+  if (head.subarray(0, 2).toString('latin1') === 'BM') return 'image/bmp';
+  const text = bytes
+    .subarray(0, 512)
+    .toString('utf8')
+    .trimStart()
+    .toLowerCase();
+  if (
+    text.startsWith('<svg') ||
+    (text.startsWith('<?xml') && text.includes('<svg'))
+  )
+    return 'image/svg+xml';
+  return null;
+}
+// A page's favicon as a data: URL, read with the page's own session. Tries
+// each candidate in turn, since the first one a page lists can be missing.
+async function faviconData(page: WebContents, urls: string[]) {
+  for (const url of urls) {
+    if (page.isDestroyed()) return null;
+    try {
+      const response = await page.session.fetch(url, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!response.ok) continue;
+      const bytes = Buffer.from(await response.arrayBuffer());
+      if (!bytes.length || bytes.length > 256 * 1024) continue;
+      const declared = response.headers
+        .get('content-type')
+        ?.split(';')[0]
+        .trim()
+        .toLowerCase();
+      const type =
+        declared && /^image\/[\w.+-]+$/.test(declared)
+          ? declared
+          : sniffImage(bytes);
+      if (!type) continue;
+      return `data:${type};base64,${bytes.toString('base64')}`;
+    } catch {
+      /* Try the next candidate. */
+    }
+  }
+  return null;
+}
+function originOf(url: string) {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+// Favicons small enough to keep in the saved session, so restored tabs show
+// their icon before they are first opened.
+const SAVED_FAVICON_LIMIT = 16 * 1024;
 interface Tab {
   previewSourceId?: string;
   view: WebContentsView;
@@ -199,6 +275,9 @@ export class TabManager {
           muted: state.muted,
           workspaceId: state.workspaceId,
           pinned: state.pinned,
+          ...(state.favicon && state.favicon.length <= SAVED_FAVICON_LIMIT
+            ? { favicon: state.favicon }
+            : {}),
         })),
       activeTabId: this.active.previewSourceId ?? this.activeId,
       sidebar: { pinned: this.sidebar.pinned, width: this.sidebar.width },
@@ -237,6 +316,7 @@ export class TabManager {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        plugins: true,
         partition: this.environment.partition,
         navigateOnDragDrop: false,
         ...(previewSourceId && {
@@ -257,7 +337,7 @@ export class TabManager {
         canGoBack: false,
         canGoForward: false,
         error: null,
-        favicon: null,
+        favicon: saved?.favicon ?? null,
         audible: false,
         muted: saved?.muted ?? false,
         workspaceId: this.workspaces.some((w) => w.id === saved?.workspaceId)
@@ -274,6 +354,16 @@ export class TabManager {
     page.setAudioMuted(tab.state.muted);
     const update = this.wire(tab, false);
     if (deferred) {
+      // A restored tab without a saved icon asks its site for the default one.
+      if (!tab.state.favicon && isWebURL(target))
+        void faviconData(page, [new URL('/favicon.ico', target).href]).then(
+          (data) => {
+            if (data && !tab.state.favicon && this.tabs.includes(tab)) {
+              tab.state.favicon = data;
+              this.emit();
+            }
+          },
+        );
       this.emit();
       return tab;
     }
@@ -304,6 +394,9 @@ export class TabManager {
   private wire(tab: Tab, adopted: boolean) {
     const page = tab.view.webContents;
     const { on, off } = listeners(page);
+    // Which site the shown icon belongs to, and the latest icon fetch.
+    let faviconOrigin = tab.state.favicon ? originOf(tab.state.url) : '';
+    let faviconRequest = 0;
     const untrack = this.environment.track(page, adopted);
     if (tab.previewSourceId) {
       on('dom-ready', () => this.updatePreviewControl(tab));
@@ -346,7 +439,6 @@ export class TabManager {
         tab.navigationURL = url;
         if (isPageURL(url)) tab.state.url = url;
         tab.state.error = null;
-        tab.state.favicon = null;
       }
     });
     on('did-start-loading', () => {
@@ -358,6 +450,12 @@ export class TabManager {
       if (isWebURL(tab.state.url)) void this.remember(tab, false);
     });
     on('did-navigate', (_event, url) => {
+      // A new document drops the old icon; in-page navigations keep theirs,
+      // since the page will not announce it again.
+      if (originOf(url) !== faviconOrigin) {
+        faviconRequest++;
+        tab.state.favicon = null;
+      }
       if (isPageURL(url)) tab.state.url = url;
       this.visited(url, page.getTitle(), true);
       update();
@@ -375,8 +473,35 @@ export class TabManager {
     });
     on('audio-state-changed', update);
     on('page-favicon-updated', (_event, urls) => {
-      tab.state.favicon = urls.find(isWebURL) ?? null;
-      update();
+      const sources = urls.filter(isWebURL);
+      const request = ++faviconRequest;
+      const origin = originOf(page.getURL());
+      // Fetched here, through the page's own session and Shields, so the
+      // chrome UI shows a data: image and never loads page-chosen addresses.
+      // The current icon stays until a new one arrives, and a slow answer
+      // for an older request never replaces a newer one.
+      if (sources.length)
+        void faviconData(page, sources).then((data) => {
+          if (
+            request === faviconRequest &&
+            !page.isDestroyed() &&
+            this.tabs.includes(tab)
+          ) {
+            if (data) {
+              tab.state.favicon = data;
+              faviconOrigin = origin;
+            } else if (faviconOrigin !== origin) {
+              tab.state.favicon = null;
+              faviconOrigin = '';
+            }
+            update();
+          }
+        });
+      else {
+        tab.state.favicon = null;
+        faviconOrigin = '';
+        update();
+      }
     });
     on('did-fail-load', (_event, code, _description, url, mainFrame) => {
       if (mainFrame && code !== -3 && url === tab.navigationURL) {
@@ -390,6 +515,11 @@ export class TabManager {
       update();
     });
     on('will-navigate', (event, url) => {
+      // Web pages cannot send a tab to Drift's own pages.
+      if (url.startsWith('drift:') && !page.getURL().startsWith('drift:')) {
+        event.preventDefault();
+        return;
+      }
       if (page.getURL() === NEW_TAB_URL && url === `${NEW_TAB_URL}?settings`) {
         event.preventDefault();
         void this.openSettings();
@@ -402,7 +532,22 @@ export class TabManager {
       } else if (!isPageURL(url)) event.preventDefault();
     });
     on('will-redirect', (event, url) => {
-      if (!isPageURL(url)) event.preventDefault();
+      if (!isPageURL(url) || url.startsWith('drift:')) event.preventDefault();
+    });
+    // Sign-in and payment popups keep window.opener, so the page that opened
+    // them hears back. They stay sandboxed and open further links as tabs.
+    on('did-create-window', (popup) => {
+      const contents = popup.webContents;
+      contents.setWindowOpenHandler(({ url }) => {
+        if (isWebURL(url) && !this.disposed) this.create(url);
+        return { action: 'deny' };
+      });
+      contents.on('will-navigate', (event, url) => {
+        if (!isWebURL(url)) event.preventDefault();
+      });
+      contents.on('will-redirect', (event, url) => {
+        if (!isWebURL(url)) event.preventDefault();
+      });
     });
     let splitClickAt = 0;
     on('before-mouse-event', (_event, mouse) => {
@@ -414,6 +559,24 @@ export class TabManager {
       const splitLink =
         disposition === 'background-tab' && Date.now() - splitClickAt < 1000;
       splitClickAt = 0;
+      if (disposition === 'new-window' && isWebURL(url) && !this.disposed)
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            parent: this.win,
+            width: 520,
+            height: 680,
+            autoHideMenuBar: true,
+            backgroundColor: '#ffffff',
+            webPreferences: {
+              contextIsolation: true,
+              sandbox: true,
+              nodeIntegration: false,
+              plugins: true,
+              navigateOnDragDrop: false,
+            },
+          },
+        };
       if (isWebURL(url)) {
         if (splitLink) {
           this.openPreview(tab, url);
@@ -422,6 +585,9 @@ export class TabManager {
       return { action: 'deny' };
     });
     on('before-input-event', (event, input) => {
+      // Native focus events can arrive after the first key in a newly focused page.
+      if (input.type === 'keyDown' && this.activeId !== tab.state.id)
+        this.select(tab.state.id);
       if (this.shortcut(input)) event.preventDefault();
     });
     on('enter-html-full-screen', () => {
@@ -1082,8 +1248,36 @@ export class TabManager {
     };
     tab.state.unloaded = true;
     this.win.contentView.removeChildView(tab.view);
+    const pid = tab.view.webContents.getOSProcessId();
     tab.view.webContents.close();
+    this.reapRenderer(pid);
     this.emit();
+  }
+  // A closed page's renderer can linger while the site keeps it busy, so end
+  // it once no page or frame in any window still uses that process.
+  private reapRenderer(pid: number) {
+    if (!pid) return;
+    setTimeout(() => {
+      if (this.disposed) return;
+      const used = webContents.getAllWebContents().some((page) => {
+        try {
+          return (
+            !page.isDestroyed() &&
+            (page.getOSProcessId() === pid ||
+              page.mainFrame.framesInSubtree.some((f) => f.osProcessId === pid))
+          );
+        } catch {
+          return false;
+        }
+      });
+      if (used) return;
+      if (app.getAppMetrics().some((m) => m.pid === pid && m.type === 'Tab'))
+        try {
+          process.kill(pid);
+        } catch {
+          /* Already gone. */
+        }
+    }, 5000).unref();
   }
   private sleepInactive() {
     if (this.disposed) return;
@@ -1197,11 +1391,7 @@ export class TabManager {
         input.control || input.meta ? 'Ctrl' : '',
         input.alt ? 'Alt' : '',
         input.shift ? 'Shift' : '',
-        input.key.length === 1
-          ? input.key === ','
-            ? ','
-            : input.key.toUpperCase()
-          : input.key,
+        shortcutKey(input),
       ]
         .filter(Boolean)
         .join('+');

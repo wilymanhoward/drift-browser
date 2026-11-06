@@ -52,7 +52,7 @@ export async function readSnapshot(page: WebContents) {
 // The card is its own transparent view, because native page views cover the
 // renderer and an element there could never sit over the page.
 const CARD_HTML = `<!doctype html><html><head><meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
 <style id="theme"></style><style>
 *{box-sizing:border-box}
 html,body{margin:0;background:transparent;overflow:hidden}

@@ -17,6 +17,7 @@ import {
   Columns2,
 } from 'lucide-react';
 import type { BrowserAction, BrowserState } from '../shared/browser';
+import { SETTINGS_URL } from '../shared/navigation';
 
 export default function BrowserMenu({
   state,
@@ -156,6 +157,8 @@ export default function BrowserMenu({
               className="menu-item"
               aria-label={label}
               disabled={
+                (state.url === SETTINGS_URL &&
+                  ['find', 'print'].includes(action)) ||
                 (action === 'show-extensions' && !state.extensions) ||
                 (action === 'split' &&
                   !state.split &&
@@ -177,6 +180,7 @@ export default function BrowserMenu({
           <button
             role="menuitem"
             aria-label="Zoom out"
+            disabled={state.url === SETTINGS_URL || state.zoomPercent <= 25}
             onClick={() => void run('zoom-out', true)}
           >
             <Minus size={15} />
@@ -184,6 +188,7 @@ export default function BrowserMenu({
           <button
             role="menuitem"
             aria-label="Reset zoom"
+            disabled={state.url === SETTINGS_URL}
             onClick={() => void run('zoom-reset', true)}
           >
             {state.zoomPercent}%
@@ -191,6 +196,7 @@ export default function BrowserMenu({
           <button
             role="menuitem"
             aria-label="Zoom in"
+            disabled={state.url === SETTINGS_URL || state.zoomPercent >= 300}
             onClick={() => void run('zoom-in', true)}
           >
             <Plus size={15} />

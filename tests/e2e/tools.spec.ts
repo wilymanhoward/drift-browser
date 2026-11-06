@@ -68,27 +68,37 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
     expect(
       (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
     ).toBe(110);
+    const browsingTab = (await chrome.evaluate(() => window.drift.getState()))
+      .activeTabId;
     await chrome.getByRole('button', { name: 'Settings', exact: true }).click();
     await chrome.getByText('Browser tools', { exact: true }).click();
-    await chrome.getByRole('button', { name: 'Zoom in', exact: true }).click();
-    await expect
-      .poll(() =>
-        chrome.evaluate(() =>
-          window.drift.getState().then((s) => s.zoomPercent),
-        ),
-      )
-      .toBe(120);
+    await expect(
+      chrome.getByRole('button', { name: 'Zoom in', exact: true }),
+    ).toBeDisabled();
+    await expect(
+      chrome.getByRole('button', { name: 'Zoom out', exact: true }),
+    ).toBeDisabled();
+    await expect(
+      chrome.getByRole('button', { name: 'Find in page', exact: true }),
+    ).toBeDisabled();
+    await expect(
+      chrome.getByRole('button', { name: 'Print page', exact: true }),
+    ).toBeDisabled();
+    await chrome.evaluate(async () => {
+      for (const action of ['zoom-in', 'find', 'print'] as const)
+        await window.drift.action(action);
+    });
+    expect(
+      (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
+    ).toBe(100);
     await expect(
       chrome.getByRole('main', { name: 'Settings', exact: true }),
     ).toBeVisible();
-    await chrome.getByRole('button', { name: 'Zoom out', exact: true }).click();
-    await expect
-      .poll(() =>
-        chrome.evaluate(() =>
-          window.drift.getState().then((s) => s.zoomPercent),
-        ),
-      )
-      .toBe(110);
+    await chrome.evaluate(async (id) => {
+      const settings = (await window.drift.getState()).activeTabId;
+      await window.drift.tab({ type: 'close', id: settings });
+      await window.drift.tab({ type: 'select', id });
+    }, browsingTab);
     await chrome.evaluate((url) => window.drift.navigate(url), origin + '/two');
     expect(
       (await chrome.evaluate(() => window.drift.getState())).zoomPercent,
@@ -189,7 +199,9 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
       ] as const) {
         await chrome.evaluate((action) => window.drift.action(action), action);
         await expect(
-          chrome.getByRole(action === 'show-settings' ? 'main' : 'dialog'),
+          action === 'show-settings'
+            ? chrome.getByRole('main', { name: 'Settings', exact: true })
+            : chrome.getByRole('dialog'),
         ).toBeVisible();
         if (action === 'show-settings')
           await chrome.getByText('Browser tools', { exact: true }).click();
@@ -206,7 +218,14 @@ test('find, per-site zoom, print dispatch, menus, fullscreen, and accessible chr
             })),
           })),
         ).toEqual([]);
-        await chrome.getByLabel('Close dialog', { exact: true }).click();
+        if (action === 'show-settings')
+          await chrome.evaluate(async () =>
+            window.drift.tab({
+              type: 'close',
+              id: (await window.drift.getState()).activeTabId,
+            }),
+          );
+        else await chrome.getByLabel('Close dialog', { exact: true }).click();
       }
     }
     await chrome.screenshot({ path: 'test-results/phase7-chrome.png' });

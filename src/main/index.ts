@@ -6,6 +6,7 @@ import {
   protocol,
   nativeTheme,
   screen,
+  Menu,
 } from 'electron';
 import type { Point, Rectangle, WebContents } from 'electron';
 import type Store from 'electron-store';
@@ -33,7 +34,7 @@ import { SettingsStore } from './settings';
 import { DEFAULT_SETTINGS, searchTemplate, themeCSS } from '../shared/settings';
 import { parseWorkspace, parseDownload } from '../shared/power';
 import { Downloads } from './downloads';
-import { PageTools } from './page-tools';
+import { PageTools, ZoomPreferences } from './page-tools';
 import { PAGE_ACTIONS, parseFind } from '../shared/page-tools';
 import type { PageAction } from '../shared/page-tools';
 import { Extensions } from './extensions';
@@ -49,6 +50,7 @@ import type { BrowserImportResult } from '../shared/browser-import';
 import { defaultBrowser } from './default-browser';
 import { externalLink } from '../shared/external-links';
 import { enableGoogleSignIn } from './google-signin';
+import { startAutoUpdates } from './updates';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -89,13 +91,44 @@ interface Profile {
   privateWindow: boolean;
   library: BrowserLibrary;
   settings: SettingsStore;
+  zoom: ZoomPreferences;
   privacy: PrivacyController;
   extensions: Extensions | null;
+  downloads: Downloads;
   windows: DriftWindow[];
-  store: Store<{ session: unknown }> | null;
+  store: Store<{ session: unknown; windows: unknown }> | null;
   storageError: string | null;
-  restore: SavedSession | null;
+  // Saved windows still to reopen, oldest first.
+  restore: SavedSession[];
   lastSaved: string;
+}
+// Set once the app is quitting, so windows closing on the way out stay in
+// the saved session instead of being dropped one by one.
+let quitting = false;
+app.on('before-quit', () => {
+  quitting = true;
+});
+// Every window of the profile, oldest first: the first under `session` (the
+// format earlier versions read), the rest under `windows`.
+function saveProfile(profile: Profile) {
+  if (!profile.store || !profile.windows.length) return;
+  const [first, ...rest] = profile.windows.map((handle) => handle.tabs.saved);
+  const serialized = JSON.stringify([first, rest]);
+  if (serialized === profile.lastSaved) return;
+  try {
+    profile.store.set('session', first);
+    profile.store.set('windows', rest);
+    profile.lastSaved = serialized;
+    if (profile.storageError) {
+      profile.storageError = null;
+      for (const handle of profile.windows) handle.publish();
+    }
+  } catch (error) {
+    console.error('Session save failed:', error);
+    profile.storageError =
+      'The session could not be saved. Check available disk space and file permissions.';
+    for (const handle of profile.windows) handle.publish();
+  }
 }
 interface DriftWindow {
   win: BrowserWindow;
@@ -123,16 +156,25 @@ function openProfile(privateWindow: boolean) {
   return profile;
 }
 async function loadProfile(partition: string, privateWindow: boolean) {
-  let store: Store<{ session: unknown }> | null = null;
+  let store: Store<{ session: unknown; windows: unknown }> | null = null;
   let storageError: string | null = null;
-  let saved = null;
+  const saved: SavedSession[] = [];
   try {
     if (!privateWindow) {
       const { default: ElectronStore } = await import('electron-store');
-      store = new ElectronStore<{ session: unknown }>({ name: 'session' });
+      store = new ElectronStore<{ session: unknown; windows: unknown }>({
+        name: 'session',
+      });
       const value = store.get('session');
-      saved = parseSession(value);
-      if (value !== undefined && !saved) {
+      const first = parseSession(value);
+      if (first) saved.push(first);
+      const others = store.get('windows');
+      if (first && Array.isArray(others))
+        for (const other of others.slice(0, 20)) {
+          const parsed = parseSession(other);
+          if (parsed) saved.push(parsed);
+        }
+      if (value !== undefined && !first) {
         storageError =
           'The saved session could not be restored. The original file has been preserved.';
         store = null;
@@ -151,6 +193,10 @@ async function loadProfile(partition: string, privateWindow: boolean) {
   const library = new BrowserLibrary(publishAll);
   const settings = new SettingsStore();
   await settings.load(privateWindow);
+  // Windows beyond the first only come back when the session is restored.
+  if (settings.value.startup !== 'restore') saved.splice(1);
+  const zoom = new ZoomPreferences();
+  await zoom.load(privateWindow);
   if (!privateWindow) await library.load();
   const pageSession = session.fromPartition(partition);
   const privacy = new PrivacyController(
@@ -166,6 +212,7 @@ async function loadProfile(partition: string, privateWindow: boolean) {
     },
   );
   await privacy.load();
+  if (!privateWindow) app.once('will-quit', () => privacy.dispose());
   // After shields, so the store and extensions load under the same rules.
   const focused = () =>
     windows.find((handle) => handle.win.isFocused()) ?? windows[0];
@@ -197,6 +244,13 @@ async function loadProfile(partition: string, privateWindow: boolean) {
         publishAll,
       );
   await extensions?.load();
+  // Downloads belong to the profile, so closing one of its windows (or moving
+  // a tab to another) never cancels a download in progress.
+  const downloads = new Downloads(
+    pageSession,
+    (page) => windows.some((handle) => handle.tabs.owns(page)),
+    publishAll,
+  );
   if (pageSession.protocol.isProtocolHandled('drift'))
     pageSession.protocol.unhandle('drift');
   pageSession.protocol.handle('drift', (request) =>
@@ -213,8 +267,10 @@ async function loadProfile(partition: string, privateWindow: boolean) {
     privateWindow,
     library,
     settings,
+    zoom,
     privacy,
     extensions,
+    downloads,
     windows,
     store,
     storageError,
@@ -293,11 +349,26 @@ async function createWindow(
     pathToFileURL(path.join(__dirname, '../renderer/index.html')).href;
   const profile =
     options.profile ?? (await openProfile(options.privateWindow ?? false));
-  const { library, settings, privacy, extensions, partition, privateWindow } =
-    profile;
-  // Only the first window of a run restores the saved session.
-  const saved = options.adopt ? null : profile.restore;
-  profile.restore = null;
+  const {
+    library,
+    settings,
+    privacy,
+    extensions,
+    partition,
+    privateWindow,
+    zoom,
+  } = profile;
+  // Each saved window is reopened once, at startup.
+  const saved = options.adopt ? null : (profile.restore.shift() ?? null);
+  // One in-memory chrome session serves every private window; it holds no
+  // page data, and Electron never frees a session once made.
+  const chromeSession = privateWindow
+    ? session.fromPartition('drift-private-chrome')
+    : session.defaultSession;
+  chromeSession.setPermissionRequestHandler((_page, _permission, callback) =>
+    callback(false),
+  );
+  chromeSession.setPermissionCheckHandler(() => false);
   const win = new BrowserWindow({
     ...(options.bounds ?? { width: 1320, height: 860 }),
     minWidth: 640,
@@ -307,6 +378,7 @@ async function createWindow(
     backgroundColor: nativeGlass ? '#00000000' : '#eef0f5',
     icon: path.join(__dirname, '../../assets/icon/icon.png'),
     webPreferences: {
+      session: chromeSession,
       preload: path.join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
       sandbox: true,
@@ -316,7 +388,6 @@ async function createWindow(
   const chromeId = win.webContents.id;
   let ready = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const pageSession = session.fromPartition(partition);
   let automaticSide: 'left' | 'right' | undefined;
   const windowSettings = () =>
     automaticSide
@@ -328,7 +399,8 @@ async function createWindow(
       profile.storageError ||
       library.error ||
       settings.error ||
-      pageTools.error,
+      pageTools.error ||
+      zoom.error,
     settings: settings.value,
     sidebarPosition: windowSettings().sidebarPosition,
     dark: settings.dark,
@@ -348,27 +420,7 @@ async function createWindow(
     if (ready && !win.isDestroyed())
       win.webContents.send('drift:state', state());
   };
-  // The oldest open window owns the saved session, so the session that comes
-  // back is the last window closed.
-  const save = () => {
-    if (!profile.store || profile.windows[0] !== current) return;
-    const value = tabs.saved;
-    const serialized = JSON.stringify(value);
-    if (serialized === profile.lastSaved) return;
-    try {
-      profile.store.set('session', value);
-      profile.lastSaved = serialized;
-      if (profile.storageError) {
-        profile.storageError = null;
-        publish();
-      }
-    } catch (error) {
-      console.error('Session save failed:', error);
-      profile.storageError =
-        'The session could not be saved. Check available disk space and file permissions.';
-      publish();
-    }
-  };
+  const save = () => saveProfile(profile);
   const pageTools: PageTools = new PageTools(
     win,
     () => tabs.active.view.webContents,
@@ -379,8 +431,8 @@ async function createWindow(
         publish();
       }
     },
+    zoom,
   );
-  await pageTools.load(privateWindow);
   if (extensions)
     pageTools.extraItems = (page, params) => extensions.menuItems(page, params);
   let extensionTab: WebContents | null = null;
@@ -447,13 +499,13 @@ async function createWindow(
       saved.sidebar.width === 224
         ? DEFAULT_SETTINGS.expandedWidth
         : saved.sidebar.width;
-  const downloads = new Downloads(
-    pageSession,
-    (page) => tabs.owns(page),
-    publish,
-  );
+  const downloads = profile.downloads;
   let cssKey: string | null = null;
   const applySettings = async () => {
+    // Web pages (prefers-color-scheme), scrollbars and native menus follow the
+    // Drift theme too. Changing it fires 'updated', which lands back here once.
+    if (nativeTheme.themeSource !== settings.value.theme)
+      nativeTheme.themeSource = settings.value.theme;
     const glass = nativeGlass && settings.value.glassEffect;
     if (process.platform === 'win32' && nativeGlass)
       win.setBackgroundMaterial(glass ? 'acrylic' : 'none');
@@ -766,6 +818,7 @@ async function createWindow(
   win.on('maximize', publish);
   win.on('unmaximize', publish);
   let clearing = false;
+  let clearedStore: Profile['store'] = null;
   win.on('close', (event) => {
     clearTimeout(timer);
     save();
@@ -777,6 +830,18 @@ async function createWindow(
       clearing = true;
       library.clearHistory();
       library.flush();
+      // Open tabs and per-site zoom are browsing data too.
+      try {
+        clearedStore = profile.store;
+        profile.store?.delete('session');
+        profile.store?.delete('windows');
+        // Kept off until this window is gone, so its last save cannot undo it.
+        profile.store = null;
+        zoom.values = {};
+        zoom.store?.delete('zoom');
+      } catch (error) {
+        console.error('Could not clear the saved session:', error);
+      }
       void privacy.clear().finally(() => win.close());
     }
   });
@@ -786,12 +851,16 @@ async function createWindow(
     updateWindowPositions();
     clearTimeout(timer);
     profile.windows.splice(profile.windows.indexOf(current), 1);
+    // A window the user closes leaves the session; one closed by quitting stays.
+    if (!quitting) saveProfile(profile);
+    if (clearedStore) profile.store = clearedStore;
     for (const entries of routes.values()) entries.delete(chromeId);
-    downloads.dispose();
     card.dispose();
     nativeTheme.removeListener('updated', systemTheme);
     tabs.dispose();
-    if (!profile.windows.length) {
+    // The regular session keeps its extension API until the app exits.
+    if (!profile.windows.length && privateWindow) {
+      downloads.dispose();
       privacy.dispose();
       profiles.delete(partition);
     }
@@ -847,6 +916,7 @@ if (primaryInstance)
   void app
     .whenReady()
     .then(async () => {
+      if (process.platform === 'win32') Menu.setApplicationMenu(null);
       await loadFilters();
       for (const target of [session.defaultSession]) {
         target.setPermissionRequestHandler((_contents, _permission, callback) =>
@@ -855,8 +925,12 @@ if (primaryInstance)
         target.setPermissionCheckHandler(() => false);
       }
       await createWindow();
+      // The rest of the saved windows come back beside the first.
+      const regular = await openProfile(false);
+      while (regular.restore.length) await createWindow({ profile: regular });
       linksReady = true;
       await openPendingLinks();
+      void startAutoUpdates();
       screen.on('display-metrics-changed', updateWindowPositions);
       screen.on('display-removed', updateWindowPositions);
       screen.on('display-added', updateWindowPositions);

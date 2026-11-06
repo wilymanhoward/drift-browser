@@ -1,9 +1,18 @@
 import { expect } from '@playwright/test';
 import type { ElectronApplication, Page } from '@playwright/test';
 export async function openBrowserTool(chrome: Page, name: string) {
-  await chrome.getByRole('button', { name: 'Settings', exact: true }).click();
-  await chrome.getByText('Browser tools', { exact: true }).click();
-  await chrome.getByRole('button', { name, exact: true }).click();
+  if (name === 'Reopen closed tab') {
+    await chrome.evaluate(() => window.drift.action('reopen-tab'));
+    return;
+  }
+  await chrome.evaluate(() => window.drift.action('show-menu'));
+  await chrome.getByRole('menuitem', { name, exact: true }).click();
+  await expect(chrome.getByRole('dialog', { name, exact: true })).toBeVisible();
+}
+
+export async function pinSidebar(chrome: Page) {
+  await chrome.getByRole('complementary').hover();
+  await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
 }
 
 export async function chromeWindow(app: ElectronApplication): Promise<Page> {

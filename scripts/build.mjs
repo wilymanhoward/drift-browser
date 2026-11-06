@@ -16,6 +16,7 @@ export async function buildElectron() {
     external: [
       'electron',
       'electron-store',
+      'electron-updater',
       '@ghostery/adblocker-electron',
       'tldts',
       // Both locate their page preloads inside node_modules at runtime.

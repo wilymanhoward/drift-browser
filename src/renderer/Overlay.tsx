@@ -425,7 +425,11 @@ function LibraryPanel({
     url: string;
     title: string;
     folder: string;
-  } | null>(null);
+  } | null>(() =>
+    kind === 'bookmarks' && state.url === NEW_TAB_URL
+      ? { url: '', title: '', folder: 'Bookmarks' }
+      : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const entries = useMemo(
     () =>
@@ -455,7 +459,7 @@ function LibraryPanel({
     <>
       <div className="library-tools">
         <input
-          autoFocus
+          autoFocus={!draft}
           aria-label={
             kind === 'history' ? 'Search history' : 'Search bookmarks'
           }
@@ -476,21 +480,20 @@ function LibraryPanel({
         ) : (
           <button
             className="text-button"
-            disabled={!isWebURL(state.url)}
             onClick={() => {
               const existing = library.bookmarks.find(
                 (item) => item.url === state.url,
               );
               setDraft(
                 existing ?? {
-                  url: state.url,
-                  title: state.title || state.url,
+                  url: isWebURL(state.url) ? state.url : '',
+                  title: isWebURL(state.url) ? state.title || state.url : '',
                   folder: 'Bookmarks',
                 },
               );
             }}
           >
-            Bookmark this page
+            {isWebURL(state.url) ? 'Bookmark this page' : 'Add bookmark'}
           </button>
         )}
       </div>
@@ -520,6 +523,7 @@ function LibraryPanel({
             Address
             <input
               aria-label="Bookmark address"
+              autoFocus
               value={draft.url}
               onChange={(event) =>
                 setDraft({ ...draft, url: event.target.value })

@@ -4,7 +4,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { chromeWindow, openBrowserTool } from './helpers';
+import { chromeWindow, openBrowserTool, pinSidebar } from './helpers';
 
 async function launch(profile: string) {
   const env = Object.fromEntries(
@@ -90,12 +90,12 @@ test('tabs retain state, reorder, close/reopen, and survive restart and crash', 
     let chrome = await chromeWindow(app);
     const pageErrors: string[] = [];
     chrome.on('pageerror', (error) => pageErrors.push(error.message));
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '48px');
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '44px');
     await chrome.getByRole('complementary').hover();
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '224px');
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '208px');
     await chrome.mouse.move(600, 400);
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '48px');
-    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '44px');
+    await pinSidebar(chrome);
     await browse(chrome, `${origin}/one`, 'First tab');
     const first = (await state(chrome)).activeTabId;
     await expect
@@ -222,7 +222,7 @@ test('tabs retain state, reorder, close/reopen, and survive restart and crash', 
     await chrome
       .getByRole('separator', { name: 'Sidebar width' })
       .press('ArrowRight');
-    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '232px');
+    await expect(chrome.getByRole('complementary')).toHaveCSS('width', '216px');
     const handle = await chrome
       .getByRole('separator', { name: 'Sidebar width' })
       .boundingBox();
@@ -301,7 +301,7 @@ test('corrupt session is preserved and reported without blocking launch', async 
   const app = await launch(profile);
   try {
     const chrome = await chromeWindow(app);
-    await chrome.getByLabel('Pin sidebar open', { exact: true }).click();
+    await pinSidebar(chrome);
     await expect(chrome.getByRole('alert')).toContainText(
       'Session storage is unavailable',
     );

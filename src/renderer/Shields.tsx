@@ -25,26 +25,35 @@ export default function Shields() {
   return (
     <div className="settings-form">
       {error && <p role="alert">{error}</p>}
-      <h2>{state.site || 'Drift internal page'}</h2>
-      <p>
-        <strong>{state.blocked}</strong> requests blocked on this page.
-      </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={state.enabled}
-          onChange={(event) =>
-            void update({ type: 'site', enabled: event.target.checked })
-          }
-        />
-        Block ads and trackers for this site
-      </label>
+      {state.site ? (
+        <>
+          <h2>{state.site}</h2>
+          <p>
+            <strong>{state.blocked}</strong> requests blocked on this page.
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={state.enabled}
+              onChange={(event) =>
+                void update({ type: 'site', enabled: event.target.checked })
+              }
+            />
+            Block ads and trackers for this site
+          </label>
+        </>
+      ) : (
+        <p className="panel-note">
+          Ads and trackers are blocked on every site. To change protection or
+          permissions for one site, open it and use the Shields button.
+        </p>
+      )}
       <p>
         Known fingerprinting scripts are blocked by filter lists. The user agent
         is normalized. This is basic mitigation, not complete fingerprint
         resistance.
       </p>
-      {state.filterError && <p role="alert">{state.filterError}</p>}
+      {!error && state.filterError && <p role="alert">{state.filterError}</p>}
       <p className="command-hint">
         EasyList, EasyPrivacy and uBlock Origin rules. Last filter snapshot:{' '}
         {new Date(state.updatedAt).toLocaleDateString()}.
@@ -61,9 +70,11 @@ export default function Shields() {
       >
         {updating ? 'Updating filters…' : 'Update filters and reload page'}
       </button>
-      <p className="command-hint">
-        Changing site protection reloads this page to apply the rules.
-      </p>
+      {state.site && (
+        <p className="command-hint">
+          Changing site protection reloads this page to apply the rules.
+        </p>
+      )}
       {state.pendingHTTP && (
         <section className="connection-warning">
           <h2>HTTPS connection failed</h2>
@@ -135,26 +146,27 @@ export default function Shields() {
         to the whole app. Permission access requires a prompt; a stored block
         can be reset below.
       </p>
-      {['media', 'geolocation', 'notifications'].map((permission) => (
-        <label key={permission}>
-          <input
-            type="checkbox"
-            checked={
-              state.settings.deniedPermissions[state.origin]?.includes(
-                permission,
-              ) || false
-            }
-            onChange={(event) =>
-              void update({
-                type: 'permission',
-                permission,
-                denied: event.target.checked,
-              })
-            }
-          />
-          Always block {permission} for this site
-        </label>
-      ))}
+      {state.origin &&
+        ['media', 'geolocation', 'notifications'].map((permission) => (
+          <label key={permission}>
+            <input
+              type="checkbox"
+              checked={
+                state.settings.deniedPermissions[state.origin]?.includes(
+                  permission,
+                ) || false
+              }
+              onChange={(event) =>
+                void update({
+                  type: 'permission',
+                  permission,
+                  denied: event.target.checked,
+                })
+              }
+            />
+            Always block {permission} for this site
+          </label>
+        ))}
       <button
         className="text-button"
         onClick={() => void window.drift.action('private-window')}
