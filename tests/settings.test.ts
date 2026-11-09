@@ -46,7 +46,8 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
     false,
     true,
   );
-  for (const token of ['--chrome-bg', '--backdrop', '--glass', '--panel'])
+  expect(black).toContain('--glass:#1f1f21');
+  for (const token of ['--chrome-bg', '--backdrop', '--panel'])
     expect(black).toContain(`${token}:#000000`);
   expect(black).toContain('--wallpaper-image:none');
   const blackGlass = themeCSS(
