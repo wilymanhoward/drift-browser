@@ -123,7 +123,7 @@ npm run measure        # local startup/idle benchmark
 
 Outputs are `release/Drift-Setup-0.1.0-x64.exe`, `release/Drift-Portable-0.1.0-x64.exe`, and `release/win-unpacked/Drift.exe`. The installer is per-user and allows choosing its directory; uninstall preserves user data. The portable executable needs no installation, but its default profile still lives in Electron's user-data directory rather than beside the executable. Use `--user-data-dir=<absolute directory>` for an isolated profile.
 
-Builds are unsigned and retain the default Electron icon. No updater or publishing service is configured. A production signing certificate and user-supplied app icon can be added before public distribution. Dependencies and bundled filter licensing are described in THIRD-PARTY-NOTICES.md. Windows x64 is tested; ARM64, macOS and Linux are not.
+Builds are unsigned and retain the default Electron icon. The installed build updates itself from GitHub Releases: it checks every six hours and on demand from Settings > General, downloads in the background, and installs on restart. Each release must include `latest.yml`, the installer and its `.blockmap`; the portable build does not auto-update. Because builds are unsigned, Windows SmartScreen may warn when the updated installer first runs. A production signing certificate and user-supplied app icon can be added before public distribution. Dependencies and bundled filter licensing are described in THIRD-PARTY-NOTICES.md. Windows x64 is tested; ARM64, macOS and Linux are not.
 
 Phase report, measurements and validation: [Phase 7](PHASE-7.md).
 

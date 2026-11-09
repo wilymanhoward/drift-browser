@@ -20,6 +20,7 @@ import Workspaces from './Workspaces';
 import Shields from './Shields';
 import BrowserImport from './BrowserImport';
 import DefaultBrowser from './DefaultBrowser';
+import Updates from './Updates';
 
 function Field({
   label,
@@ -211,10 +212,11 @@ export default function Settings({ state }: { state: BrowserState }) {
       icon: GeneralIcon,
       description: 'Make Drift work the way you browse.',
       keywords:
-        'startup restore session new tab behavior default browser windows links',
+        'startup restore session new tab behavior default browser windows links update version',
       body: (
         <div className="settings-card settings-fields">
           <DefaultBrowser />
+          <Updates />
           {choice('startup', 'Startup', [
             ['restore', 'Restore session'],
             ['new-tab', 'New tab'],
