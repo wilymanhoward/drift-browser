@@ -504,15 +504,24 @@ async function createWindow(
   const applySettings = async () => {
     // Web pages (prefers-color-scheme), scrollbars and native menus follow the
     // Drift theme too. Changing it fires 'updated', which lands back here once.
-    if (nativeTheme.themeSource !== settings.value.theme)
-      nativeTheme.themeSource = settings.value.theme;
+    // Black is a dark theme as far as pages and native UI are concerned.
+    const source =
+      settings.value.theme === 'black' ? 'dark' : settings.value.theme;
+    if (nativeTheme.themeSource !== source) nativeTheme.themeSource = source;
+    const black = settings.value.theme === 'black';
     const glass = nativeGlass && settings.value.glassEffect;
     if (process.platform === 'win32' && nativeGlass)
       win.setBackgroundMaterial(glass ? 'acrylic' : 'none');
     if (process.platform === 'darwin')
       win.setVibrancy(glass ? 'under-window' : null);
     win.setBackgroundColor(
-      glass ? '#00000000' : settings.dark ? '#15161b' : '#eef0f5',
+      glass
+        ? '#00000000'
+        : black
+          ? '#000000'
+          : settings.dark
+            ? '#15161b'
+            : '#eef0f5',
     );
     win.contentView.setBackgroundColor('#00000000');
     tabs.updateSidebar({

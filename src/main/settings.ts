@@ -43,6 +43,7 @@ export class SettingsStore {
   get dark() {
     return (
       this.value.theme === 'dark' ||
+      this.value.theme === 'black' ||
       (this.value.theme === 'system' && nativeTheme.shouldUseDarkColors)
     );
   }

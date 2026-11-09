@@ -5,6 +5,7 @@ import {
   app,
   screen,
   systemPreferences,
+  nativeImage,
   nativeTheme,
   webContents,
 } from 'electron';
@@ -76,29 +77,88 @@ function sniffImage(bytes: Buffer): string | null {
     return 'image/svg+xml';
   return null;
 }
+// Icons the chrome UI shows are drawn at 16 to 20 pixels, so larger ones are
+// scaled down to keep tab state and the saved session small.
+const FAVICON_SIZE = 32;
+function iconDataURL(bytes: Buffer, type: string) {
+  if (type !== 'image/svg+xml') {
+    const image = nativeImage.createFromBuffer(bytes);
+    if (!image.isEmpty()) {
+      const { width, height } = image.getSize();
+      return (
+        width > FAVICON_SIZE || height > FAVICON_SIZE
+          ? image.resize(
+              width >= height
+                ? { width: FAVICON_SIZE, quality: 'best' }
+                : { height: FAVICON_SIZE, quality: 'best' },
+            )
+          : image
+      ).toDataURL();
+    }
+  }
+  // Formats nativeImage cannot read (SVG, GIF, WebP) are shown as they came.
+  if (bytes.length > 256 * 1024) return null;
+  return `data:${type};base64,${bytes.toString('base64')}`;
+}
+// An icon a page gives inline, as data:image/...;base64 or percent-encoded.
+function inlineIcon(url: string) {
+  const match = /^data:(image\/[\w.+-]+)(;base64)?,(.*)$/is.exec(url);
+  if (!match) return null;
+  try {
+    const bytes = match[2]
+      ? Buffer.from(match[3], 'base64')
+      : Buffer.from(decodeURIComponent(match[3]), 'utf8');
+    if (!bytes.length || bytes.length > 1024 * 1024) return null;
+    const type = sniffImage(bytes) ?? match[1].toLowerCase();
+    return iconDataURL(bytes, type);
+  } catch {
+    return null;
+  }
+}
 // A page's favicon as a data: URL, read with the page's own session. Tries
-// each candidate in turn, since the first one a page lists can be missing.
-async function faviconData(page: WebContents, urls: string[]) {
-  for (const url of urls) {
+// each candidate in turn, since the first one a page lists can be missing,
+// then the site's /favicon.ico. The request is sent the way a page asks for
+// an image, since some servers refuse bare requests or hotlinked icons.
+async function faviconData(page: WebContents, urls: string[], pageURL: string) {
+  const candidates = urls.filter(
+    (url) => isWebURL(url) || /^data:image\//i.test(url),
+  );
+  if (isWebURL(pageURL)) {
+    const fallback = new URL('/favicon.ico', pageURL).href;
+    if (!candidates.includes(fallback)) candidates.push(fallback);
+  }
+  for (const url of candidates) {
     if (page.isDestroyed()) return null;
+    if (url.startsWith('data:')) {
+      const data = inlineIcon(url);
+      if (data) return data;
+      continue;
+    }
     try {
       const response = await page.session.fetch(url, {
-        signal: AbortSignal.timeout(5000),
+        signal: AbortSignal.timeout(8000),
+        headers: {
+          Accept:
+            'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+          'Sec-Fetch-Dest': 'image',
+          ...(isWebURL(pageURL) && { Referer: `${originOf(pageURL)}/` }),
+        },
       });
       if (!response.ok) continue;
       const bytes = Buffer.from(await response.arrayBuffer());
-      if (!bytes.length || bytes.length > 256 * 1024) continue;
+      if (!bytes.length || bytes.length > 1024 * 1024) continue;
       const declared = response.headers
         .get('content-type')
         ?.split(';')[0]
         .trim()
         .toLowerCase();
+      // The bytes decide first: servers often label icons wrongly.
       const type =
-        declared && /^image\/[\w.+-]+$/.test(declared)
-          ? declared
-          : sniffImage(bytes);
+        sniffImage(bytes) ??
+        (declared && /^image\/[\w.+-]+$/.test(declared) ? declared : null);
       if (!type) continue;
-      return `data:${type};base64,${bytes.toString('base64')}`;
+      const data = iconDataURL(bytes, type);
+      if (data) return data;
     } catch {
       /* Try the next candidate. */
     }
@@ -290,12 +350,12 @@ export class TabManager {
   }
   idOf(page: WebContents) {
     return this.tabs.find(
-      (t) => !t.state.unloaded && t.view.webContents.id === page.id,
+      (t) => !t.state.unloaded && t.view.webContents?.id === page.id,
     )?.state.id;
   }
   owns(page: WebContents) {
     return this.tabs.some(
-      (t) => !t.state.unloaded && t.view.webContents.id === page.id,
+      (t) => !t.state.unloaded && t.view.webContents?.id === page.id,
     );
   }
   private emit() {
@@ -356,14 +416,12 @@ export class TabManager {
     if (deferred) {
       // A restored tab without a saved icon asks its site for the default one.
       if (!tab.state.favicon && isWebURL(target))
-        void faviconData(page, [new URL('/favicon.ico', target).href]).then(
-          (data) => {
-            if (data && !tab.state.favicon && this.tabs.includes(tab)) {
-              tab.state.favicon = data;
-              this.emit();
-            }
-          },
-        );
+        void faviconData(page, [], target).then((data) => {
+          if (data && !tab.state.favicon && this.tabs.includes(tab)) {
+            tab.state.favicon = data;
+            this.emit();
+          }
+        });
       this.emit();
       return tab;
     }
@@ -473,35 +531,29 @@ export class TabManager {
     });
     on('audio-state-changed', update);
     on('page-favicon-updated', (_event, urls) => {
-      const sources = urls.filter(isWebURL);
       const request = ++faviconRequest;
-      const origin = originOf(page.getURL());
+      const pageURL = page.getURL();
+      const origin = originOf(pageURL);
       // Fetched here, through the page's own session and Shields, so the
       // chrome UI shows a data: image and never loads page-chosen addresses.
       // The current icon stays until a new one arrives, and a slow answer
       // for an older request never replaces a newer one.
-      if (sources.length)
-        void faviconData(page, sources).then((data) => {
-          if (
-            request === faviconRequest &&
-            !page.isDestroyed() &&
-            this.tabs.includes(tab)
-          ) {
-            if (data) {
-              tab.state.favicon = data;
-              faviconOrigin = origin;
-            } else if (faviconOrigin !== origin) {
-              tab.state.favicon = null;
-              faviconOrigin = '';
-            }
-            update();
+      void faviconData(page, urls, pageURL).then((data) => {
+        if (
+          request === faviconRequest &&
+          !page.isDestroyed() &&
+          this.tabs.includes(tab)
+        ) {
+          if (data) {
+            tab.state.favicon = data;
+            faviconOrigin = origin;
+          } else if (faviconOrigin !== origin) {
+            tab.state.favicon = null;
+            faviconOrigin = '';
           }
-        });
-      else {
-        tab.state.favicon = null;
-        faviconOrigin = '';
-        update();
-      }
+          update();
+        }
+      });
     });
     on('did-fail-load', (_event, code, _description, url, mainFrame) => {
       if (mainFrame && code !== -3 && url === tab.navigationURL) {
@@ -1118,6 +1170,7 @@ export class TabManager {
     tab.view.webContents.send('drift:preview-control', {
       dark:
         settings.theme === 'dark' ||
+        settings.theme === 'black' ||
         (settings.theme === 'system' && nativeTheme.shouldUseDarkColors),
       accent: settings.accent,
       zoom: tab.view.webContents.getZoomFactor(),
@@ -1227,7 +1280,10 @@ export class TabManager {
     this.emit();
   }
   private canSleep(tab: Tab) {
+    const page = tab.view.webContents;
     return (
+      !!page &&
+      !page.isDestroyed() &&
       !tab.previewSourceId &&
       !tab.state.unloaded &&
       tab.state.id !== this.activeId &&
@@ -1235,7 +1291,7 @@ export class TabManager {
       !tab.state.pinned &&
       !tab.state.audible &&
       !tab.state.loading &&
-      !tab.view.webContents.isDevToolsOpened()
+      !page.isDevToolsOpened()
     );
   }
   private sleep(tab: Tab) {
@@ -1281,6 +1337,15 @@ export class TabManager {
   }
   private sleepInactive() {
     if (this.disposed) return;
+    // A page can be destroyed under a tab (it closed itself or its view went
+    // away). Such a tab is treated as asleep, so selecting it loads it again.
+    for (const tab of this.tabs) {
+      const page = tab.view.webContents;
+      if (!tab.state.unloaded && (!page || page.isDestroyed())) {
+        tab.state.unloaded = true;
+        this.emit();
+      }
+    }
     // Under memory pressure, any background tab idle for a minute sleeps early.
     const { total, free } = process.getSystemMemoryInfo();
     const minutes =
