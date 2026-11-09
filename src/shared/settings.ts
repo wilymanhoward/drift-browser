@@ -295,15 +295,17 @@ export function themeCSS(
         : glass && nativeGlass
           ? `linear-gradient(${veil},${veil})`
           : 'none',
-      '--glass': glass ? '#ffffff0d' : '#000000',
-      '--glass-strong': glass ? '#ffffff1a' : '#1c1c1e',
-      '--glass-edge': glass ? '#ffffff17' : '#ffffff1f',
+      // The address bar and button capsules sit on --glass: a soft grey so
+      // they stand out from the black bar instead of vanishing into it.
+      '--glass': glass ? '#ffffff21' : '#1f1f21',
+      '--glass-strong': glass ? '#ffffff30' : '#2e2e31',
+      '--glass-edge': glass ? '#ffffff26' : '#ffffff24',
       '--hairline': '#ffffff1a',
       '--surface': '#000000',
       '--panel': glass ? '#000000c7' : '#000000',
       '--input-bg': '#ffffff14',
       '--hover': '#ffffff14',
-      '--selection': glass ? '#ffffff1a' : '#1c1c1e',
+      '--selection': glass ? '#ffffff26' : '#262628',
       '--border': '#2c2c2e',
       '--shadow-sm': 'none',
       '--shadow-lg': '0 0 0 0.5px #ffffff1f',
