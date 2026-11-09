@@ -54,6 +54,7 @@ function Favicon({ tab }: { tab: TabState }) {
         className="favicon"
         src={tab.favicon}
         alt=""
+        draggable={false}
         referrerPolicy="no-referrer"
         onError={() => setFailed(tab.favicon)}
       />
@@ -558,16 +559,16 @@ export default function App() {
               onDragStart={(event) => {
                 dismissCard();
                 dragged.current = tab.id;
-                event.dataTransfer.setData('text/plain', tab.id);
+                // A private type, so no other app (Explorer, a text box)
+                // accepts the drop and swallows it.
+                event.dataTransfer.setData('application/x-drift-tab', tab.id);
                 event.dataTransfer.effectAllowed = 'move';
               }}
-              onDragEnd={(event) => {
-                // Nothing in Drift took the drop; if it landed outside this
-                // window, the tab moves to another window.
-                if (
-                  dragged.current === tab.id &&
-                  event.dataTransfer.dropEffect === 'none'
-                )
+              onDragEnd={() => {
+                // Nothing in Drift took the drop. Whatever the OS reports as
+                // the drop effect, the main process checks where the cursor
+                // is and only moves the tab if it left this window.
+                if (dragged.current === tab.id)
                   tabCommand({ type: 'detach', id: tab.id });
                 dragged.current = null;
               }}
