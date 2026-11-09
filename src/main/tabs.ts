@@ -659,6 +659,8 @@ export class TabManager {
       }
     });
     on('focus', () => {
+      // A new tab's page can take focus as it loads, after the overlay opened.
+      if (this.overlay) return this.win.webContents.focus();
       if (
         this.split?.ids.includes(tab.state.id) &&
         this.activeId !== tab.state.id
