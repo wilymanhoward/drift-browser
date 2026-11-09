@@ -231,7 +231,7 @@ export default function Settings({ state }: { state: BrowserState }) {
       icon: Paintbrush,
       description: 'A quieter frame around the web.',
       keywords:
-        'appearance theme dark light system accent color glass transparency density sidebar position width corner radius inset shadow hover toolbar layout zen safari address top bar hide collapsed minimized lock',
+        'appearance theme dark light black system accent color glass transparency density sidebar position width corner radius inset shadow hover toolbar layout zen safari address top bar hide collapsed minimized lock',
       body: (
         <>
           <h2>Toolbar</h2>
@@ -249,7 +249,7 @@ export default function Settings({ state }: { state: BrowserState }) {
           </div>
           <h2>Appearance</h2>
           <div className="settings-card settings-fields">
-            {choice('theme', 'Theme', ['system', 'light', 'dark'])}
+            {choice('theme', 'Theme', ['system', 'light', 'dark', 'black'])}
             <Field label="Accent">
               <input
                 type="color"

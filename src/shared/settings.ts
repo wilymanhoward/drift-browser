@@ -27,7 +27,7 @@ export const DEFAULT_SHORTCUTS: Record<string, string> = {
   ),
 };
 export interface Settings {
-  theme: 'light' | 'dark' | 'system';
+  theme: 'light' | 'dark' | 'black' | 'system';
   glassEffect: boolean;
   accent: string;
   sidebarPosition: 'left' | 'right';
@@ -107,7 +107,7 @@ export function parseSettings(value: unknown): Settings {
   };
   if (
     Object.keys(v).some((key) => !Object.hasOwn(DEFAULT_SETTINGS, key)) ||
-    !['light', 'dark', 'system'].includes(v.theme) ||
+    !['light', 'dark', 'black', 'system'].includes(v.theme) ||
     typeof v.glassEffect !== 'boolean' ||
     !/^#[\da-f]{6}$/i.test(v.accent) ||
     !['left', 'right'].includes(v.sidebarPosition) ||
@@ -228,6 +228,11 @@ export function themeCSS(
     channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
   // Leans to white text like macOS, so saturated accents get white labels.
   const foreground = luminance > 0.26 ? '#000000' : '#ffffff';
+  // Black: #000 chrome, always dark. With glass on it keeps frosted controls
+  // and native acrylic, but under a near-opaque black layer and without the
+  // accent wash, so it reads as black with only a hint of depth.
+  const black = settings.theme === 'black';
+  if (black) dark = true;
   const glass = settings.glassEffect;
   const pick = (light: string, darkValue: string) => (dark ? darkValue : light);
   // With glass off every translucent token falls back to an opaque one.
@@ -280,6 +285,30 @@ export function themeCSS(
     '--control-size': settings.density === 'compact' ? '28px' : '32px',
     '--tab-height': settings.density === 'compact' ? '30px' : '34px',
   };
+  if (black) {
+    const veil = glass && nativeGlass ? '#000000d9' : '#000000';
+    Object.assign(tokens, {
+      '--chrome-bg': veil,
+      '--backdrop': glass && nativeGlass ? 'transparent' : '#000000',
+      '--wallpaper-image': settings.wallpaper
+        ? `url("${settings.wallpaper}")`
+        : glass && nativeGlass
+          ? `linear-gradient(${veil},${veil})`
+          : 'none',
+      '--glass': glass ? '#ffffff0d' : '#000000',
+      '--glass-strong': glass ? '#ffffff1a' : '#1c1c1e',
+      '--glass-edge': glass ? '#ffffff17' : '#ffffff1f',
+      '--hairline': '#ffffff1a',
+      '--surface': '#000000',
+      '--panel': glass ? '#000000c7' : '#000000',
+      '--input-bg': '#ffffff14',
+      '--hover': '#ffffff14',
+      '--selection': glass ? '#ffffff1a' : '#1c1c1e',
+      '--border': '#2c2c2e',
+      '--shadow-sm': 'none',
+      '--shadow-lg': '0 0 0 0.5px #ffffff1f',
+    });
+  }
   return `:root{${Object.entries(tokens)
     .map(([key, value]) => `${key}:${value}`)
     .join(';')}}`;

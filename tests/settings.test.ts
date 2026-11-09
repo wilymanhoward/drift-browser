@@ -41,6 +41,25 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
     );
   expect(themeCSS(DEFAULT_SETTINGS, false)).toContain('--accent-text:#ffffff');
   expect(themeCSS(DEFAULT_SETTINGS, true)).toContain('--text:#f5f5f7');
+  const black = themeCSS(
+    { ...DEFAULT_SETTINGS, theme: 'black', glassEffect: false },
+    false,
+    true,
+  );
+  for (const token of ['--chrome-bg', '--backdrop', '--glass', '--panel'])
+    expect(black).toContain(`${token}:#000000`);
+  expect(black).toContain('--wallpaper-image:none');
+  const blackGlass = themeCSS(
+    { ...DEFAULT_SETTINGS, theme: 'black' },
+    false,
+    true,
+  );
+  expect(blackGlass).toContain('--chrome-bg:#000000d9');
+  expect(blackGlass).toContain('--glass-blur:24px');
+  expect(black).toContain('color-scheme:dark');
+  expect(parseSettings({ ...DEFAULT_SETTINGS, theme: 'black' }).theme).toBe(
+    'black',
+  );
   expect(themeCSS({ ...DEFAULT_SETTINGS, accent: '#999999' }, false)).toContain(
     '--accent-text:#000000',
   );
