@@ -218,15 +218,23 @@ test('a tab dropped outside its window moves live into a new window', async () =
     ).toBe(1);
 
     await dropAt(app, 1500, 800);
-    await chrome.locator(`[data-tab-id="${moving}"]`).evaluate((row) => {
-      const dataTransfer = new DataTransfer();
-      row.dispatchEvent(
-        new DragEvent('dragstart', { bubbles: true, dataTransfer }),
-      );
-      row.dispatchEvent(
-        new DragEvent('dragend', { bubbles: true, dataTransfer }),
-      );
-    });
+    const types = await chrome
+      .locator(`[data-tab-id="${moving}"]`)
+      .evaluate((row) => {
+        const dataTransfer = new DataTransfer();
+        row.dispatchEvent(
+          new DragEvent('dragstart', { bubbles: true, dataTransfer }),
+        );
+        // Windows can report a drop on the desktop or another app as accepted;
+        // the tab must tear off anyway.
+        dataTransfer.dropEffect = 'copy';
+        row.dispatchEvent(
+          new DragEvent('dragend', { bubbles: true, dataTransfer }),
+        );
+        return [...dataTransfer.types];
+      });
+    // Only Drift understands the drag, so no other app can take the drop.
+    expect(types).toEqual(['application/x-drift-tab']);
     await expect
       .poll(() =>
         app!.evaluate(
