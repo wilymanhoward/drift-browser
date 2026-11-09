@@ -126,7 +126,22 @@ export type SidebarUpdate = Partial<SidebarPreferences> & {
   expanded?: boolean;
   topbar?: boolean;
 };
+export interface UpdateStatus {
+  state:
+    | 'unsupported'
+    | 'idle'
+    | 'checking'
+    | 'latest'
+    | 'downloading'
+    | 'ready'
+    | 'error';
+  current: string;
+  // The release being downloaded or ready to install.
+  version?: string;
+  percent?: number;
+}
 export interface DriftAPI {
+  update(command: 'status' | 'check' | 'install'): Promise<UpdateStatus>;
   defaultBrowser(
     command: 'status' | 'open-settings',
   ): Promise<import('./default-browser').DefaultBrowserStatus>;

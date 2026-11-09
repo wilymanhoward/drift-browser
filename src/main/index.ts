@@ -50,7 +50,7 @@ import type { BrowserImportResult } from '../shared/browser-import';
 import { defaultBrowser } from './default-browser';
 import { externalLink } from '../shared/external-links';
 import { enableGoogleSignIn } from './google-signin';
-import { startAutoUpdates } from './updates';
+import { startAutoUpdates, updateCommand } from './updates';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -604,6 +604,7 @@ async function createWindow(
   };
   handle('drift:state', 0, state);
   handle('drift:default-browser', 1, defaultBrowser);
+  handle('drift:update', 1, updateCommand);
   handle('drift:find', 1, (input) => pageTools.findCommand(parseFind(input)));
   handle('drift:workspace', 1, (input) =>
     tabs.workspace(parseWorkspace(input)),

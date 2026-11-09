@@ -3,6 +3,7 @@ import { injectBrowserAction } from 'electron-chrome-extensions/browser-action';
 import type { BrowserState, DriftAPI } from '../shared/browser';
 
 const api: DriftAPI = {
+  update: (command) => ipcRenderer.invoke('drift:update', command),
   defaultBrowser: (command) =>
     ipcRenderer.invoke('drift:default-browser', command),
   getState: () => ipcRenderer.invoke('drift:state'),
