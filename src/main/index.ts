@@ -218,7 +218,18 @@ async function loadProfile(partition: string, privateWindow: boolean) {
   // Private windows neither offer to save nor fill saved passwords.
   if (!privateWindow) {
     await passwords.load();
-    passwords.enable(pageSession, (page) => windowFor(page)?.win);
+    passwords.enable(pageSession, (page) => {
+      const handle = windowFor(page);
+      return (
+        handle && {
+          win: handle.win,
+          theme: () => ({
+            css: themeCSS(settings.value, settings.dark),
+            dark: settings.dark,
+          }),
+        }
+      );
+    });
   }
   // After shields, so the store and extensions load under the same rules.
   const focused = () =>

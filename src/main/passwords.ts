@@ -1,4 +1,4 @@
-import { dialog, ipcMain, Menu, safeStorage } from 'electron';
+import { ipcMain, safeStorage } from 'electron';
 import type {
   BrowserWindow,
   IpcMainEvent,
@@ -10,11 +10,19 @@ import type Store from 'electron-store';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { loginOrigin, parseVault } from '../shared/passwords';
+import { PasswordPopup } from './password-popup';
+import type { FieldRect } from './password-popup';
 import type {
   PasswordCommand,
   PasswordList,
   SavedLogin,
 } from '../shared/passwords';
+
+type Context = (
+  page: WebContents,
+) =>
+  | { win: BrowserWindow; theme: () => { css: string; dark: boolean } }
+  | undefined;
 
 // The whole vault is one OS-encrypted blob (DPAPI on Windows, Keychain on
 // macOS); nothing about saved logins is written in plain text.
@@ -26,6 +34,7 @@ class Passwords {
   private loading: Promise<void> | null = null;
   private prompting = new Set<string>();
   private sessions = new Set<Session>();
+  private popups = new WeakMap<BrowserWindow, PasswordPopup>();
 
   load() {
     this.loading ??= this.read();
@@ -83,10 +92,7 @@ class Passwords {
     return this.list();
   }
 
-  enable(
-    session: Session,
-    windowFor: (page: WebContents) => BrowserWindow | undefined,
-  ) {
+  enable(session: Session, windowFor: Context) {
     if (this.sessions.size === 0) this.listen(windowFor);
     if (this.sessions.has(session)) return;
     this.sessions.add(session);
@@ -103,29 +109,41 @@ class Passwords {
       return null;
     return loginOrigin(frame.url);
   }
-  private listen(windowFor: (page: WebContents) => BrowserWindow | undefined) {
-    ipcMain.handle('drift:password-suggest', async (event) => {
+  private popup(win: BrowserWindow) {
+    let popup = this.popups.get(win);
+    if (!popup) this.popups.set(win, (popup = new PasswordPopup(win)));
+    return popup;
+  }
+  private listen(windowFor: Context) {
+    ipcMain.handle('drift:password-suggest', async (event, field: unknown) => {
       await this.load();
       const origin = this.origin(event);
       const matches = this.logins.filter((l) => l.origin === origin);
-      if (!matches.length) return null;
-      return new Promise<{ username: string; password: string } | null>(
-        (resolve) => {
-          const win = windowFor(event.sender);
-          Menu.buildFromTemplate([
-            { label: 'Saved passwords', enabled: false },
-            ...matches.map((login) => ({
-              label: login.username || '(no username)',
-              click: () =>
-                resolve({ username: login.username, password: login.password }),
-            })),
-          ]).popup({
-            ...(win && { window: win }),
-            // Close can fire before the click handler; a later resolve wins nothing.
-            callback: () => setTimeout(() => resolve(null), 50),
-          });
+      const context = windowFor(event.sender);
+      const rect = field as Partial<FieldRect> | null;
+      if (
+        !origin ||
+        !matches.length ||
+        !context ||
+        !rect ||
+        ![rect.left, rect.top, rect.bottom].every(Number.isFinite)
+      )
+        return null;
+      const index = await this.popup(context.win).ask(
+        {
+          mode: 'fill',
+          site: new URL(origin).host,
+          usernames: matches.map((l) => l.username),
         },
+        event.sender,
+        context.theme(),
+        rect as FieldRect,
       );
+      if (!event.sender.isDestroyed()) event.sender.focus();
+      const login = index === null ? undefined : matches[index];
+      return login
+        ? { username: login.username, password: login.password }
+        : null;
     });
     ipcMain.on(
       'drift:password-submit',
@@ -154,26 +172,19 @@ class Passwords {
             return;
           this.prompting.add(key);
           try {
-            const host = new URL(origin).host;
-            const options = {
-              type: 'question' as const,
-              message: existing
-                ? `Update the saved password for ${host}?`
-                : `Save password for ${host}?`,
-              detail: username || 'No username',
-              buttons: [
-                existing ? 'Update' : 'Save',
-                'Not now',
-                'Never for this site',
-              ],
-              defaultId: 0,
-              cancelId: 1,
-              noLink: true,
-            };
-            const win = windowFor(event.sender);
-            const { response } = await (win
-              ? dialog.showMessageBox(win, options)
-              : dialog.showMessageBox(options));
+            const context = windowFor(event.sender);
+            const response = context
+              ? await this.popup(context.win).ask(
+                  {
+                    mode: 'save',
+                    site: new URL(origin).host,
+                    username,
+                    update: Boolean(existing),
+                  },
+                  event.sender,
+                  context.theme(),
+                )
+              : null;
             if (response === 0) {
               const current = find();
               if (current) current.password = password;
@@ -186,7 +197,7 @@ class Passwords {
                 });
             } else if (response === 2 && !this.never.includes(origin))
               this.never.push(origin);
-            if (response !== 1) this.save();
+            if (response === 0 || response === 2) this.save();
           } finally {
             this.prompting.delete(key);
           }
