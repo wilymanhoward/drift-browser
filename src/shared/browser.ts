@@ -159,6 +159,9 @@ export interface DriftAPI {
   onOverlay(callback: (overlay: OverlayEvent) => void): () => void;
   getShields(): Promise<import('./privacy').ShieldsState>;
   privacy(command: import('./privacy').PrivacyCommand): Promise<void>;
+  passwords(
+    command: import('./passwords').PasswordCommand,
+  ): Promise<import('./passwords').PasswordList>;
   settings(value: import('./settings').Settings): Promise<void>;
   settingsFile(mode: 'import' | 'export' | 'wallpaper'): Promise<void>;
   detectBrowsers(): Promise<import('./browser-import').BrowserImportSource[]>;

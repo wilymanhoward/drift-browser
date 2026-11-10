@@ -31,6 +31,7 @@ export async function buildElectron() {
       'preload/index': 'src/preload/index.ts',
       'preload/shields': 'src/preload/shields.ts',
       'preload/preview': 'src/preload/preview.ts',
+      'preload/passwords': 'src/preload/passwords.ts',
     },
     external: ['electron'],
   });

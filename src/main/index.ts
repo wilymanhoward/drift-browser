@@ -51,6 +51,8 @@ import { defaultBrowser } from './default-browser';
 import { externalLink } from '../shared/external-links';
 import { enableGoogleSignIn } from './google-signin';
 import { startAutoUpdates, updateCommand } from './updates';
+import { passwords } from './passwords';
+import { parsePasswordCommand } from '../shared/passwords';
 
 app.setName('Drift');
 app.enableSandbox();
@@ -213,6 +215,11 @@ async function loadProfile(partition: string, privateWindow: boolean) {
   );
   await privacy.load();
   if (!privateWindow) app.once('will-quit', () => privacy.dispose());
+  // Private windows neither offer to save nor fill saved passwords.
+  if (!privateWindow) {
+    await passwords.load();
+    passwords.enable(pageSession, (page) => windowFor(page)?.win);
+  }
   // After shields, so the store and extensions load under the same rules.
   const focused = () =>
     windows.find((handle) => handle.win.isFocused()) ?? windows[0];
@@ -634,6 +641,9 @@ async function createWindow(
       tabs.closeOverlay();
     await extensions.command(command);
   });
+  handle('drift:passwords', 1, (input) =>
+    passwords.command(parsePasswordCommand(input)),
+  );
   handle('drift:settings', 1, async (input) => {
     settings.set(input);
     await applyEverywhere();
