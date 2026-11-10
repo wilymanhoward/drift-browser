@@ -5,7 +5,6 @@ import {
   ElectronBlocker,
   fromElectronDetails,
 } from '@ghostery/adblocker-electron';
-import { getDomain } from 'tldts';
 import { readFile, writeFile, mkdir, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { DEFAULT_PRIVACY } from '../shared/privacy';
@@ -141,18 +140,6 @@ export function localHost(host: string): boolean {
     ['localhost', '127.0.0.1', '[::1]'].includes(host) ||
     host.endsWith('.localhost')
   );
-}
-export function thirdParty(url: string, top: string): boolean {
-  try {
-    const a = new URL(url),
-      b = new URL(top);
-    return (
-      (getDomain(a.hostname) || a.hostname) !==
-        (getDomain(b.hostname) || b.hostname) || a.protocol !== b.protocol
-    );
-  } catch {
-    return true;
-  }
 }
 // Granted to web pages without a prompt, as Chrome does: fullscreen, clipboard
 // writes from a click (site Copy buttons) and pointer lock for games and maps.
@@ -403,36 +390,16 @@ export class PrivacyController {
           : { cancel: blocked },
       );
     });
-    // Cookies are withheld only from requests a page makes to another site.
-    // Requests with no page (service workers, extension workers) have no top
-    // site to compare with, and a site with Shields off keeps its embeds.
-    const crossSite = (details: {
-      url: string;
-      resourceType: string;
-      webContentsId?: number;
-    }) => {
-      if (!this.active || details.resourceType === 'mainFrame') return false;
-      const page = top(details.webContentsId);
-      if (!isWebURL(page)) return false;
-      if (this.settings.disabledSites.includes(new URL(page).hostname))
-        return false;
-      return thirdParty(details.url, page);
-    };
+    // Third-party cookies are blocked by Chromium itself (the
+    // test-third-party-cookie-phaseout switch in index.ts), which still lets
+    // embeds keep partitioned (CHIPS) cookies. Stripping cookie headers here
+    // broke those too, e.g. claude.ai artifacts reported "browser isn't supported".
     session.webRequest.onBeforeSendHeaders((details, callback) => {
-      const headers = isGoogleSignIn(details.url)
-        ? signInHeaders(details.requestHeaders, signInAgent)
-        : { ...details.requestHeaders };
-      if (crossSite(details))
-        for (const key of Object.keys(headers))
-          if (key.toLowerCase() === 'cookie') delete headers[key];
-      callback({ requestHeaders: headers });
-    });
-    session.webRequest.onHeadersReceived((details, callback) => {
-      const headers = { ...details.responseHeaders };
-      if (crossSite(details))
-        for (const key of Object.keys(headers))
-          if (key.toLowerCase() === 'set-cookie') delete headers[key];
-      callback({ responseHeaders: headers });
+      callback({
+        requestHeaders: isGoogleSignIn(details.url)
+          ? signInHeaders(details.requestHeaders, signInAgent)
+          : details.requestHeaders,
+      });
     });
     session.setPermissionCheckHandler(
       (page, permission, origin) =>
