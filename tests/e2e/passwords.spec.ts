@@ -1,6 +1,6 @@
 import { test, expect, _electron as electron } from '@playwright/test';
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { ElectronApplication } from '@playwright/test';
@@ -15,6 +15,29 @@ const page = (app: ElectronApplication, script: string) =>
       ).webContents.executeJavaScript(code),
     script,
   );
+
+// Drift's own password panel, a transparent view over the page.
+const popup = (app: ElectronApplication, script: string) =>
+  app.evaluate(({ BrowserWindow }, code) => {
+    const view = BrowserWindow.getAllWindows()[0]
+      .contentView.children.map(
+        (child) => (child as Electron.WebContentsView).webContents,
+      )
+      .find((page) => page?.getURL().includes('window.choice'));
+    return view ? view.executeJavaScript(code) : null;
+  }, script);
+const shot = async (app: ElectronApplication, file: string) => {
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  const png = await app.evaluate(async ({ BrowserWindow }) => {
+    const view = BrowserWindow.getAllWindows()[0]
+      .contentView.children.map(
+        (child) => (child as Electron.WebContentsView).webContents,
+      )
+      .find((page) => page?.getURL().includes('window.choice'))!;
+    return (await view.capturePage()).toPNG().toString('base64');
+  });
+  await writeFile(file, Buffer.from(png, 'base64'));
+};
 
 test('saves a sign-in encrypted, fills it back, and deletes it', async () => {
   const server = createServer((_req, res) => {
@@ -37,18 +60,6 @@ test('saves a sign-in encrypted, fills it back, and deletes it', async () => {
     env,
   });
   try {
-    // Native prompts can't be clicked, so answer them from the main process.
-    await app.evaluate(({ dialog, Menu }) => {
-      dialog.showMessageBox = (async () => ({
-        response: 0,
-        checkboxChecked: false,
-      })) as never;
-      Menu.buildFromTemplate = ((
-        items: Electron.MenuItemConstructorOptions[],
-      ) => ({
-        popup: () => (items[1].click as () => void)(),
-      })) as never;
-    });
     const chrome = await chromeWindow(app);
     await chrome.evaluate((target) => window.drift.navigate(target), url);
     await expect.poll(() => page(app, 'location.href')).toBe(url);
@@ -59,6 +70,11 @@ test('saves a sign-in encrypted, fills it back, and deletes it', async () => {
       app,
       `for (const [id, v] of [['user','me@example.com'],['pass','hunter2']]) { const i = document.getElementById(id); i.value = v; i.dispatchEvent(new Event('input', { bubbles: true })); } document.getElementById('go').click();`,
     );
+    await expect
+      .poll(() => popup(app, `document.querySelector('.title')?.textContent`))
+      .toBe('Save password?');
+    await shot(app, test.info().outputPath('save.png'));
+    await popup(app, `document.querySelector('.primary').click()`);
     await expect
       .poll(() =>
         chrome.evaluate(() => window.drift.passwords({ type: 'list' })),
@@ -75,6 +91,13 @@ test('saves a sign-in encrypted, fills it back, and deletes it', async () => {
       .poll(() => page(app, 'Boolean(document.querySelector("#go"))'))
       .toBe(true);
     await page(app, `document.getElementById('user').click()`);
+    await expect
+      .poll(() =>
+        popup(app, `document.querySelector('.row .name')?.textContent`),
+      )
+      .toBe('me@example.com');
+    await shot(app, test.info().outputPath('fill.png'));
+    await popup(app, `document.querySelector('.row').click()`);
     await expect
       .poll(() =>
         page(

@@ -72,7 +72,11 @@ if (window === window.top && /^https?:$/.test(location.protocol)) {
       const username = usernameField(password);
       if (target !== password && target !== username) return;
       void ipcRenderer
-        .invoke('drift:password-suggest')
+        .invoke('drift:password-suggest', {
+          left: target.getBoundingClientRect().left,
+          top: target.getBoundingClientRect().top,
+          bottom: target.getBoundingClientRect().bottom,
+        })
         .then((login: { username: string; password: string } | null) => {
           if (!login) return;
           if (username) fill(username, login.username);
