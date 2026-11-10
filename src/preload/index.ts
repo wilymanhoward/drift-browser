@@ -24,6 +24,7 @@ const api: DriftAPI = {
   clearHistory: () => ipcRenderer.invoke('drift:clear-history'),
   getShields: () => ipcRenderer.invoke('drift:shields'),
   privacy: (command) => ipcRenderer.invoke('drift:privacy', command),
+  passwords: (command) => ipcRenderer.invoke('drift:passwords', command),
   settings: (value) => ipcRenderer.invoke('drift:settings', value),
   settingsFile: (mode) => ipcRenderer.invoke('drift:settings-file', mode),
   detectBrowsers: () => ipcRenderer.invoke('drift:detect-browsers'),

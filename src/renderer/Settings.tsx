@@ -7,6 +7,7 @@ import {
   Home,
   Search,
   Shield,
+  KeyRound,
   Keyboard,
   Code2,
   SlidersHorizontal,
@@ -18,6 +19,7 @@ import type { Settings as Preferences } from '../shared/settings';
 import { SETTINGS_URL } from '../shared/navigation';
 import Workspaces from './Workspaces';
 import Shields from './Shields';
+import Passwords from './Passwords';
 import BrowserImport from './BrowserImport';
 import DefaultBrowser from './DefaultBrowser';
 import Updates from './Updates';
@@ -424,6 +426,19 @@ export default function Settings({ state }: { state: BrowserState }) {
       body: (
         <div className="settings-card">
           <Shields />
+        </div>
+      ),
+    },
+    {
+      id: 'passwords',
+      label: 'Passwords',
+      icon: KeyRound,
+      description: 'Sign-ins Drift saved for you, encrypted on this device.',
+      keywords:
+        'passwords logins sign in credentials autofill saved accounts never',
+      body: (
+        <div className="settings-card">
+          <Passwords />
         </div>
       ),
     },
