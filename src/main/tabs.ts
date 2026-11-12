@@ -37,6 +37,7 @@ import { shortcutKey } from '../shared/settings';
 import type { PageAction } from '../shared/page-tools';
 import {
   isPageURL,
+  isAppURL,
   isWebURL,
   navigationURL,
   NEW_TAB_URL,
@@ -581,10 +582,12 @@ export class TabManager {
       ) {
         event.preventDefault();
         void this.openOverlay('bookmarks');
-      } else if (!isPageURL(url)) event.preventDefault();
+        // App links go on to Chromium, which asks the user before opening the app.
+      } else if (!isPageURL(url) && !isAppURL(url)) event.preventDefault();
     });
     on('will-redirect', (event, url) => {
-      if (!isPageURL(url) || url.startsWith('drift:')) event.preventDefault();
+      if ((!isPageURL(url) && !isAppURL(url)) || url.startsWith('drift:'))
+        event.preventDefault();
     });
     // Sign-in and payment popups keep window.opener, so the page that opened
     // them hears back. They stay sandboxed and open further links as tabs.
@@ -595,10 +598,10 @@ export class TabManager {
         return { action: 'deny' };
       });
       contents.on('will-navigate', (event, url) => {
-        if (!isWebURL(url)) event.preventDefault();
+        if (!isWebURL(url) && !isAppURL(url)) event.preventDefault();
       });
       contents.on('will-redirect', (event, url) => {
-        if (!isWebURL(url)) event.preventDefault();
+        if (!isWebURL(url) && !isAppURL(url)) event.preventDefault();
       });
     });
     let splitClickAt = 0;
@@ -629,7 +632,9 @@ export class TabManager {
             },
           },
         };
-      if (isWebURL(url)) {
+      // A new-window app link opens from this tab instead, through the same prompt.
+      if (isAppURL(url)) void page.loadURL(url).catch(() => {});
+      else if (isWebURL(url)) {
         if (splitLink) {
           this.openPreview(tab, url);
         } else this.create(url);
@@ -660,7 +665,12 @@ export class TabManager {
     });
     on('focus', () => {
       // A new tab's page can take focus as it loads, after the overlay opened.
-      if (this.overlay) return this.win.webContents.focus();
+      // Focusing inside this event is ignored, so the overlay takes it back just after.
+      if (this.overlay)
+        return void setTimeout(() => {
+          if (this.overlay && !this.win.isDestroyed())
+            this.win.webContents.focus();
+        });
       if (
         this.split?.ids.includes(tab.state.id) &&
         this.activeId !== tab.state.id

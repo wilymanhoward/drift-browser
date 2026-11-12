@@ -84,3 +84,41 @@ export function isWebURL(value: string): boolean {
     return false;
   }
 }
+
+// Schemes Chromium loads itself or that run local files and system tools;
+// a link with any of these never goes to another app.
+const NOT_APP_SCHEMES = [
+  'http',
+  'https',
+  'about',
+  'file',
+  'filesystem',
+  'javascript',
+  'vbscript',
+  'data',
+  'blob',
+  'jar',
+  'ws',
+  'wss',
+  'ftp',
+  'view-source',
+  'devtools',
+  'search',
+  'search-ms',
+  'shell',
+  'drift',
+  'chrome',
+  'chrome-extension',
+  'chrome-untrusted',
+];
+
+/** A link meant for another app on this computer, such as mailto:, zoommtg: or msteams:. */
+export function isAppURL(value: string): boolean {
+  let scheme: string;
+  try {
+    scheme = new URL(value).protocol.slice(0, -1).toLowerCase();
+  } catch {
+    return false;
+  }
+  return !NOT_APP_SCHEMES.includes(scheme) && !scheme.startsWith('ms-');
+}

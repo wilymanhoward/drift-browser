@@ -13,7 +13,7 @@ import type {
   ShieldsState,
   PrivacyCommand,
 } from '../shared/privacy';
-import { isWebURL } from '../shared/navigation';
+import { isAppURL, isWebURL } from '../shared/navigation';
 import { enableCosmetics } from './cosmetics';
 import {
   cleanChromeUserAgent,
@@ -150,20 +150,6 @@ const SILENT_PERMISSIONS: string[] = [
 ];
 // After this many blocked prompts a page gets no more until it navigates.
 const PROMPT_LIMIT = 3;
-const BLOCKED_SCHEMES = [
-  'file',
-  'javascript',
-  'vbscript',
-  'data',
-  'blob',
-  'jar',
-  'search',
-  'search-ms',
-  'shell',
-  'drift',
-  'chrome',
-  'chrome-extension',
-];
 export function permissionLabel(
   permission: string,
   mediaTypes?: ('video' | 'audio')[],
@@ -439,6 +425,10 @@ export class PrivacyController {
             'microphone',
           ].includes(permission) ||
           !isWebURL(origin) ||
+          // Like Chrome, frames from another site (Gmail's hidden Meet frame) cannot ask for notifications.
+          (permission === 'notifications' &&
+            !details.isMainFrame &&
+            origin !== page.mainFrame.origin) ||
           this.settings.deniedPermissions[origin]?.includes(permission) ||
           (this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT
         ) {
@@ -531,15 +521,8 @@ export class PrivacyController {
     origin: string,
     target: string | undefined,
   ) {
-    if (!isWebURL(origin) || !target) return false;
-    let scheme: string;
-    try {
-      scheme = new URL(target).protocol.slice(0, -1).toLowerCase();
-    } catch {
-      return false;
-    }
-    if (BLOCKED_SCHEMES.includes(scheme) || scheme.startsWith('ms-'))
-      return false;
+    if (!isWebURL(origin) || !target || !isAppURL(target)) return false;
+    const scheme = new URL(target).protocol.slice(0, -1).toLowerCase();
     const key = `${origin}|openExternal`;
     if ((this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT)
       return false;

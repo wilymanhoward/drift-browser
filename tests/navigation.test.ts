@@ -38,3 +38,26 @@ describe('navigation trust boundary', () => {
     expect(isWebURL('mailto:user@example.com')).toBe(false);
   });
 });
+
+describe('app links', () => {
+  it('sends only other-app schemes to the open-in-app prompt', async () => {
+    const { isAppURL } = await import('../src/shared/navigation');
+    for (const url of [
+      'mailto:a@b.c',
+      'zoommtg://zoom.us/join',
+      'msteams:/l/x',
+      'tel:+1555',
+    ])
+      expect(isAppURL(url)).toBe(true);
+    for (const url of [
+      'https://a.com',
+      'file:///C:/x',
+      'javascript:alert(1)',
+      'drift://newtab/',
+      'ms-settings:',
+      'search-ms:q',
+      'not a url',
+    ])
+      expect(isAppURL(url)).toBe(false);
+  });
+});
