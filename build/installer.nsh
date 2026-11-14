@@ -12,6 +12,12 @@
   WriteRegStr HKCU "Software\Clients\StartMenuInternet\Drift\Capabilities\Startmenu" "StartMenuInternet" "Drift"
   WriteRegStr HKCU "Software\Clients\StartMenuInternet\Drift\Capabilities\URLAssociations" "http" "DriftURL"
   WriteRegStr HKCU "Software\Clients\StartMenuInternet\Drift\Capabilities\URLAssociations" "https" "DriftURL"
+  ; PDF files: Drift appears under "Open with" and in Default apps for .pdf.
+  WriteRegStr HKCU "Software\Classes\DriftPDF" "" "PDF document"
+  WriteRegStr HKCU "Software\Classes\DriftPDF\DefaultIcon" "" "$INSTDIR\${APP_EXECUTABLE_FILENAME},0"
+  WriteRegStr HKCU "Software\Classes\DriftPDF\shell\open\command" "" '"$INSTDIR\${APP_EXECUTABLE_FILENAME}" -- "%1"'
+  WriteRegStr HKCU "Software\Classes\.pdf\OpenWithProgids" "DriftPDF" ""
+  WriteRegStr HKCU "Software\Clients\StartMenuInternet\Drift\Capabilities\FileAssociations" ".pdf" "DriftPDF"
   WriteRegStr HKCU "Software\RegisteredApplications" "Drift" "Software\Clients\StartMenuInternet\Drift\Capabilities"
 !macroend
 
@@ -19,4 +25,6 @@
   DeleteRegValue HKCU "Software\RegisteredApplications" "Drift"
   DeleteRegKey HKCU "Software\Clients\StartMenuInternet\Drift"
   DeleteRegKey HKCU "Software\Classes\DriftURL"
+  DeleteRegKey HKCU "Software\Classes\DriftPDF"
+  DeleteRegValue HKCU "Software\Classes\.pdf\OpenWithProgids" "DriftPDF"
 !macroend

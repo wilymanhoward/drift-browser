@@ -25,7 +25,7 @@ it('validates preferences, search templates, and unique normalized shortcuts', (
     parseSettings({ ...DEFAULT_SETTINGS, toolbarLayout: 'bottom' as 'top' }),
   ).toThrow();
   delete legacy.maxAwakeTabs;
-  expect(parseSettings(legacy).maxAwakeTabs).toBe(6);
+  expect(parseSettings(legacy).maxAwakeTabs).toBe(20);
   expect(() =>
     parseSettings({ ...DEFAULT_SETTINGS, maxAwakeTabs: 0 }),
   ).toThrow();
@@ -93,4 +93,24 @@ it('names shortcut keys by the physical key when Shift changes the character', (
   expect(shortcutKey({ key: 'a', code: 'KeyQ' })).toBe('A');
   expect(shortcutKey({ key: 'Tab', code: 'Tab' })).toBe('Tab');
   expect(shortcutKey({ key: 'F12', code: 'F12' })).toBe('F12');
+});
+
+it('offers highlight palettes, with Ember for settings saved before them', () => {
+  const old: Partial<typeof DEFAULT_SETTINGS> = { ...DEFAULT_SETTINGS };
+  delete old.highlight;
+  expect(parseSettings(old).highlight).toBe('ember');
+  expect(
+    parseSettings({ ...DEFAULT_SETTINGS, highlight: 'glacier' }).highlight,
+  ).toBe('glacier');
+  expect(() =>
+    parseSettings({ ...DEFAULT_SETTINGS, highlight: 'neon' as 'ember' }),
+  ).toThrow();
+  const dark = themeCSS({ ...DEFAULT_SETTINGS, highlight: 'glacier' }, true);
+  expect(dark).toContain('--highlight:#8fd3fe');
+  expect(dark).toContain(
+    '--greeting:linear-gradient(100deg,#c7ecff,#8fd3fe 55%,#5fb4f5)',
+  );
+  expect(
+    themeCSS({ ...DEFAULT_SETTINGS, highlight: 'glacier' }, false),
+  ).toContain('--highlight:#0284c7');
 });

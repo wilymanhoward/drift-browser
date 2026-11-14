@@ -5,12 +5,16 @@ import { chromeWindow } from './helpers';
 test('Shields block trackers, strip parameters, and isolate private windows', async () => {
   const seen: string[] = [];
   const server = createServer((req, res) => {
-    seen.push(req.headers.cookie || '');
+    seen.push(`${req.url} ${req.headers.cookie || ''}`);
     res.setHeader('Content-Type', 'text/html');
-    if (req.url === '/cookie')
+    // The embed itself is a plain page, so frames do not nest forever.
+    if (req.url!.startsWith('/cookie')) {
       res.setHeader('Set-Cookie', 'third=secret; SameSite=None; Secure');
+      res.end('embedded');
+      return;
+    }
     res.end(
-      `<html><head><title>Privacy fixture</title></head><body><script src="https://td.doubleclick.net/ads.js"></script><iframe src="http://localhost:${(server.address() as AddressInfo).port}/cookie"></iframe></body></html>`,
+      `<html><head><title>Privacy fixture</title></head><body><script src="https://td.doubleclick.net/ads.js"></script><iframe src="http://localhost:${(server.address() as AddressInfo).port}/cookie?from=${encodeURIComponent(req.url!)}"></iframe></body></html>`,
     );
   });
   await new Promise<void>((resolve) => server.listen(0, '0.0.0.0', resolve));
@@ -80,9 +84,17 @@ test('Shields block trackers, strip parameters, and isolate private windows', as
         BrowserWindow.getAllWindows()[0].contentView
           .children[0] as Electron.WebContentsView
       ).webContents;
-      return page.session.cookies.get({ name: 'third' });
+      page.debugger.attach();
+      const { cookies } = await page.debugger.sendCommand(
+        'Network.getAllCookies',
+      );
+      page.debugger.detach();
+      return (cookies as { name: string; partitionKey?: unknown }[]).filter(
+        (cookie) => cookie.name === 'third',
+      );
     });
-    expect(cookies).toEqual([]);
+    // The embedded site's cookie is kept only in this page's own jar.
+    expect(cookies.every((cookie) => cookie.partitionKey)).toBe(true);
     await app.evaluate(
       async ({ BrowserWindow }, url) => {
         const page = (
@@ -153,7 +165,16 @@ test('Shields block trackers, strip parameters, and isolate private windows', as
         ),
       )
       .toBe('http://insecure.test/');
-    expect(seen.every((cookie) => !cookie.includes('third=secret'))).toBe(true);
+    // The embed gets its cookie back only inside the page that set it, never
+    // in the private window or anywhere else.
+    const carried = seen.filter((entry) => entry.includes('third=secret'));
+    expect(carried.length).toBeGreaterThan(0);
+    expect(
+      carried.every(
+        (entry) =>
+          entry.startsWith('/cookie?from=') && !entry.includes('private'),
+      ),
+    ).toBe(true);
   } finally {
     await app.close();
     server.closeAllConnections();

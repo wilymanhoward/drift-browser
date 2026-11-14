@@ -144,9 +144,11 @@ test('side-by-side windows keep their sidebars at the outside edges', async () =
         .sort((a, b) => a.id - b.id)[0]
         .hide(),
     );
+    // Alone, it still fills the right half of the screen, so the sidebar
+    // stays on the right, as it would beside any other app.
     await expect
       .poll(async () => (await state(right)).sidebarPosition)
-      .toBe('left');
+      .toBe('right');
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()
         .sort((a, b) => a.id - b.id)[0]
@@ -162,7 +164,7 @@ test('side-by-side windows keep their sidebars at the outside edges', async () =
     );
     await expect
       .poll(async () => (await state(right)).sidebarPosition)
-      .toBe('left');
+      .toBe('right');
   } finally {
     await app.close();
   }

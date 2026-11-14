@@ -13,8 +13,9 @@ import type {
   ShieldsState,
   PrivacyCommand,
 } from '../shared/privacy';
-import { isWebURL } from '../shared/navigation';
+import { isAppURL, isWebURL } from '../shared/navigation';
 import { enableCosmetics } from './cosmetics';
+import { getDomain } from 'tldts';
 import {
   cleanChromeUserAgent,
   firefoxUserAgent,
@@ -150,20 +151,6 @@ const SILENT_PERMISSIONS: string[] = [
 ];
 // After this many blocked prompts a page gets no more until it navigates.
 const PROMPT_LIMIT = 3;
-const BLOCKED_SCHEMES = [
-  'file',
-  'javascript',
-  'vbscript',
-  'data',
-  'blob',
-  'jar',
-  'search',
-  'search-ms',
-  'shell',
-  'drift',
-  'chrome',
-  'chrome-extension',
-];
 export function permissionLabel(
   permission: string,
   mediaTypes?: ('video' | 'audio')[],
@@ -222,6 +209,8 @@ export class PrivacyController {
   // Prompts a page has had blocked, so a page cannot ask in a loop.
   private dismissed = new Map<number, Map<string, number>>();
   private active = true;
+  // Partitioned cookies set on third-party requests, by "page-site cookie-site".
+  private partitioned = new Map<string, Map<string, string>>();
   constructor(
     private session: Session,
     // Windows of one profile share this controller; asks go to the page's own.
@@ -390,16 +379,86 @@ export class PrivacyController {
           : { cancel: blocked },
       );
     });
-    // Third-party cookies are blocked by Chromium itself (the
-    // test-third-party-cookie-phaseout switch in index.ts), which still lets
-    // embeds keep partitioned (CHIPS) cookies. Stripping cookie headers here
-    // broke those too, e.g. claude.ai artifacts reported "browser isn't supported".
+    // Electron leaves third-party cookies on (the Chromium switch in index.ts
+    // does not reach them), so Drift partitions them itself, as Firefox's Total
+    // Cookie Protection does: a cookie another site sets inside this page lands
+    // in a jar kept for this page's site only. Trackers cannot follow you from
+    // site to site, while embeds and sign-in widgets keep a working jar (plain
+    // stripping broke those, e.g. claude.ai artifacts).
+    const siteOf = (url: string) => {
+      const host = new URL(url).hostname;
+      return getDomain(host) ?? host;
+    };
+    const thirdParty = (details: {
+      url: string;
+      resourceType: string;
+      webContentsId?: number;
+    }) => {
+      if (!this.active || details.resourceType === 'mainFrame') return false;
+      const page = top(details.webContentsId);
+      // On even where ad blocking is off for the site, as the Shields panel says.
+      return (
+        isWebURL(page) &&
+        // Not isWebURL: its length cap would let a very long address through.
+        /^https?:/i.test(details.url) &&
+        siteOf(page) !== siteOf(details.url)
+      );
+    };
+    const header = (headers: Record<string, unknown>, name: string) =>
+      Object.keys(headers).find((key) => key.toLowerCase() === name);
+    const split = (pair: string) => {
+      const at = pair.indexOf('=');
+      return at < 0
+        ? ['', pair.trim()]
+        : [pair.slice(0, at).trim(), pair.slice(at + 1).trim()];
+    };
     session.webRequest.onBeforeSendHeaders((details, callback) => {
-      callback({
-        requestHeaders: isGoogleSignIn(details.url)
-          ? signInHeaders(details.requestHeaders, signInAgent)
-          : details.requestHeaders,
+      const requestHeaders = isGoogleSignIn(details.url)
+        ? signInHeaders(details.requestHeaders, signInAgent)
+        : details.requestHeaders;
+      const key = header(requestHeaders, 'cookie');
+      if (key && thirdParty(details)) {
+        // Electron cannot say which jar a cookie came from, so only the
+        // partitioned cookies Drift saw this site set here may go along.
+        // Its first-party cookies, and any from before this protection, stay off.
+        const jar = this.partitioned.get(
+          `${siteOf(top(details.webContentsId))} ${siteOf(details.url)}`,
+        );
+        const kept = requestHeaders[key].split(/;\s*/).filter((pair) => {
+          const [name, value] = split(pair);
+          return jar?.get(name) === value;
+        });
+        if (kept.length) requestHeaders[key] = kept.join('; ');
+        else delete requestHeaders[key];
+      }
+      callback({ requestHeaders });
+    });
+    session.webRequest.onHeadersReceived((details, callback) => {
+      const key =
+        details.responseHeaders &&
+        header(details.responseHeaders, 'set-cookie');
+      if (!key || !thirdParty(details)) {
+        callback({});
+        return;
+      }
+      const id = `${siteOf(top(details.webContentsId))} ${siteOf(details.url)}`;
+      const jar = this.partitioned.get(id) ?? new Map<string, string>();
+      this.partitioned.delete(id);
+      this.partitioned.set(id, jar);
+      // shortcut: kept in memory for this run only, so after a restart an embed
+      // starts without its earlier partitioned cookies; persist if that matters.
+      for (const old of [...this.partitioned.keys()].slice(0, -2000))
+        this.partitioned.delete(old);
+      // Partitioned cookies must also be Secure; any that are not are dropped.
+      const responseHeaders = { ...details.responseHeaders! };
+      responseHeaders[key] = responseHeaders[key].map((cookie) => {
+        const [name, value] = split(cookie.split(';')[0]);
+        jar.set(name, value);
+        return /;\s*partitioned\s*(;|$)/i.test(cookie)
+          ? cookie
+          : `${cookie}; Partitioned`;
       });
+      callback({ responseHeaders });
     });
     session.setPermissionCheckHandler(
       (page, permission, origin) =>
@@ -439,6 +498,10 @@ export class PrivacyController {
             'microphone',
           ].includes(permission) ||
           !isWebURL(origin) ||
+          // Like Chrome, frames from another site (Gmail's hidden Meet frame) cannot ask for notifications.
+          (permission === 'notifications' &&
+            !details.isMainFrame &&
+            origin !== page.mainFrame.origin) ||
           this.settings.deniedPermissions[origin]?.includes(permission) ||
           (this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT
         ) {
@@ -531,15 +594,8 @@ export class PrivacyController {
     origin: string,
     target: string | undefined,
   ) {
-    if (!isWebURL(origin) || !target) return false;
-    let scheme: string;
-    try {
-      scheme = new URL(target).protocol.slice(0, -1).toLowerCase();
-    } catch {
-      return false;
-    }
-    if (BLOCKED_SCHEMES.includes(scheme) || scheme.startsWith('ms-'))
-      return false;
+    if (!isWebURL(origin) || !target || !isAppURL(target)) return false;
+    const scheme = new URL(target).protocol.slice(0, -1).toLowerCase();
     const key = `${origin}|openExternal`;
     if ((this.dismissed.get(page.id)?.get(key) ?? 0) >= PROMPT_LIMIT)
       return false;
@@ -634,6 +690,7 @@ export class PrivacyController {
     this.changed();
   }
   async clear() {
+    this.partitioned.clear();
     await this.session.clearStorageData();
     await this.session.clearCache();
     await this.session.closeAllConnections();

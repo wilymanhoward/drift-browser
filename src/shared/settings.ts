@@ -48,17 +48,51 @@ export interface Settings {
   autoHideTopBar: boolean;
   unloadMinutes: number;
   maxAwakeTabs: number;
+  highlight: Highlight;
   shortcuts: Record<string, string>;
 }
+// Highlight palettes: the new tab greeting's gradient, and (its middle stop)
+// the color for progress and switched-on controls. Deep tones for light
+// themes, pale ones for dark, so each keeps its contrast.
+export const HIGHLIGHTS = {
+  ember: {
+    label: 'Ember',
+    light: ['#b45309', '#c2410c', '#be123c'],
+    dark: ['#f7c873', '#f4a26b', '#ef7f6a'],
+  },
+  champagne: {
+    label: 'Champagne',
+    light: ['#8a6a2e', '#7a5a22', '#6b4f1d'],
+    dark: ['#f3e3c3', '#e2c08d', '#cfa66a'],
+  },
+  glacier: {
+    label: 'Glacier',
+    light: ['#0369a1', '#0284c7', '#1d4ed8'],
+    dark: ['#c7ecff', '#8fd3fe', '#5fb4f5'],
+  },
+  aurora: {
+    label: 'Aurora',
+    light: ['#0f766e', '#047857', '#15803d'],
+    dark: ['#8ef0dc', '#6fd8b8', '#a8e89c'],
+  },
+  sunrise: {
+    label: 'Sunrise',
+    light: ['#c05621', '#c2410c', '#9f1239'],
+    dark: ['#ffd9b0', '#ffbc9a', '#f5a3a0'],
+  },
+} as const;
+export type Highlight = keyof typeof HIGHLIGHTS;
+// A fresh install starts with Drift's house look: dark, a neutral grey
+// accent and tighter corners.
 export const DEFAULT_SETTINGS: Settings = {
-  theme: 'system',
+  theme: 'dark',
   glassEffect: true,
-  accent: '#5856d6',
+  accent: '#6b6b6b',
   sidebarPosition: 'left',
   collapsedWidth: 44,
   expandedWidth: 208,
   density: 'comfortable',
-  radius: 12,
+  radius: 7,
   contentInset: true,
   contentShadow: true,
   wallpaper: '',
@@ -71,18 +105,21 @@ export const DEFAULT_SETTINGS: Settings = {
   toolbarLayout: 'top',
   autoHideTopBar: true,
   unloadMinutes: 15,
-  maxAwakeTabs: 6,
+  maxAwakeTabs: 20,
+  highlight: 'ember',
   shortcuts: DEFAULT_SHORTCUTS,
 };
-// Earlier default accents follow the default forward.
+// Accents from before indigo became the default moved to indigo. They stay
+// there: the grey default is for fresh installs, not a change to old ones.
 const LEGACY_ACCENTS = ['#466a55', '#007aff'];
+const LEGACY_TARGET = '#5856d6';
 export function parseSettings(value: unknown): Settings {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid settings');
   const v = {
     ...(value as Settings),
     accent: LEGACY_ACCENTS.includes((value as Settings).accent)
-      ? DEFAULT_SETTINGS.accent
+      ? LEGACY_TARGET
       : (value as Settings).accent,
     glassEffect:
       (value as Settings).glassEffect === undefined
@@ -104,6 +141,11 @@ export function parseSettings(value: unknown): Settings {
       (value as Settings).maxAwakeTabs === undefined
         ? DEFAULT_SETTINGS.maxAwakeTabs
         : (value as Settings).maxAwakeTabs,
+    // Settings saved before palettes were offered keep Ember.
+    highlight:
+      (value as Settings).highlight === undefined
+        ? DEFAULT_SETTINGS.highlight
+        : (value as Settings).highlight,
   };
   if (
     Object.keys(v).some((key) => !Object.hasOwn(DEFAULT_SETTINGS, key)) ||
@@ -147,6 +189,7 @@ export function parseSettings(value: unknown): Settings {
     !Number.isInteger(v.maxAwakeTabs) ||
     v.maxAwakeTabs < 1 ||
     v.maxAwakeTabs > 50 ||
+    !Object.hasOwn(HIGHLIGHTS, v.highlight) ||
     !v.shortcuts ||
     typeof v.shortcuts !== 'object'
   )
@@ -235,6 +278,7 @@ export function themeCSS(
   if (black) dark = true;
   const glass = settings.glassEffect;
   const pick = (light: string, darkValue: string) => (dark ? darkValue : light);
+  const ramp = HIGHLIGHTS[settings.highlight][dark ? 'dark' : 'light'];
   // With glass off every translucent token falls back to an opaque one.
   const tone = (light: string, darkValue: string, solid: string) =>
     glass ? pick(light, darkValue) : solid;
@@ -281,6 +325,10 @@ export function themeCSS(
     '--accent': settings.accent,
     '--accent-text': foreground,
     '--icon-accent': settings.accent,
+    // The chosen highlight palette: progress and switched-on controls take its
+    // middle color, the new tab greeting's italic word its whole gradient.
+    '--highlight': ramp[1],
+    '--greeting': `linear-gradient(100deg,${ramp[0]},${ramp[1]} 55%,${ramp[2]})`,
     '--radius': `${settings.radius}px`,
     '--control-size': settings.density === 'compact' ? '28px' : '32px',
     '--tab-height': settings.density === 'compact' ? '30px' : '34px',

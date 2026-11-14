@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { DownloadState, DownloadCommand } from '../shared/power';
-export default function Downloads() {
+// The downloads list, refreshed whenever the browser state changes.
+export function useDownloads() {
   const [items, setItems] = useState<DownloadState[]>([]);
-  const [error, setError] = useState('');
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
     const refresh = () => {
@@ -12,7 +13,7 @@ export default function Downloads() {
           if (live) setItems(next);
         })
         .catch(() => {
-          if (live) setError('Downloads could not be loaded.');
+          if (live) setFailed(true);
         });
     };
     const unsubscribe = window.drift.onState(refresh);
@@ -22,6 +23,26 @@ export default function Downloads() {
       unsubscribe();
     };
   }, []);
+  return { items, failed };
+}
+export const size = (bytes: number) =>
+  bytes < 1024
+    ? `${bytes} B`
+    : bytes < 1024 * 1024
+      ? `${(bytes / 1024).toFixed(1)} KB`
+      : bytes < 1024 * 1024 * 1024
+        ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
+        : `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+const timeLeft = (seconds: number) =>
+  seconds < 60
+    ? `${Math.max(1, Math.round(seconds))} s left`
+    : seconds < 3600
+      ? `${Math.round(seconds / 60)} min left`
+      : `${Math.floor(seconds / 3600)} h ${Math.round((seconds % 3600) / 60)} min left`;
+export default function Downloads() {
+  const { items, failed } = useDownloads();
+  const [actionError, setError] = useState('');
+  const error = actionError || (failed ? 'Downloads could not be loaded.' : '');
   const run = async (command: DownloadCommand) => {
     try {
       await window.drift.download(command);
@@ -32,12 +53,6 @@ export default function Downloads() {
       );
     }
   };
-  const size = (bytes: number) =>
-    bytes < 1024
-      ? `${bytes} B`
-      : bytes < 1024 * 1024
-        ? `${(bytes / 1024).toFixed(1)} KB`
-        : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return (
     <div className="download-list">
       <p className="panel-note">
@@ -51,11 +66,33 @@ export default function Downloads() {
       )}
       {!items.length && <p role="status">No downloads in this window.</p>}
       {items.map((item) => (
-        <section key={item.id} className="download-row" aria-label={item.name}>
+        <section
+          key={item.id}
+          className="download-row"
+          aria-label={item.name}
+          draggable={item.status === 'completed'}
+          title={
+            item.status === 'completed'
+              ? 'Drag into another app or onto a page'
+              : undefined
+          }
+          onDragStart={(event) => {
+            if (item.status !== 'completed') return;
+            event.preventDefault();
+            void run({ id: item.id, type: 'drag' });
+          }}
+        >
           <h2>{item.name}</h2>
           <p role="status">
             {item.paused ? 'Paused' : item.status} · {size(item.received)}
             {item.total > 0 ? ` of ${size(item.total)}` : ''}
+            {!item.done && !item.paused && item.speed > 0
+              ? ` · ${size(item.speed)}/s${
+                  item.total > item.received
+                    ? ` · ${timeLeft((item.total - item.received) / item.speed)}`
+                    : ''
+                }`
+              : ''}
           </p>
           {!item.done && (
             <progress
@@ -91,6 +128,14 @@ export default function Downloads() {
                   Cancel download
                 </button>
               </>
+            )}
+            {item.status === 'completed' && /\.pdf$/i.test(item.name) && (
+              <button
+                className="text-button"
+                onClick={() => void run({ id: item.id, type: 'open' })}
+              >
+                Open
+              </button>
             )}
             {item.status === 'completed' && (
               <button

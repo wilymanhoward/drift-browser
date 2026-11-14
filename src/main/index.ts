@@ -15,7 +15,11 @@ import { release } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { ACTIONS } from '../shared/browser';
 import type { BrowserAction, BrowserState } from '../shared/browser';
-import { TabManager } from './tabs';
+import { TabManager, faviconData } from './tabs';
+import { SiteIcons } from './site-icons';
+import { DownloadPopup } from './download-popup';
+import type { FinishedDownload } from './download-popup';
+import { Essentials } from './essentials';
 import type { MovedTab } from './tabs';
 import type { SavedSession } from './session';
 import {
@@ -27,7 +31,7 @@ import {
 import { TabCard } from './tab-card';
 import { BrowserLibrary, parseBookmark } from './library';
 import { newTabResponse } from './new-tab';
-import { resolveInput } from '../shared/navigation';
+import { isWebURL, resolveInput } from '../shared/navigation';
 import { PrivacyController, loadFilters, refreshFilters } from './privacy';
 import { randomUUID } from 'node:crypto';
 import { SettingsStore } from './settings';
@@ -39,7 +43,7 @@ import { PAGE_ACTIONS, parseFind } from '../shared/page-tools';
 import type { PageAction } from '../shared/page-tools';
 import { Extensions } from './extensions';
 import { parseExtensionCommand } from '../shared/extensions';
-import { pairedSidebar } from './window-layout';
+import { pairedSidebar, snappedSidebar } from './window-layout';
 import {
   detectBrowserSources,
   publicImportSource,
@@ -60,6 +64,15 @@ enableGoogleSignIn();
 const primaryInstance = app.requestSingleInstanceLock();
 if (!primaryInstance) app.quit();
 app.commandLine.appendSwitch('test-third-party-cookie-phaseout');
+// Big downloads fetch several parts of the file at once, where the server
+// allows it. This helps when a server limits each connection, not when the
+// internet connection itself is the limit.
+app.commandLine.appendSwitch(
+  'enable-features',
+  [app.commandLine.getSwitchValue('enable-features'), 'ParallelDownloading']
+    .filter(Boolean)
+    .join(','),
+);
 // Chromium keeps a pre-started renderer ready for the next navigation; Drift
 // trades that small speedup for one fewer idle process.
 app.commandLine.appendSwitch(
@@ -92,6 +105,8 @@ interface Profile {
   partition: string;
   privateWindow: boolean;
   library: BrowserLibrary;
+  icons: SiteIcons;
+  essentials: Essentials;
   settings: SettingsStore;
   zoom: ZoomPreferences;
   privacy: PrivacyController;
@@ -139,6 +154,7 @@ interface DriftWindow {
   publish: () => void;
   applySettings: () => Promise<void>;
   updatePosition: () => void;
+  showDownload: (download: FinishedDownload) => void;
 }
 const windowHandles = new Set<DriftWindow>();
 function updateWindowPositions() {
@@ -200,7 +216,31 @@ async function loadProfile(partition: string, privateWindow: boolean) {
   const zoom = new ZoomPreferences();
   await zoom.load(privateWindow);
   if (!privateWindow) await library.load();
+  const icons = new SiteIcons();
+  if (!privateWindow) await icons.load();
+  // Every window shows the same Essentials; a change in one reaches the rest.
+  const essentials = new Essentials(() => {
+    for (const handle of windows) handle.tabs.syncEssentials();
+  });
+  if (!privateWindow) await essentials.load();
   const pageSession = session.fromPartition(partition);
+  // Bookmarks on the new tab page get their site's icon in the background,
+  // once per site per run, so the page has it by the time it opens.
+  const tried = new Set<string>();
+  const learnIcons = () => {
+    for (const { url } of library.data.bookmarks.slice(0, 8)) {
+      if (!isWebURL(url) || icons.get(url)) continue;
+      const origin = new URL(url).origin;
+      if (tried.has(origin)) continue;
+      tried.add(origin);
+      void faviconData(
+        { session: pageSession, isDestroyed: () => false },
+        [],
+        url,
+      ).then((icon) => icon && icons.set(url, icon));
+    }
+  };
+  learnIcons();
   const privacy = new PrivacyController(
     pageSession,
     (page) => windowFor(page).win,
@@ -268,6 +308,21 @@ async function loadProfile(partition: string, privateWindow: boolean) {
     pageSession,
     (page) => windows.some((handle) => handle.tabs.owns(page)),
     publishAll,
+    // A new download shows the auto-hidden top bar, where its button is.
+    (page) =>
+      windows.find((handle) => handle.tabs.owns(page))?.tabs.revealTopbar(),
+    // A finished download pops up in the window it came from.
+    (page, done) =>
+      (
+        windows.find((handle) => handle.tabs.owns(page)) ?? focused()
+      )?.showDownload({
+        name: done.name,
+        size:
+          done.total >= 1024 * 1024
+            ? `${(done.total / 1024 / 1024).toFixed(1)} MB`
+            : `${Math.max(1, Math.round(done.total / 1024))} KB`,
+        file: () => downloads.file(done.id),
+      }),
   );
   if (pageSession.protocol.isProtocolHandled('drift'))
     pageSession.protocol.unhandle('drift');
@@ -278,12 +333,18 @@ async function loadProfile(partition: string, privateWindow: boolean) {
       settings.value,
       settings.dark,
       nativeGlass,
+      (url) => {
+        learnIcons();
+        return icons.get(url);
+      },
     ),
   );
   return {
     partition,
     privateWindow,
     library,
+    icons,
+    essentials,
     settings,
     zoom,
     privacy,
@@ -488,8 +549,11 @@ async function createWindow(
       closeFind: () => pageTools.closeFind(),
       findActive: () => pageTools.find !== null,
       pageAction: (action) => runPageAction(action),
+      icons: profile.icons,
+      essentials: profile.essentials,
     },
   );
+  const downloadPopup = new DownloadPopup(win);
   const card = new TabCard(
     win,
     partition,
@@ -501,6 +565,7 @@ async function createWindow(
   );
   if (options.adopt) tabs.adopt(options.adopt);
   else tabs.restore(settings.value.startup === 'restore' ? saved : null);
+  tabs.syncEssentials();
   function runPageAction(action: PageAction) {
     if (
       tabs.state.overlay &&
@@ -571,8 +636,16 @@ async function createWindow(
           screen.getDisplayMatching(handle.win.getBounds()).id === display,
       )
       .map((handle) => handle.win.getBounds());
+    // Beside another Drift window, or snapped beside any other app.
     const next = visible(win)
-      ? pairedSidebar(win.getBounds(), peers)
+      ? (pairedSidebar(win.getBounds(), peers) ??
+        (win.isMaximized() || win.isFullScreen()
+          ? undefined
+          : snappedSidebar(
+              win.getBounds(),
+              screen.getDisplayMatching(win.getBounds()).workArea,
+              process.platform === 'win32' && win.isSnapped(),
+            )))
       : undefined;
     if (next === automaticSide) return;
     automaticSide = next;
@@ -587,6 +660,36 @@ async function createWindow(
     publish,
     applySettings,
     updatePosition,
+    showDownload: (download) => {
+      // An open downloads panel already shows it.
+      if (tabs.state.overlay === 'downloads') return;
+      // The top bar comes into view first, so the card can point at its button.
+      tabs.revealTopbar(9000);
+      setTimeout(() => {
+        if (win.isDestroyed()) return;
+        void win.webContents
+          .executeJavaScript(
+            `(() => { const r = document.querySelector('.downloads-button')?.getBoundingClientRect(); return r && r.width && r.bottom > 0 ? { x: r.x, y: r.y, width: r.width, height: r.height } : null; })()`,
+          )
+          .catch(() => null)
+          .then((anchor) =>
+            downloadPopup.show(
+              {
+                ...download,
+                open: /\.pdf$/i.test(download.name)
+                  ? () => tabs.create(download.file())
+                  : undefined,
+              },
+              anchor,
+              tabs.active.view.getBounds(),
+              {
+                css: themeCSS(windowSettings(), settings.dark),
+                dark: settings.dark,
+              },
+            ),
+          );
+      }, 300);
+    },
   };
   profile.windows.push(current);
   windowHandles.add(current);
@@ -629,9 +732,21 @@ async function createWindow(
   );
   handle('drift:split-ratio', 1, (input) => tabs.setSplitRatio(input));
   handle('drift:downloads', 0, () => downloads.state);
-  handle('drift:download', 1, (input) =>
-    downloads.command(parseDownload(input)),
-  );
+  handle('drift:download', 1, async (input) => {
+    const command = parseDownload(input);
+    // A downloaded PDF opens in a new tab; navigationURL lets no other file in.
+    if (command.type === 'open') {
+      tabs.closeOverlay();
+      tabs.create(downloads.file(command.id));
+      return;
+    }
+    if (command.type !== 'drag') return downloads.command(command);
+    // A real file drag, so it drops into other apps or onto a page. The page
+    // shows again first, since the downloads panel covers it.
+    const file = downloads.file(command.id);
+    tabs.closeOverlay();
+    win.webContents.startDrag({ file, icon: await app.getFileIcon(file) });
+  });
   handle('drift:navigate', 1, (input) => {
     const url = resolveInput(input, searchTemplate(settings.value));
     tabs.closeOverlay();
@@ -856,11 +971,13 @@ async function createWindow(
     // Shared profile data is flushed and cleared with the profile's last window.
     if (profile.windows.length > 1) return;
     library.flush();
+    profile.icons.flush();
     if ((privateWindow || privacy.configuration.clearOnExit) && !clearing) {
       event.preventDefault();
       clearing = true;
       library.clearHistory();
       library.flush();
+      profile.icons.clear();
       // Open tabs and per-site zoom are browsing data too.
       try {
         clearedStore = profile.store;

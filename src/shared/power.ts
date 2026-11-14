@@ -58,6 +58,8 @@ export interface DownloadState {
   name: string;
   received: number;
   total: number;
+  /** Bytes per second right now; 0 once the download ends. */
+  speed: number;
   status: 'progressing' | 'interrupted' | 'completed' | 'cancelled';
   paused: boolean;
   resumable: boolean;
@@ -65,7 +67,7 @@ export interface DownloadState {
 }
 export type DownloadCommand = {
   id: string;
-  type: 'pause' | 'resume' | 'cancel' | 'reveal' | 'remove';
+  type: 'pause' | 'resume' | 'cancel' | 'reveal' | 'remove' | 'drag' | 'open';
 };
 export function parseDownload(input: unknown): DownloadCommand {
   if (!input || typeof input !== 'object' || Array.isArray(input))
@@ -75,7 +77,9 @@ export function parseDownload(input: unknown): DownloadCommand {
     Object.keys(v).some((k) => !['id', 'type'].includes(k)) ||
     typeof v.id !== 'string' ||
     v.id.length > 80 ||
-    !['pause', 'resume', 'cancel', 'reveal', 'remove'].includes(v.type)
+    !['pause', 'resume', 'cancel', 'reveal', 'remove', 'drag', 'open'].includes(
+      v.type,
+    )
   )
     throw new Error('Invalid download command');
   return v;

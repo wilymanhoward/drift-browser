@@ -14,6 +14,8 @@ export class Downloads {
     private session: Session,
     private owns: (page: WebContents) => boolean,
     private changed: () => void,
+    private onStart: (page: WebContents) => void = () => {},
+    private onDone: (page: WebContents, done: DownloadState) => void = () => {},
   ) {
     session.on('will-download', this.started);
   }
@@ -31,6 +33,7 @@ export class Downloads {
         name: item.getFilename().slice(0, 1024),
         received: 0,
         total: item.getTotalBytes(),
+        speed: 0,
         status: 'progressing' as DownloadState['status'],
         paused: false,
         resumable: false,
@@ -41,9 +44,13 @@ export class Downloads {
       .filter((e) => !e.state.done)
       .concat(this.entries.filter((e) => e.state.done).slice(0, 99));
     this.entries.unshift(entry);
+    this.onStart(page);
     const update = () => {
       entry.state.received = item.getReceivedBytes();
       entry.state.total = item.getTotalBytes();
+      entry.state.speed = entry.state.done
+        ? 0
+        : item.getCurrentBytesPerSecond();
       entry.state.paused = item.isPaused();
       entry.state.resumable = item.canResume();
       this.changed();
@@ -57,24 +64,32 @@ export class Downloads {
       entry.state.done = true;
       entry.path = item.getSavePath();
       update();
+      if (status === 'completed') this.onDone(page, { ...entry.state });
     });
     this.changed();
   };
   get state() {
     return this.entries.map((e) => ({ ...e.state }));
   }
+  // The saved file of a finished download, if it is still where it was saved.
+  file(id: string) {
+    const entry = this.entries.find((e) => e.state.id === id);
+    if (
+      entry?.state.status !== 'completed' ||
+      !entry.path ||
+      !existsSync(entry.path)
+    )
+      throw new Error('Downloaded file is unavailable');
+    return entry.path;
+  }
   command(command: DownloadCommand) {
     const entry = this.entries.find((e) => e.state.id === command.id);
     if (!entry) throw new Error('Unknown download');
-    if (command.type === 'reveal') {
-      if (
-        entry.state.status !== 'completed' ||
-        !entry.path ||
-        !existsSync(entry.path)
-      )
-        throw new Error('Downloaded file is unavailable');
-      shell.showItemInFolder(entry.path);
-    } else if (command.type === 'remove') {
+    if (command.type === 'reveal')
+      shell.showItemInFolder(this.file(entry.state.id));
+    else if (command.type === 'drag' || command.type === 'open')
+      throw new Error('Handled by the window');
+    else if (command.type === 'remove') {
       if (!entry.state.done)
         throw new Error('Cancel the download before removing it');
       this.entries = this.entries.filter((e) => e !== entry);

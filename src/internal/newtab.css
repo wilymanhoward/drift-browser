@@ -118,7 +118,20 @@ main {
 .greeting em {
   font: italic 400 1.14em / 1 var(--font-serif);
   letter-spacing: -0.01em;
+  /* Drawn as a color gradient; the fallback color shows if clipping is off. */
   color: color-mix(in srgb, var(--accent) 60%, var(--text));
+  background: var(--greeting);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  /* Room for the italic overhang, which would otherwise be clipped. */
+  padding-right: 0.08em;
+}
+@media (forced-colors: active) {
+  .greeting em {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
 }
 /* The floating field Zen opens on a new tab: a soft-cornered sheet rather
    than a pill, lit at the edge, lifted by a long shadow. */
@@ -245,6 +258,11 @@ form:has(input:not(:placeholder-shown)) button {
 }
 .tile-icon.c5 {
   --tint: #5e5ce6;
+}
+.tile-icon.has-image img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
 }
 .tile.add .tile-icon {
   background: transparent;
