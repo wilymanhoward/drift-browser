@@ -312,7 +312,7 @@ kbd {
   color: var(--muted);
 }
 .bookmark-star[aria-pressed='true'] {
-  color: var(--accent);
+  color: var(--highlight);
 }
 .rail-search {
   width: 100%;
@@ -494,7 +494,7 @@ aside.collapsed .window-controls {
   background: var(--glass-strong);
   box-shadow:
     inset 0 0 0 0.5px var(--glass-edge),
-    0 0 0 1.5px color-mix(in srgb, var(--accent) 55%, transparent),
+    0 0 0 1.5px color-mix(in srgb, var(--highlight) 60%, transparent),
     var(--shadow-sm);
 }
 .essential .tab-select {
@@ -1053,7 +1053,7 @@ aside.collapsed footer > button:last-child {
 }
 .download-row progress {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--highlight);
 }
 .workspace-row {
   display: flex;
@@ -1256,6 +1256,8 @@ aside.collapsed footer > button:last-child {
 }
 .sidebar-menu-trigger {
   display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
   justify-content: center;
   margin: 2px 8px;
 }
@@ -1427,7 +1429,7 @@ aside.collapsed footer > button:last-child {
   transition: transform 160ms var(--ease);
 }
 .toggle-preference input:checked {
-  background: var(--accent);
+  background: var(--highlight);
 }
 .toggle-preference input:checked::after {
   transform: translateX(16px);
@@ -1700,4 +1702,176 @@ aside.collapsed .extension-actions {
   flex-direction: column;
   flex-wrap: nowrap;
   align-self: center;
+}
+
+/* Downloads button: a ring around the icon fills as running downloads progress. */
+.downloads-button {
+  position: relative;
+}
+.downloads-button[data-running]::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: conic-gradient(
+    var(--highlight) calc(var(--progress) * 1turn),
+    color-mix(in srgb, var(--muted) 30%, transparent) 0
+  );
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 2px),
+    #000 calc(100% - 2px)
+  );
+  pointer-events: none;
+}
+.downloads-button[data-running] {
+  color: var(--highlight);
+}
+/* Size unknown: a quarter ring turns instead. */
+.downloads-button[data-running='unknown']::before {
+  animation: downloads-spin 1s linear infinite;
+}
+@keyframes downloads-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(1turn);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .downloads-button[data-running='unknown']::before {
+    animation: none;
+  }
+}
+.download-row[draggable='true'] {
+  cursor: grab;
+}
+
+/* Tab groups: a header in the group's color, and a stripe on each of its tabs.
+   The name stays in the text color, since yellow or cyan text is unreadable on
+   light themes. */
+.tab-group {
+  grid-column: 1 / -1;
+}
+.tab-group button,
+.tab-group input {
+  width: 100%;
+  height: 26px;
+  min-height: 26px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.tab-group button {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 10px;
+  font-weight: 600;
+  color: var(--text);
+  background: color-mix(in srgb, var(--group) 14%, transparent);
+}
+.tab-group button:hover {
+  background: color-mix(in srgb, var(--group) 24%, transparent);
+}
+.collapsed .tab-group button {
+  justify-content: center;
+  padding: 0;
+}
+.tab-group-dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--group);
+}
+.tab-group-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tab-group-count {
+  margin-left: auto;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--group) 28%, transparent);
+  font-size: 11px;
+}
+.tab-group input {
+  padding: 0 10px;
+  border: 1px solid var(--group);
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: inherit;
+}
+.tab-row.grouped::before {
+  content: '';
+  position: absolute;
+  left: 1px;
+  top: 7px;
+  bottom: 7px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--group);
+}
+@media (forced-colors: active) {
+  .tab-group-dot,
+  .tab-row.grouped::before {
+    background: CanvasText;
+  }
+}
+/* A tab dragged over a group header: the drop lands in that group. */
+.tab-group[data-drop] button {
+  box-shadow: inset 0 0 0 1.5px var(--highlight);
+}
+
+/* Highlight palette picker: a swatch per palette, the chosen one ringed. */
+.highlight-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.highlight-swatches label {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  min-width: 64px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.highlight-swatches label:hover {
+  background: var(--hover);
+}
+.highlight-swatches input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.highlight-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px var(--glass-edge);
+}
+.highlight-swatches input:checked ~ span:last-child {
+  color: var(--text);
+  font-weight: 600;
+}
+.highlight-swatches input:checked + .highlight-swatch {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--highlight);
+}
+.highlight-swatches input:focus-visible + .highlight-swatch {
+  outline: 2px solid color-mix(in srgb, var(--accent) 75%, transparent);
+  outline-offset: 4px;
+}
+@media (forced-colors: active) {
+  .highlight-swatches input:checked + .highlight-swatch {
+    outline: 3px solid Highlight;
+  }
 }

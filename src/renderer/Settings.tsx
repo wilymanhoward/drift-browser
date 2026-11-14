@@ -15,7 +15,8 @@ import {
   Import as ImportIcon,
 } from 'lucide-react';
 import type { BrowserState, BrowserAction } from '../shared/browser';
-import type { Settings as Preferences } from '../shared/settings';
+import type { Highlight, Settings as Preferences } from '../shared/settings';
+import { HIGHLIGHTS } from '../shared/settings';
 import { SETTINGS_URL } from '../shared/navigation';
 import Workspaces from './Workspaces';
 import Shields from './Shields';
@@ -235,7 +236,7 @@ export default function Settings({ state }: { state: BrowserState }) {
       icon: Paintbrush,
       description: 'A quieter frame around the web.',
       keywords:
-        'appearance theme dark light black system accent color glass transparency density sidebar position width corner radius inset shadow hover toolbar layout zen safari address top bar hide collapsed minimized lock',
+        'appearance theme dark light black system accent highlight contrast palette ember champagne glacier aurora sunrise color glass transparency density sidebar position width corner radius inset shadow hover toolbar layout zen safari address top bar hide collapsed minimized lock',
       body: (
         <>
           <h2>Toolbar</h2>
@@ -261,6 +262,40 @@ export default function Settings({ state }: { state: BrowserState }) {
                 value={draft.accent}
                 onChange={(e) => void update({ accent: e.target.value })}
               />
+            </Field>
+            <Field
+              label="Highlight"
+              hint="For progress, switched-on controls and the new tab greeting."
+            >
+              {/* Native radios, so arrow keys and screen readers work as usual. */}
+              <div
+                className="highlight-swatches"
+                role="radiogroup"
+                aria-label="Highlight"
+              >
+                {(Object.keys(HIGHLIGHTS) as Highlight[]).map((key) => {
+                  const ramp = HIGHLIGHTS[key][state.dark ? 'dark' : 'light'];
+                  return (
+                    <label key={key} title={HIGHLIGHTS[key].label}>
+                      <input
+                        type="radio"
+                        name="highlight"
+                        value={key}
+                        checked={draft.highlight === key}
+                        onChange={() => void update({ highlight: key })}
+                      />
+                      <span
+                        className="highlight-swatch"
+                        aria-hidden="true"
+                        style={{
+                          background: `linear-gradient(135deg, ${ramp.join(', ')})`,
+                        }}
+                      />
+                      <span>{HIGHLIGHTS[key].label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </Field>
             {toggle(
               'glassEffect',

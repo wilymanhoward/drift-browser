@@ -141,10 +141,11 @@ export default function Shields() {
         </select>
       </label>
       <p>
-        Third-party cookie requests are blocked. Embedded sites may still read
-        cookies from earlier visits in this Electron build. Secure DNS applies
-        to the whole app. Permission access requires a prompt; a stored block
-        can be reset below.
+        Cookies from other sites embedded in a page are kept separately for each
+        site you visit, so they cannot follow you around the web. Scripts inside
+        an embed can still read cookies from before this was on. Secure DNS
+        applies to the whole app. Permission access requires a prompt; a stored
+        block can be reset below.
       </p>
       {state.origin &&
         ['media', 'geolocation', 'notifications'].map((permission) => (

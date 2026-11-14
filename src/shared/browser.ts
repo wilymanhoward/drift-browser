@@ -54,6 +54,28 @@ export interface TabState {
   workspaceId: string;
   pinned: boolean;
   unloaded: boolean;
+  // The tab group it belongs to, if any.
+  groupId?: string;
+}
+// Tab group colors, as in Chrome's palette.
+// Grey comes last, so a new group always starts with a real color.
+export const GROUP_COLORS = {
+  blue: '#0a84ff',
+  red: '#ff453a',
+  yellow: '#ffd60a',
+  green: '#30d158',
+  pink: '#ff375f',
+  purple: '#bf5af2',
+  cyan: '#64d2ff',
+  orange: '#ff9f0a',
+  grey: '#8e8e93',
+} as const;
+export type GroupColor = keyof typeof GROUP_COLORS;
+export interface TabGroup {
+  id: string;
+  name: string;
+  color: GroupColor;
+  collapsed: boolean;
 }
 // Where a hovered sidebar tab sits, in window coordinates; edge is the
 // sidebar's side facing the page.
@@ -68,6 +90,7 @@ export interface SidebarPreferences {
 }
 export interface BrowserState extends Omit<TabState, 'id'> {
   tabs: TabState[];
+  groups: TabGroup[];
   activeTabId: string;
   maximized: boolean;
   canReopen: boolean;
@@ -121,7 +144,12 @@ export type TabCommand =
         | 'detach';
       id: string;
     }
-  | { type: 'move'; id: string; index: number };
+  | { type: 'move'; id: string; index: number }
+  // Group commands take the group's id.
+  | { type: 'group-menu' | 'group-toggle'; id: string }
+  | { type: 'group-rename'; id: string; name: string }
+  // Puts a tab in a group, or takes it out of any with an empty group id.
+  | { type: 'group'; id: string; group: string };
 export type SidebarUpdate = Partial<SidebarPreferences> & {
   expanded?: boolean;
   topbar?: boolean;

@@ -38,6 +38,7 @@ const ARROW =
 export function newTabHTML(
   bookmarks: Bookmark[],
   settings = DEFAULT_SETTINGS,
+  icon: (url: string) => string | null = () => null,
 ): string {
   lastGreeting =
     lastGreeting < 0
@@ -51,7 +52,12 @@ export function newTabHTML(
     .slice(0, 8)
     .map((item, index) => {
       const letter = ([...item.title.trim()][0] || '•').toUpperCase();
-      return `<a class="tile" href="${escapeHTML(item.url)}"><span class="tile-icon c${index % 6}" aria-hidden="true">${escapeHTML(letter)}</span><span class="tile-name">${escapeHTML(item.title)}</span></a>`;
+      // The site's icon when Drift has seen it, its first letter until then.
+      const image = icon(item.url);
+      const mark = image
+        ? `<span class="tile-icon has-image" aria-hidden="true"><img src="${escapeHTML(image)}" alt=""></span>`
+        : `<span class="tile-icon c${index % 6}" aria-hidden="true">${escapeHTML(letter)}</span>`;
+      return `<a class="tile" href="${escapeHTML(item.url)}">${mark}<span class="tile-name">${escapeHTML(item.title)}</span></a>`;
     })
     .join('');
   const favorites = `${tiles}<a class="tile add" href="drift://newtab/?add-site"><span class="tile-icon" aria-hidden="true">+</span><span class="tile-name">Add site</span></a>`;
@@ -64,6 +70,7 @@ export async function newTabResponse(
   settings: Settings = DEFAULT_SETTINGS,
   dark = false,
   nativeGlass = false,
+  icon?: (url: string) => string | null,
 ): Promise<Response> {
   const parsed = new URL(url);
   const headers = {
@@ -83,7 +90,7 @@ export async function newTabResponse(
     return new Response(
       parsed.hostname === 'settings'
         ? '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Settings</title><link rel="stylesheet" href="/newtab.css"></head><body><main><h1>Settings</h1><p>Your preferences are open in the browser panel.</p></main></body></html>'
-        : newTabHTML(bookmarks, settings),
+        : newTabHTML(bookmarks, settings, icon),
       {
         headers: { ...headers, 'Content-Type': 'text/html; charset=utf-8' },
       },

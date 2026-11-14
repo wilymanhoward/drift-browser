@@ -20,8 +20,11 @@ import {
   TOP_BAR,
   SPLIT_TOOLBAR_HEIGHT,
   TOPBAR_SLIDE,
+  GROUP_COLORS,
 } from '../shared/browser';
 import type {
+  GroupColor,
+  TabGroup,
   BrowserState,
   TabCommand,
   TabState,
@@ -32,6 +35,8 @@ import { listeners } from './listeners';
 import { readDescription, readSnapshot } from './tab-card';
 import type { TabCardDetails } from './tab-card';
 import type { SavedSession, SavedTab } from './session';
+import type { SiteIcons } from './site-icons';
+import type { Essentials } from './essentials';
 import { PAGE_ACTIONS } from '../shared/page-tools';
 import { shortcutKey } from '../shared/settings';
 import type { PageAction } from '../shared/page-tools';
@@ -120,7 +125,11 @@ function inlineIcon(url: string) {
 // each candidate in turn, since the first one a page lists can be missing,
 // then the site's /favicon.ico. The request is sent the way a page asks for
 // an image, since some servers refuse bare requests or hotlinked icons.
-async function faviconData(page: WebContents, urls: string[], pageURL: string) {
+export async function faviconData(
+  page: Pick<WebContents, 'session' | 'isDestroyed'>,
+  urls: string[],
+  pageURL: string,
+) {
   const candidates = urls.filter(
     (url) => isWebURL(url) || /^data:image\//i.test(url),
   );
@@ -184,6 +193,8 @@ interface Tab {
   lastActive: number;
   suspended?: ClosedTab;
   unwire?: () => void;
+  // Set on a pinned tab that stands for one of the profile's Essentials.
+  essentialId?: string;
   // Last description and preview read for the hover card; kept while asleep.
   details?: { url: string; description: string; snapshot: string | null };
 }
@@ -210,6 +221,7 @@ export class TabManager {
   private overlayVersion = 0;
   private workspaces: Workspace[] = [{ ...DEFAULT_WORKSPACE }];
   private workspaceId = DEFAULT_WORKSPACE.id;
+  private groups: TabGroup[] = [];
   private compact = false;
   private compactPreview: BrowserState['compactPreview'] = null;
   private peekVersion = 0;
@@ -220,6 +232,8 @@ export class TabManager {
   } | null = null;
   private htmlFullscreen = false;
   private topbarShown = false;
+  // The auto-hidden top bar stays up until then, whatever the cursor does.
+  private topbarHeldUntil = 0;
   private cursorTimer: ReturnType<typeof setInterval>;
   private cursorOutside = 0;
   // Page top while the toolbar slides; null when at rest.
@@ -239,6 +253,8 @@ export class TabManager {
       closeFind: () => void;
       findActive: () => boolean;
       pageAction: (action: PageAction) => void;
+      icons: SiteIcons;
+      essentials: Essentials;
     },
   ) {
     this.sleepTimer = setInterval(() => this.sleepInactive(), 30000);
@@ -275,16 +291,143 @@ export class TabManager {
     }
     // This is the only place that hides the bar: its empty space is a drag
     // region, which never reports hover to the renderer.
-    if (this.overlay || (inside && y < TOP_BAR + 8)) {
+    if (
+      this.overlay ||
+      (inside && y < TOP_BAR + 8) ||
+      Date.now() < this.topbarHeldUntil
+    ) {
       this.cursorOutside = 0;
     } else if (++this.cursorOutside > 7) {
       this.cursorOutside = 0;
       this.updateSidebar({ topbar: false });
     }
   }
+  private dropEssential(tab: Tab) {
+    const id = tab.essentialId;
+    tab.essentialId = undefined;
+    if (id) this.environment.essentials.remove(id);
+  }
+  // Brings this window's pinned tabs in line with the profile's Essentials:
+  // missing ones arrive asleep, and ones removed elsewhere leave.
+  syncEssentials() {
+    if (this.disposed || this.win.isDestroyed()) return;
+    const store = this.environment.essentials;
+    const linked = () => new Set(this.tabs.map((t) => t.essentialId));
+    // Pinned tabs saved before Essentials were shared join the list, or link
+    // to an Essential with the same address another window already added.
+    for (const tab of this.tabs) {
+      if (!tab.state.pinned || tab.essentialId || tab.previewSourceId) continue;
+      const same = store.list.find(
+        (e) => e.url === tab.state.url && !linked().has(e.id),
+      );
+      tab.essentialId = same?.id ?? randomUUID();
+      if (
+        !same &&
+        !store.add({
+          id: tab.essentialId,
+          url: tab.state.url,
+          title: tab.state.title,
+        })
+      )
+        tab.essentialId = undefined;
+    }
+    for (const essential of store.list)
+      if (!linked().has(essential.id))
+        this.create(
+          essential.url,
+          {
+            id: randomUUID(),
+            url: essential.url,
+            title: essential.title,
+            muted: false,
+            workspaceId: this.workspaceId,
+            pinned: true,
+          },
+          false,
+          undefined,
+          true,
+        ).essentialId = essential.id;
+    const ids = new Set(store.list.map((e) => e.id));
+    for (const tab of [...this.tabs]) {
+      if (!tab.essentialId || ids.has(tab.essentialId)) continue;
+      tab.essentialId = undefined;
+      // A tile that was never opened here just goes; an open page is kept
+      // as an ordinary tab.
+      if (tab.state.unloaded && tab.state.id !== this.activeId)
+        this.close(tab.state.id);
+      else tab.state.pinned = false;
+    }
+    this.emit();
+  }
+  // Adds a tab to a group, a new one in the next unused color if none given,
+  // and moves it beside the group's other tabs.
+  private group(tab: Tab, group?: TabGroup) {
+    if (!group) {
+      const used = new Set(this.groups.map((g) => g.color));
+      const colors = Object.keys(GROUP_COLORS) as GroupColor[];
+      group = {
+        id: randomUUID(),
+        name: `Group ${this.groups.length + 1}`,
+        color: colors.find((c) => !used.has(c)) ?? 'grey',
+        collapsed: false,
+      };
+      this.groups.push(group);
+    }
+    const id = group.id;
+    tab.state.groupId = id;
+    group.collapsed = false;
+    let last = -1;
+    this.tabs.forEach((t, index) => {
+      if (t !== tab && t.state.groupId === id) last = index;
+    });
+    if (last >= 0)
+      this.move(tab.state.id, last + (this.tabs.indexOf(tab) > last ? 1 : 0));
+    this.emit();
+  }
+  private groupCommand(
+    command: Extract<
+      TabCommand,
+      { type: 'group-menu' | 'group-toggle' | 'group-rename' }
+    >,
+  ) {
+    const group = this.groups.find((g) => g.id === command.id);
+    if (!group) throw new Error('Unknown group.');
+    const members = () => this.tabs.filter((t) => t.state.groupId === group.id);
+    if (command.type === 'group-toggle') group.collapsed = !group.collapsed;
+    else if (command.type === 'group-rename')
+      group.name = command.name.trim().slice(0, 40) || group.name;
+    else
+      Menu.buildFromTemplate([
+        ...(Object.keys(GROUP_COLORS) as GroupColor[]).map((color) => ({
+          label: color[0].toUpperCase() + color.slice(1),
+          type: 'radio' as const,
+          checked: group.color === color,
+          click: () => {
+            group.color = color;
+            this.emit();
+          },
+        })),
+        { type: 'separator' },
+        {
+          label: 'Ungroup',
+          click: () => {
+            for (const t of members()) t.state.groupId = undefined;
+            this.emit();
+          },
+        },
+        {
+          label: 'Close group',
+          click: () => {
+            for (const t of members()) this.close(t.state.id);
+          },
+        },
+      ]).popup({ window: this.win });
+    this.emit();
+  }
   restore(saved: SavedSession | null) {
     if (saved) {
       this.workspaces = saved.workspaces ?? [{ ...DEFAULT_WORKSPACE }];
+      this.groups = saved.groups ?? [];
       this.workspaceId = saved.activeWorkspaceId ?? this.workspaces[0].id;
       this.sidebar = { ...saved.sidebar, expanded: saved.sidebar.pinned };
       this.activeId = saved.activeTabId;
@@ -295,7 +438,7 @@ export class TabManager {
           false,
           undefined,
           tab.id !== saved.activeTabId && !tab.pinned,
-        );
+        ).essentialId = tab.essentialId;
       this.select(saved.activeTabId);
     } else this.create();
   }
@@ -308,6 +451,7 @@ export class TabManager {
       tabs: this.tabs
         .filter((tab) => !tab.previewSourceId)
         .map((tab) => ({ ...tab.state })),
+      groups: this.groups.map((g) => ({ ...g })),
       activeTabId: this.active.previewSourceId ?? this.activeId,
       maximized: this.win.isMaximized(),
       canReopen: this.closed.length > 0,
@@ -329,13 +473,15 @@ export class TabManager {
       version: 1,
       tabs: this.tabs
         .filter((tab) => !tab.previewSourceId)
-        .map(({ state }) => ({
+        .map(({ state, essentialId }) => ({
           id: state.id,
           url: state.url,
           title: state.title.slice(0, 1024),
           muted: state.muted,
           workspaceId: state.workspaceId,
           pinned: state.pinned,
+          ...(essentialId && { essentialId }),
+          ...(state.groupId && { groupId: state.groupId }),
           ...(state.favicon && state.favicon.length <= SAVED_FAVICON_LIMIT
             ? { favicon: state.favicon }
             : {}),
@@ -344,6 +490,7 @@ export class TabManager {
       sidebar: { pinned: this.sidebar.pinned, width: this.sidebar.width },
       workspaces: this.workspaces,
       activeWorkspaceId: this.workspaceId,
+      groups: this.groups,
     };
   }
   get active() {
@@ -360,6 +507,10 @@ export class TabManager {
     );
   }
   private emit() {
+    // A group lasts as long as it has tabs.
+    this.groups = this.groups.filter((g) =>
+      this.tabs.some((t) => t.state.groupId === g.id),
+    );
     if (!this.disposed && this.tabs.some((t) => t.state.id === this.activeId))
       this.changed();
   }
@@ -398,13 +549,14 @@ export class TabManager {
         canGoBack: false,
         canGoForward: false,
         error: null,
-        favicon: saved?.favicon ?? null,
+        favicon: saved?.favicon ?? this.environment.icons.get(target),
         audible: false,
         muted: saved?.muted ?? false,
         workspaceId: this.workspaces.some((w) => w.id === saved?.workspaceId)
           ? saved!.workspaceId!
           : this.workspaceId,
         pinned: saved?.pinned ?? false,
+        groupId: saved?.groupId,
         unloaded: deferred,
       },
     };
@@ -418,6 +570,7 @@ export class TabManager {
       // A restored tab without a saved icon asks its site for the default one.
       if (!tab.state.favicon && isWebURL(target))
         void faviconData(page, [], target).then((data) => {
+          if (data) this.environment.icons.set(target, data);
           if (data && !tab.state.favicon && this.tabs.includes(tab)) {
             tab.state.favicon = data;
             this.emit();
@@ -548,6 +701,7 @@ export class TabManager {
           if (data) {
             tab.state.favicon = data;
             faviconOrigin = origin;
+            this.environment.icons.set(pageURL, data);
           } else if (faviconOrigin !== origin) {
             tab.state.favicon = null;
             faviconOrigin = '';
@@ -568,8 +722,11 @@ export class TabManager {
       update();
     });
     on('will-navigate', (event, url) => {
-      // Web pages cannot send a tab to Drift's own pages.
-      if (url.startsWith('drift:') && !page.getURL().startsWith('drift:')) {
+      // Web pages cannot send a tab to Drift's own pages or to local files.
+      if (
+        (url.startsWith('drift:') && !page.getURL().startsWith('drift:')) ||
+        (url.startsWith('file:') && !page.getURL().startsWith('file:'))
+      ) {
         event.preventDefault();
         return;
       }
@@ -586,7 +743,11 @@ export class TabManager {
       } else if (!isPageURL(url) && !isAppURL(url)) event.preventDefault();
     });
     on('will-redirect', (event, url) => {
-      if ((!isPageURL(url) && !isAppURL(url)) || url.startsWith('drift:'))
+      if (
+        (!isPageURL(url) && !isAppURL(url)) ||
+        url.startsWith('drift:') ||
+        url.startsWith('file:')
+      )
         event.preventDefault();
     });
     // Sign-in and payment popups keep window.opener, so the page that opened
@@ -688,6 +849,9 @@ export class TabManager {
       throw new Error('Unknown tab.');
     if (this.preview && !this.split?.ids.includes(id)) this.dismissPreview();
     const chosen = this.wake(id);
+    // Choosing a tab in a folded group opens the group.
+    const folded = this.groups.find((g) => g.id === chosen.state.groupId);
+    if (folded) folded.collapsed = false;
     const changedTab = id !== this.activeId;
     if (this.workspaceId !== chosen.state.workspaceId) this.split = null;
     if (this.split && !this.split.ids.includes(id))
@@ -718,6 +882,8 @@ export class TabManager {
     const index = this.tabs.findIndex((tab) => tab.state.id === id);
     if (index < 0) throw new Error('Unknown tab.');
     const tab = this.tabs[index];
+    // Closing an Essential removes it, as unpinning does, from every window.
+    this.dropEssential(tab);
     if (this.htmlFullscreen && id === this.activeId) {
       this.htmlFullscreen = false;
       this.win.setFullScreen(false);
@@ -777,6 +943,12 @@ export class TabManager {
       this.win.contentView.removeChildView(tab.view);
     this.tabs.splice(index, 1);
     if (this.split?.ids.includes(id)) this.split = null;
+    // The Essential stays here; its page moves on as an ordinary tab.
+    if (tab.essentialId) {
+      tab.essentialId = undefined;
+      tab.state.pinned = false;
+      this.syncEssentials();
+    }
     const siblings = this.tabs.filter(
       (t) => t.state.workspaceId === this.workspaceId,
     );
@@ -799,6 +971,8 @@ export class TabManager {
       this.workspaceId = tab.state.workspaceId;
       this.sidebar = { ...this.sidebar, ...sidebar, expanded: sidebar.pinned };
     } else tab.state.workspaceId = this.workspaceId;
+    // Its group stays behind in the other window.
+    tab.state.groupId = undefined;
     if (tab.suspended) tab.suspended.tab.workspaceId = tab.state.workspaceId;
     tab.lastActive = Date.now();
     this.tabs.push(tab);
@@ -818,6 +992,12 @@ export class TabManager {
     this.emit();
   }
   command(command: TabCommand) {
+    if (
+      command.type === 'group-menu' ||
+      command.type === 'group-toggle' ||
+      command.type === 'group-rename'
+    )
+      return this.groupCommand(command);
     const tab = this.tabs.find((tab) => tab.state.id === command.id);
     if (!tab) throw new Error('Unknown tab.');
     const peers = this.tabs.filter(
@@ -844,8 +1024,35 @@ export class TabManager {
           pinned: false,
         });
         break;
+      case 'group': {
+        // Dropped on a group: joins it. Dropped among ungrouped tabs: leaves.
+        const group = this.groups.find((g) => g.id === command.group);
+        if (command.group && !group) throw new Error('Unknown group.');
+        if (tab.state.pinned) break;
+        if (group) this.group(tab, group);
+        else {
+          tab.state.groupId = undefined;
+          this.emit();
+        }
+        break;
+      }
       case 'pin':
         tab.state.pinned = !tab.state.pinned;
+        // Essentials sit above the tab list, outside any group.
+        tab.state.groupId = undefined;
+        if (tab.state.pinned) {
+          tab.essentialId = randomUUID();
+          // Other windows get it too; a page Essentials cannot hold stays
+          // pinned in this window only.
+          if (
+            !this.environment.essentials.add({
+              id: tab.essentialId,
+              url: tab.state.url,
+              title: tab.state.title,
+            })
+          )
+            tab.essentialId = undefined;
+        } else this.dropEssential(tab);
         this.emit();
         break;
       case 'sleep':
@@ -875,6 +1082,30 @@ export class TabManager {
             label: tab.state.pinned ? 'Unpin tab' : 'Pin tab',
             click: () => this.command({ type: 'pin', id: command.id }),
           },
+          {
+            label: 'Add to group',
+            enabled: !tab.state.pinned,
+            submenu: [
+              { label: 'New group', click: () => this.group(tab) },
+              ...this.groups
+                .filter((g) => g.id !== tab.state.groupId)
+                .map((g) => ({
+                  label: g.name,
+                  click: () => this.group(tab, g),
+                })),
+            ],
+          },
+          ...(tab.state.groupId
+            ? [
+                {
+                  label: 'Remove from group',
+                  click: () => {
+                    tab.state.groupId = undefined;
+                    this.emit();
+                  },
+                },
+              ]
+            : []),
           {
             label: 'Move to workspace',
             submenu: this.workspaces.map((w) => ({
@@ -1004,6 +1235,11 @@ export class TabManager {
     };
     this.slideTimer = setInterval(step, 16);
     step();
+  }
+  // Shows the auto-hidden top bar for a few seconds, as when a download starts.
+  revealTopbar(ms = 4000) {
+    this.topbarHeldUntil = Date.now() + ms;
+    this.updateSidebar({ topbar: true });
   }
   updateSidebar(update: SidebarUpdate) {
     if (update.topbar !== undefined) {

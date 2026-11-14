@@ -17,6 +17,17 @@ export function navigationURL(value: unknown): string {
   // Extension pages (options, popups opened as tabs) are trusted Drift-side
   // because only installed extensions resolve.
   if (isExtensionURL(input)) return new URL(input).href;
+  // Local PDF files open in Chromium's PDF viewer; no other local file does.
+  // A Windows path (C:\…) is taken as the file it names.
+  const local = /^[a-z]:[\\/]/i.test(input)
+    ? `file:///${input.replace(/\\/g, '/')}`
+    : input;
+  if (/^file:/i.test(local)) {
+    const url = new URL(local);
+    if (!/\.pdf$/i.test(url.pathname))
+      throw new Error('Only PDF files can be opened from this computer.');
+    return url.href;
+  }
   // A bare address gets https://, except this computer's own servers, which
   // almost never have a certificate.
   const candidate =
@@ -57,8 +68,17 @@ export function isPageURL(value: string): boolean {
     value === NEW_TAB_URL ||
     value === SETTINGS_URL ||
     isWebURL(value) ||
-    isExtensionURL(value)
+    isExtensionURL(value) ||
+    isLocalPDF(value)
   );
+}
+
+export function isLocalPDF(value: string): boolean {
+  try {
+    return /^file:/i.test(value) && navigationURL(value) === value;
+  } catch {
+    return false;
+  }
 }
 
 export function resolveInput(

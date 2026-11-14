@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
@@ -22,6 +23,7 @@ import {
   Search,
   Star,
   Menu as MenuIcon,
+  Download,
 } from 'lucide-react';
 import type {
   BrowserAction,
@@ -32,8 +34,9 @@ import type {
   TabState,
   OverlayEvent,
 } from '../shared/browser';
-import { SPLIT_TOOLBAR_HEIGHT } from '../shared/browser';
+import { GROUP_COLORS, SPLIT_TOOLBAR_HEIGHT } from '../shared/browser';
 import Overlay from './Overlay';
+import { useDownloads } from './Downloads';
 import Settings from './Settings';
 import FindBar from './FindBar';
 import { ExtensionActions, ExtensionsButton } from './Extensions';
@@ -76,6 +79,10 @@ export default function App() {
   const resizing = useRef(false);
   const splitting = useRef(false);
   const [bookmarkId, setBookmarkId] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  // The group header a dragged tab is over, lit up as a drop target.
+  const [dropGroup, setDropGroup] = useState<string | null>(null);
+  const { items: downloads } = useDownloads();
   const report = () => setInputError('The action could not be completed.');
   const action = (name: BrowserAction) => {
     void window.drift.action(name).catch(report);
@@ -165,9 +172,98 @@ export default function App() {
       </aside>
     );
   const expanded = state.sidebar.expanded;
-  const visibleTabs = state.tabs
+  const listed = state.tabs
     .filter((t) => t.workspaceId === state.activeWorkspaceId)
     .sort((a, b) => Number(b.pinned) - Number(a.pinned));
+  // A group's tabs are listed together, where its first tab sits.
+  const visibleTabs: TabState[] = [];
+  for (const tab of listed)
+    if (!visibleTabs.includes(tab))
+      visibleTabs.push(
+        ...(tab.groupId && !tab.pinned
+          ? listed.filter((t) => t.groupId === tab.groupId && !t.pinned)
+          : [tab]),
+      );
+  const groupOf = (tab: TabState) =>
+    tab.pinned ? undefined : state.groups.find((g) => g.id === tab.groupId);
+  // A folded group hides its tabs, except the one you are on.
+  const folded = (tab: TabState) =>
+    !!groupOf(tab)?.collapsed && tab.id !== state.activeTabId;
+  const groupHeader = (tab: TabState, index: number) => {
+    const group = groupOf(tab);
+    if (!group || visibleTabs[index - 1]?.groupId === group.id) return null;
+    const count = visibleTabs.filter((t) => t.groupId === group.id).length;
+    return (
+      <div
+        key={`group-${group.id}`}
+        className="tab-group"
+        data-drop={dropGroup === group.id || undefined}
+        style={{ '--group': GROUP_COLORS[group.color] } as CSSProperties}
+        onDragOver={(event) => {
+          if (!dragged.current) return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'move';
+          setDropGroup(group.id);
+        }}
+        onDragLeave={() => setDropGroup(null)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDropGroup(null);
+          if (!dragged.current) return;
+          tabCommand({ type: 'group', id: dragged.current, group: group.id });
+          dragged.current = null;
+        }}
+      >
+        {renaming === group.id ? (
+          <input
+            aria-label="Group name"
+            defaultValue={group.name}
+            maxLength={40}
+            autoFocus
+            onFocus={(event) => event.currentTarget.select()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') event.currentTarget.blur();
+              if (event.key === 'Escape') setRenaming(null);
+            }}
+            onBlur={(event) => {
+              if (renaming === group.id)
+                tabCommand({
+                  type: 'group-rename',
+                  id: group.id,
+                  name: event.currentTarget.value,
+                });
+              setRenaming(null);
+            }}
+          />
+        ) : (
+          <button
+            aria-expanded={!group.collapsed}
+            aria-label={`${group.name} group, ${count} ${count === 1 ? 'tab' : 'tabs'}`}
+            title={`${group.name}: click to ${group.collapsed ? 'open' : 'fold'}, double-click to rename, right-click for color`}
+            onClick={(event) => {
+              // The second click of a double-click renames instead.
+              if (event.detail < 2)
+                tabCommand({ type: 'group-toggle', id: group.id });
+            }}
+            onDoubleClick={() => {
+              tabCommand({ type: 'group-toggle', id: group.id });
+              setRenaming(group.id);
+            }}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              tabCommand({ type: 'group-menu', id: group.id });
+            }}
+          >
+            <span className="tab-group-dot" aria-hidden="true" />
+            {expanded && <span className="tab-group-name">{group.name}</span>}
+            {expanded && group.collapsed && (
+              <span className="tab-group-count">{count}</span>
+            )}
+          </button>
+        )}
+      </div>
+    );
+  };
   const workspace = state.workspaces.find(
     (w) => w.id === state.activeWorkspaceId,
   )!;
@@ -206,6 +302,34 @@ export default function App() {
   const firstRegular = visibleTabs.findIndex((t) => !t.pinned);
   const hasEssentials = visibleTabs.some((t) => t.pinned);
   const topLayout = state.settings.toolbarLayout === 'top';
+  // Like Brave, a downloads button appears once there is something to show,
+  // with a ring for the progress of the downloads still running.
+  const running = downloads.filter((d) => !d.done);
+  const runningTotal = running.reduce((sum, d) => sum + d.total, 0);
+  const progress =
+    running.length && running.every((d) => d.total > 0)
+      ? running.reduce((sum, d) => sum + d.received, 0) / runningTotal
+      : null;
+  const downloadsLabel = running.length
+    ? `Downloads, ${running.length} in progress${
+        progress === null ? '' : `, ${Math.floor(progress * 100)}%`
+      }`
+    : 'Downloads';
+  const downloadsButton = downloads.length > 0 && (
+    <button
+      className="downloads-button"
+      aria-label={downloadsLabel}
+      title={downloadsLabel}
+      aria-expanded={state.overlay === 'downloads'}
+      data-running={
+        running.length ? (progress === null ? 'unknown' : 'known') : undefined
+      }
+      style={{ '--progress': progress ?? 0.25 } as CSSProperties}
+      onClick={() => action('show-downloads')}
+    >
+      <Download size={15} />
+    </button>
+  );
   const menuButton = (
     <button
       className="browser-menu-trigger"
@@ -418,7 +542,10 @@ export default function App() {
           <div className="capsule" role="group" aria-label="Sidebar">
             {sidebarPin}
           </div>
-          <div className="capsule">{menuButton}</div>
+          <div className="capsule">
+            {downloadsButton}
+            {menuButton}
+          </div>
           {windowControls}
         </div>
       )}
@@ -480,7 +607,10 @@ export default function App() {
               {expanded && navigation}
               {windowControls}
             </header>
-            <div className="sidebar-menu-trigger">{menuButton}</div>
+            <div className="sidebar-menu-trigger">
+              {downloadsButton}
+              {menuButton}
+            </div>
             {expanded ? (
               <div className="address">
                 {addressButton}
@@ -547,150 +677,168 @@ export default function App() {
                 <span>{workspace.name}</span>
               </div>
             ),
-            <div
-              key={tab.id}
-              role="presentation"
-              className={`tab-row ${tab.id === state.activeTabId ? 'active' : ''} ${tab.pinned ? 'essential' : 'regular'} ${tab.unloaded ? 'sleeping' : ''}`}
-              data-tab-id={tab.id}
-              draggable
-              onMouseEnter={(event) => hoverCard(tab.id, event.currentTarget)}
-              onMouseLeave={() => dismissCard(120)}
-              onMouseDown={() => dismissCard()}
-              onDragStart={(event) => {
-                dismissCard();
-                dragged.current = tab.id;
-                // A private type, so no other app (Explorer, a text box)
-                // accepts the drop and swallows it.
-                event.dataTransfer.setData('application/x-drift-tab', tab.id);
-                event.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragEnd={() => {
-                // Nothing in Drift took the drop. Whatever the OS reports as
-                // the drop effect, the main process checks where the cursor
-                // is and only moves the tab if it left this window.
-                if (dragged.current === tab.id)
-                  tabCommand({ type: 'detach', id: tab.id });
-                dragged.current = null;
-              }}
-              onDragOver={(event) => {
-                if (dragged.current) {
-                  event.preventDefault();
-                  event.dataTransfer.dropEffect = 'move';
+            groupHeader(tab, index),
+            !folded(tab) && (
+              <div
+                key={tab.id}
+                role="presentation"
+                className={`tab-row ${tab.id === state.activeTabId ? 'active' : ''} ${tab.pinned ? 'essential' : 'regular'} ${tab.unloaded ? 'sleeping' : ''} ${groupOf(tab) ? 'grouped' : ''}`}
+                style={
+                  groupOf(tab)
+                    ? ({
+                        '--group': GROUP_COLORS[groupOf(tab)!.color],
+                      } as CSSProperties)
+                    : undefined
                 }
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                if (dragged.current) {
-                  const source = state.tabs.find(
-                    (t) => t.id === dragged.current,
-                  );
-                  if (source && source.pinned !== tab.pinned)
-                    tabCommand({ type: 'pin', id: source.id });
-                  tabCommand({
-                    type: 'move',
-                    id: dragged.current,
-                    index: state.tabs.findIndex((t) => t.id === tab.id),
-                  });
+                data-tab-id={tab.id}
+                draggable
+                onMouseEnter={(event) => hoverCard(tab.id, event.currentTarget)}
+                onMouseLeave={() => dismissCard(120)}
+                onMouseDown={() => dismissCard()}
+                onDragStart={(event) => {
+                  dismissCard();
+                  dragged.current = tab.id;
+                  // A private type, so no other app (Explorer, a text box)
+                  // accepts the drop and swallows it.
+                  event.dataTransfer.setData('application/x-drift-tab', tab.id);
+                  event.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragEnd={() => {
+                  // Nothing in Drift took the drop. Whatever the OS reports as
+                  // the drop effect, the main process checks where the cursor
+                  // is and only moves the tab if it left this window.
+                  if (dragged.current === tab.id)
+                    tabCommand({ type: 'detach', id: tab.id });
                   dragged.current = null;
-                }
-              }}
-              onAuxClick={(event) => {
-                if (event.button === 1) {
-                  event.preventDefault();
-                  tabCommand({ type: 'close', id: tab.id });
-                }
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                tabCommand({ type: 'menu', id: tab.id });
-              }}
-            >
-              <button
-                role="tab"
-                id={`tab-${tab.id}`}
-                aria-selected={tab.id === state.activeTabId}
-                tabIndex={tab.id === state.activeTabId ? 0 : -1}
-                aria-label={title(tab)}
-                className="tab-select"
-                onClick={() => tabCommand({ type: 'select', id: tab.id })}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === 'ContextMenu' ||
-                    (event.shiftKey && event.key === 'F10')
-                  ) {
+                }}
+                onDragOver={(event) => {
+                  if (dragged.current) {
                     event.preventDefault();
-                    tabCommand({ type: 'menu', id: tab.id });
-                    return;
-                  }
-                  if (
-                    event.altKey &&
-                    ['ArrowUp', 'ArrowDown'].includes(event.key)
-                  ) {
-                    event.preventDefault();
-                    tabCommand({
-                      type: 'move',
-                      id: tab.id,
-                      index: state.tabs.findIndex(
-                        (t) =>
-                          t.id ===
-                          visibleTabs[
-                            Math.max(
-                              0,
-                              Math.min(
-                                visibleTabs.length - 1,
-                                index + (event.key === 'ArrowUp' ? -1 : 1),
-                              ),
-                            )
-                          ].id,
-                      ),
-                    });
-                    return;
-                  }
-                  const next =
-                    event.key === 'Home'
-                      ? 0
-                      : event.key === 'End'
-                        ? visibleTabs.length - 1
-                        : event.key === 'ArrowUp'
-                          ? (index - 1 + visibleTabs.length) %
-                            visibleTabs.length
-                          : event.key === 'ArrowDown'
-                            ? (index + 1) % visibleTabs.length
-                            : null;
-                  if (next !== null) {
-                    event.preventDefault();
-                    tabCommand({ type: 'select', id: visibleTabs[next].id });
-                    const buttons =
-                      sidebar.current?.querySelectorAll<HTMLButtonElement>(
-                        '[role=tab]',
-                      );
-                    buttons?.[next]?.focus();
+                    event.dataTransfer.dropEffect = 'move';
                   }
                 }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  if (dragged.current) {
+                    const source = state.tabs.find(
+                      (t) => t.id === dragged.current,
+                    );
+                    if (source && source.pinned !== tab.pinned)
+                      tabCommand({ type: 'pin', id: source.id });
+                    // Dropped on a grouped tab it joins that group; on an
+                    // ungrouped one it leaves its own.
+                    if (source && !tab.pinned && source.groupId !== tab.groupId)
+                      tabCommand({
+                        type: 'group',
+                        id: source.id,
+                        group: tab.groupId ?? '',
+                      });
+                    tabCommand({
+                      type: 'move',
+                      id: dragged.current,
+                      index: state.tabs.findIndex((t) => t.id === tab.id),
+                    });
+                    dragged.current = null;
+                  }
+                }}
+                onAuxClick={(event) => {
+                  if (event.button === 1) {
+                    event.preventDefault();
+                    tabCommand({ type: 'close', id: tab.id });
+                  }
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  tabCommand({ type: 'menu', id: tab.id });
+                }}
               >
-                <Favicon tab={tab} />
-                <span className="tab-title">{title(tab)}</span>
-                {tab.unloaded && <Moon size={12} aria-label="Sleeping" />}
-              </button>
-              {(tab.audible || tab.muted) && (
                 <button
-                  className="audio"
-                  aria-label={`${tab.muted ? 'Unmute' : 'Mute'} ${title(tab)}`}
-                  title={tab.muted ? 'Unmute tab' : 'Mute tab'}
-                  onClick={() => tabCommand({ type: 'mute', id: tab.id })}
+                  role="tab"
+                  id={`tab-${tab.id}`}
+                  aria-selected={tab.id === state.activeTabId}
+                  tabIndex={tab.id === state.activeTabId ? 0 : -1}
+                  aria-label={title(tab)}
+                  className="tab-select"
+                  onClick={() => tabCommand({ type: 'select', id: tab.id })}
+                  onKeyDown={(event) => {
+                    if (
+                      event.key === 'ContextMenu' ||
+                      (event.shiftKey && event.key === 'F10')
+                    ) {
+                      event.preventDefault();
+                      tabCommand({ type: 'menu', id: tab.id });
+                      return;
+                    }
+                    if (
+                      event.altKey &&
+                      ['ArrowUp', 'ArrowDown'].includes(event.key)
+                    ) {
+                      event.preventDefault();
+                      tabCommand({
+                        type: 'move',
+                        id: tab.id,
+                        index: state.tabs.findIndex(
+                          (t) =>
+                            t.id ===
+                            visibleTabs[
+                              Math.max(
+                                0,
+                                Math.min(
+                                  visibleTabs.length - 1,
+                                  index + (event.key === 'ArrowUp' ? -1 : 1),
+                                ),
+                              )
+                            ].id,
+                        ),
+                      });
+                      return;
+                    }
+                    const next =
+                      event.key === 'Home'
+                        ? 0
+                        : event.key === 'End'
+                          ? visibleTabs.length - 1
+                          : event.key === 'ArrowUp'
+                            ? (index - 1 + visibleTabs.length) %
+                              visibleTabs.length
+                            : event.key === 'ArrowDown'
+                              ? (index + 1) % visibleTabs.length
+                              : null;
+                    if (next !== null) {
+                      event.preventDefault();
+                      tabCommand({ type: 'select', id: visibleTabs[next].id });
+                      const buttons =
+                        sidebar.current?.querySelectorAll<HTMLButtonElement>(
+                          '[role=tab]',
+                        );
+                      buttons?.[next]?.focus();
+                    }
+                  }}
                 >
-                  {tab.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                  <Favicon tab={tab} />
+                  <span className="tab-title">{title(tab)}</span>
+                  {tab.unloaded && <Moon size={12} aria-label="Sleeping" />}
                 </button>
-              )}
-              <button
-                className="tab-close"
-                aria-label={`Close ${title(tab)}`}
-                title="Close tab"
-                onClick={() => tabCommand({ type: 'close', id: tab.id })}
-              >
-                <X size={13} />
-              </button>
-            </div>,
+                {(tab.audible || tab.muted) && (
+                  <button
+                    className="audio"
+                    aria-label={`${tab.muted ? 'Unmute' : 'Mute'} ${title(tab)}`}
+                    title={tab.muted ? 'Unmute tab' : 'Mute tab'}
+                    onClick={() => tabCommand({ type: 'mute', id: tab.id })}
+                  >
+                    {tab.muted ? <VolumeX size={13} /> : <Volume2 size={13} />}
+                  </button>
+                )}
+                <button
+                  className="tab-close"
+                  aria-label={`Close ${title(tab)}`}
+                  title="Close tab"
+                  onClick={() => tabCommand({ type: 'close', id: tab.id })}
+                >
+                  <X size={13} />
+                </button>
+              </div>
+            ),
           ])}
           <button
             className="new-tab"

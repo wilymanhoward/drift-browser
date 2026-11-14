@@ -108,13 +108,7 @@ export class PageTools {
         { label: 'Find in page', click: () => this.action('find') },
         {
           label: 'Print…',
-          click: () =>
-            page.print({ silent: false }, (ok, reason) => {
-              if (!ok && reason !== 'cancelled') {
-                this.error = `Print did not complete: ${reason}`;
-                this.changed();
-              }
-            }),
+          click: () => page.print({ silent: false }, this.printed),
         },
         {
           label: 'Inspect element',
@@ -160,6 +154,13 @@ export class PageTools {
       });
     this.changed();
   }
+  // Closing the print dialog is not a failure; Electron reports it as
+  // "Print job canceled" (or "cancelled"), so any cancel wording is ignored.
+  private printed = (ok: boolean, reason: string) => {
+    if (ok || /cancel/i.test(reason)) return;
+    this.error = `Print did not complete: ${reason}`;
+    this.changed();
+  };
   action(action: PageAction) {
     const page = this.active();
     if (page.getURL() === SETTINGS_URL && action !== 'fullscreen') return;
@@ -170,13 +171,7 @@ export class PageTools {
       this.changed();
       this.win.webContents.focus();
       this.win.webContents.send('drift:find-focus');
-    } else if (action === 'print')
-      page.print({ silent: false }, (ok, reason) => {
-        if (!ok && reason !== 'cancelled') {
-          this.error = `Print did not complete: ${reason}`;
-          this.changed();
-        }
-      });
+    } else if (action === 'print') page.print({ silent: false }, this.printed);
     else if (action === 'fullscreen')
       this.win.setFullScreen(!this.win.isFullScreen());
     else {
