@@ -490,11 +490,12 @@ aside.collapsed .window-controls {
 .essential:hover {
   background: var(--glass-strong);
 }
+/* The open Essential takes a soft wash of the highlight color rather than an
+   outline, which framed the icon in a box. */
 .essential.active {
-  background: var(--glass-strong);
+  background: color-mix(in srgb, var(--highlight) 18%, var(--glass-strong));
   box-shadow:
     inset 0 0 0 0.5px var(--glass-edge),
-    0 0 0 1.5px color-mix(in srgb, var(--highlight) 60%, transparent),
     var(--shadow-sm);
 }
 .essential .tab-select {
