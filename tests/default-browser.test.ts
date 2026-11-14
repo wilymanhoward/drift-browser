@@ -48,6 +48,8 @@ it('reads only its own registration and checks both web protocols', async () => 
     supported: true,
     installed: true,
     isDefault: false,
+    pdfInstalled: true,
+    pdfDefault: false,
   });
   mocks.app.isDefaultProtocolClient.mockImplementation(
     (protocol) => protocol === 'http',
@@ -108,4 +110,33 @@ it('installer declares only web-link capabilities with quoted commands and remov
   expect(script).not.toMatch(
     /UserChoice|HKLM|WriteRegStr HKCU "Software\\Classes\\https?"/,
   );
+});
+
+it('reports Drift as the PDF app only when Windows chose it for .pdf', async () => {
+  const answer = (
+    progId: string,
+    pdfCommand = `"${process.execPath}" -- "%1"`,
+  ) =>
+    mocks.run.mockImplementation(async (_exe, args: string[]) => ({
+      stdout: args.includes('Drift')
+        ? 'Drift    REG_SZ    Software\\Clients\\StartMenuInternet\\Drift\\Capabilities\r\n'
+        : args.includes('ProgId')
+          ? `ProgId    REG_SZ    ${progId}\r\n`
+          : args.some((arg) => arg.includes('DriftPDF'))
+            ? `(Default)    REG_SZ    ${pdfCommand}\r\n`
+            : `(Default)    REG_SZ    "${process.execPath}" -- "%1"\r\n`,
+    }));
+  answer('MSEdgePDF');
+  expect(await defaultBrowser('status')).toMatchObject({
+    pdfInstalled: true,
+    pdfDefault: false,
+  });
+  answer('DriftPDF');
+  expect((await defaultBrowser('status')).pdfDefault).toBe(true);
+  // Another app's command under Drift's PDF type is not Drift's registration.
+  answer('DriftPDF', '"C:/Other/app.exe" -- "%1"');
+  expect(await defaultBrowser('status')).toMatchObject({
+    pdfInstalled: false,
+    pdfDefault: false,
+  });
 });

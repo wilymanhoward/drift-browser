@@ -24,15 +24,26 @@ export async function defaultBrowser(
     throw new Error('Invalid default browser command.');
   const supported = process.platform === 'win32';
   let installed = false;
+  let pdfInstalled = false;
+  let pdfDefault = false;
   if (supported && app.isPackaged && !process.env.PORTABLE_EXECUTABLE_DIR) {
-    const [capabilities, launch] = await Promise.all([
+    const [capabilities, launch, pdfLaunch, pdfChoice] = await Promise.all([
       registryValue('HKCU\\Software\\RegisteredApplications', 'Drift'),
       registryValue('HKCU\\Software\\Classes\\DriftURL\\shell\\open\\command'),
+      registryValue('HKCU\\Software\\Classes\\DriftPDF\\shell\\open\\command'),
+      // The app picked for .pdf files; only Windows itself can change it.
+      registryValue(
+        'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FileExts\\.pdf\\UserChoice',
+        'ProgId',
+      ),
     ]);
+    const command = `"${process.execPath}" -- "%1"`.toLowerCase();
     installed =
       capabilities?.toLowerCase() ===
         'software\\clients\\startmenuinternet\\drift\\capabilities' &&
-      launch?.toLowerCase() === `"${process.execPath}" -- "%1"`.toLowerCase();
+      launch?.toLowerCase() === command;
+    pdfInstalled = installed && pdfLaunch?.toLowerCase() === command;
+    pdfDefault = pdfInstalled && pdfChoice === 'DriftPDF';
   }
   const status = {
     supported,
@@ -41,6 +52,8 @@ export async function defaultBrowser(
       installed &&
       app.isDefaultProtocolClient('http') &&
       app.isDefaultProtocolClient('https'),
+    pdfInstalled,
+    pdfDefault,
   };
   if (command === 'open-settings') {
     if (!installed)

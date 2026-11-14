@@ -68,6 +68,39 @@ export default function DefaultBrowser() {
               : 'Make default'}
         </button>
       </div>
+      {/* Windows lists Drift's PDF type on the same Default apps page. */}
+      <div className="preference-row">
+        <span>
+          <span className="preference-label">Default PDF app</span>
+          <small role="status">
+            {!status
+              ? 'Checking PDF app…'
+              : !status.supported
+                ? 'Available on Windows.'
+                : !status.pdfInstalled
+                  ? 'Install Drift with the Windows installer to open PDFs with it.'
+                  : status.pdfDefault
+                    ? 'Drift opens your PDF files.'
+                    : 'In Windows Settings, choose Drift for .pdf files.'}
+          </small>
+        </span>
+        <button
+          className="text-button"
+          aria-label={
+            status?.pdfDefault
+              ? 'Already default PDF app'
+              : 'Make default PDF app'
+          }
+          disabled={busy || !status?.pdfInstalled || status.pdfDefault}
+          onClick={() => void open()}
+        >
+          {busy
+            ? 'Opening…'
+            : status?.pdfDefault
+              ? 'Already default'
+              : 'Make default'}
+        </button>
+      </div>
       {error && (
         <p role="alert" className="error">
           {error}
