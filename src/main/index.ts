@@ -18,6 +18,7 @@ import type { BrowserAction, BrowserState } from '../shared/browser';
 import { TabManager, faviconData } from './tabs';
 import { SiteIcons } from './site-icons';
 import { DownloadPopup } from './download-popup';
+import { askToRestore } from './restore-popup';
 import type { FinishedDownload } from './download-popup';
 import { Essentials } from './essentials';
 import type { MovedTab } from './tabs';
@@ -31,7 +32,7 @@ import {
 import { TabCard } from './tab-card';
 import { BrowserLibrary, parseBookmark } from './library';
 import { newTabResponse } from './new-tab';
-import { isWebURL, resolveInput } from '../shared/navigation';
+import { isWebURL, NEW_TAB_URL, resolveInput } from '../shared/navigation';
 import { PrivacyController, loadFilters, refreshFilters } from './privacy';
 import { randomUUID } from 'node:crypto';
 import { SettingsStore } from './settings';
@@ -117,6 +118,8 @@ interface Profile {
   storageError: string | null;
   // Saved windows still to reopen, oldest first.
   restore: SavedSession[];
+  // The last session, when startup opened a new tab instead; offered once.
+  previous: SavedSession[];
   lastSaved: string;
 }
 // Set once the app is quitting, so windows closing on the way out stay in
@@ -212,6 +215,9 @@ async function loadProfile(partition: string, privateWindow: boolean) {
   const settings = new SettingsStore();
   await settings.load(privateWindow);
   // Windows beyond the first only come back when the session is restored.
+  // Not restored at startup, the last session is still offered once, from a
+  // "Restore tabs?" popup in the first window.
+  const previous = settings.value.startup === 'restore' ? [] : [...saved];
   if (settings.value.startup !== 'restore') saved.splice(1);
   const zoom = new ZoomPreferences();
   await zoom.load(privateWindow);
@@ -354,6 +360,7 @@ async function loadProfile(partition: string, privateWindow: boolean) {
     store,
     storageError,
     restore: saved,
+    previous,
     lastSaved: '',
   } satisfies Profile;
 }
@@ -418,6 +425,8 @@ async function createWindow(
     profile?: Profile;
     adopt?: MovedTab;
     bounds?: Rectangle;
+    // A saved window to reopen as it was, whatever the startup setting.
+    session?: SavedSession;
   } = {},
 ) {
   const devURL = !app.isPackaged ? process.env.DRIFT_DEV_URL : undefined;
@@ -564,7 +573,10 @@ async function createWindow(
     () => windowSettings().sidebarPosition,
   );
   if (options.adopt) tabs.adopt(options.adopt);
-  else tabs.restore(settings.value.startup === 'restore' ? saved : null);
+  else
+    tabs.restore(
+      options.session ?? (settings.value.startup === 'restore' ? saved : null),
+    );
   tabs.syncEssentials();
   function runPageAction(action: PageAction) {
     if (
@@ -1019,6 +1031,35 @@ async function createWindow(
   publish();
   save();
   win.show();
+  // Offered once, by the first window, and only if there is something to
+  // bring back besides Essentials and blank new tabs.
+  const previous = profile.previous.splice(0);
+  const count = previous.reduce(
+    (sum, session) =>
+      sum +
+      session.tabs.filter((t) => !t.essentialId && t.url !== NEW_TAB_URL)
+        .length,
+    0,
+  );
+  if (count) void offerRestore(previous, count);
+  // Runs apart from startup, so links Drift was opened with are not held up.
+  async function offerRestore(previous: SavedSession[], count: number) {
+    // The first page settles before the card appears over it.
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    if (win.isDestroyed()) return;
+    const restore = await askToRestore(
+      win,
+      `${count} ${count === 1 ? 'tab' : 'tabs'}${
+        previous.length > 1 ? ` in ${previous.length} windows` : ''
+      } from last time.`,
+      tabs.active.view.getBounds(),
+      { css: themeCSS(windowSettings(), settings.dark), dark: settings.dark },
+    );
+    if (!restore || win.isDestroyed()) return;
+    tabs.restoreSaved(previous[0]);
+    for (const session of previous.slice(1))
+      await createWindow({ profile, session });
+  }
 }
 let linksReady = false;
 let openingLinks = false;

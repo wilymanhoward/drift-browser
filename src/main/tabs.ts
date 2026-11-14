@@ -424,6 +424,37 @@ export class TabManager {
       ]).popup({ window: this.win });
     this.emit();
   }
+  // Brings a saved window's tabs into this one, after Drift opened a new tab
+  // instead of the last session. Essentials are already here and are skipped;
+  // an untouched new tab gives way to the restored tabs.
+  restoreSaved(saved: SavedSession) {
+    const blank =
+      this.tabs.filter((t) => !t.state.pinned).length === 1
+        ? this.tabs.find((t) => !t.state.pinned && t.state.url === NEW_TAB_URL)
+        : undefined;
+    for (const workspace of saved.workspaces ?? [])
+      if (!this.workspaces.some((w) => w.id === workspace.id))
+        this.workspaces.push(workspace);
+    for (const group of saved.groups ?? [])
+      if (!this.groups.some((g) => g.id === group.id)) this.groups.push(group);
+    const linked = new Set(this.tabs.map((t) => t.essentialId));
+    let active: string | undefined;
+    for (const tab of saved.tabs) {
+      if (tab.essentialId && linked.has(tab.essentialId)) continue;
+      if (this.tabs.some((t) => t.state.id === tab.id)) continue;
+      this.create(
+        tab.url,
+        tab,
+        false,
+        undefined,
+        tab.id !== saved.activeTabId,
+      ).essentialId = tab.essentialId;
+      if (tab.id === saved.activeTabId) active = tab.id;
+    }
+    if (active) this.select(active);
+    if (blank && this.tabs.length > 1) this.close(blank.state.id);
+    this.emit();
+  }
   restore(saved: SavedSession | null) {
     if (saved) {
       this.workspaces = saved.workspaces ?? [{ ...DEFAULT_WORKSPACE }];
