@@ -1,0 +1,51 @@
+{
+  "originalRequest": "i want you to draft the redesign of the overall appearance of the browser",
+  "subject": "Drift, an Electron desktop web browser (React renderer). The request covers the browser's own chrome and interface, not a marketing site.",
+  "pageType": "dashboard",
+  "scope": "Visual redesign of the whole browser chrome and its built-in surfaces, kept to the current features and structure: window frame and topbar, vertical tab sidebar, address bar, overlays and panels, and the new-tab page. No new browser features, and no changes to the main-process logic.",
+  "primaryGoal": "Give Drift a cohesive, distinctive and polished look across every surface so it feels like one calm, premium product instead of a set of separately styled panels, while web content stays the main focus.",
+  "audience": "Everyday desktop users who browse for long sessions and manage many tabs and workspaces, including people switching from Chrome, Edge or Arc (Drift has a browser import flow).",
+  "offer": "A focused, glassy, sidebar-first browser with workspaces, split view, a compact mode, built-in Shields, a password manager and extension support.",
+  "primaryAction": "Browse: find, switch and open tabs, and type into the address bar with as little visual friction as possible.",
+  "creativeControl": "High. The user asked for a draft redesign of the overall look, so the visual direction is delegated, within the existing feature set and the Ember highlight convention.",
+  "requiredContent": [
+    "Window frame and topbar: auto-hiding topbar (40px, 220ms slide), custom window controls, a hot zone that reveals it, and a content shadow around the web view",
+    "Vertical tab sidebar: workspace label and switcher, rail search, essentials drop zone, pinned tabs, tab rows (favicon, title, audio indicator, close), new-tab button, sidebar pin and menu triggers, resize handle",
+    "Address bar: URL pill and capsule with security state, bookmark star, loading spinner and error state",
+    "Compact mode: compact edge and hover preview of the sidebar when it is collapsed",
+    "Split view: divider, per-pane focus state and split-close control",
+    "Browser menu and sidebar menu: dropdown and overlay styling",
+    "Find bar: in-page search with match count and next/previous controls",
+    "Overlay panels and dialogs: Settings, Downloads, Passwords (including Drift-styled password prompts), Shields, Extensions and extension actions, Workspaces, Updates, Default browser and Browser import",
+    "New-tab page: search entry and the workspace or wallpaper backdrop (--wallpaper-image)",
+    "States across all surfaces: hover, active or selected tab, focus rings, loading, error, disabled and empty states",
+    "Motion: useful transitions for topbar reveal, sidebar collapse and expand, tab open, close and reorder, panel and dialog open and close, split view and the find bar"
+  ],
+  "constraints": [
+    "Must be implementable as CSS-token and stylesheet changes in src/renderer/style.css plus small TSX class changes, with the current component structure and features kept as they are",
+    "Contrast UI (progress, on-states, selected and active) uses the --highlight Ember token rather than the grey or purple accent (project convention)",
+    "Keep keyboard focus visibility and accessible contrast; tab and control hit targets no smaller than the current 32px control size",
+    "Web page content must stay visually dominant; chrome should not compete with it",
+    "Bundled fonts only (Inter Variable, Bricolage variable width, Junicode italic); no new remote font dependencies",
+    "Respect the reduced-motion preference"
+  ],
+  "brandInputs": [
+    "Colors (src/renderer/style.css): --accent #5856d6 (indigo), --text #1d1d1f, --muted #69696e, --chrome-bg/--backdrop #eef0f5, --surface #ffffff, --border #d2d2d7, --error #d70015, glass layers #ffffff8c, #ffffffd9 and edge #ffffffb3 with a 24px blur, and indigo-tinted shadows",
+    "Ember --highlight token for contrast UI (project memory)",
+    "Typography: Inter Variable as the UI font; Bricolage Grotesque (variable width) and Junicode Italic are also bundled in src/renderer/fonts",
+    "Shape and motion: --radius 12px, --tab-height 34px, --control-size 32px, --topbar 40px, ease cubic-bezier(0.25,0.1,0.25,1) and ease-out cubic-bezier(0.33,1,0.68,1)",
+    "Current visual style: light, translucent, frosted-glass chrome in a macOS-like idiom, with hairline borders and soft shadows"
+  ],
+  "assumptions": [
+    "'The browser' means the Drift app's own interface (chrome, sidebar, panels, new-tab page), so pageType is dashboard with screens rather than marketing sections",
+    "This is a draft direction for review, keeping current layout regions and features; no new functionality is planned",
+    "No dark theme exists in the stylesheet today; the redesign defines light as the primary theme and also plans a matching dark token set, because people browse for long sessions",
+    "The Inter, Bricolage and Junicode fonts stay available; the design picks among them",
+    "Interface transitions are included because no request for no animation was given"
+  ],
+  "unresolved": [
+    "Whether the indigo --accent should be kept, retuned or replaced next to Ember",
+    "Whether a dark theme should ship together with the light redesign or later"
+  ],
+  "explicitAnswers": []
+}

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "drift-mark-small",
+      "kind": "icon",
+      "status": "existing",
+      "purpose": "Drift's existing product mark. It sits at the top of the sidebar next to the workspace switcher, and in the default-browser dialog.",
+      "requirements": [
+        "Use the file as it is; do not redraw, recolour or replace it",
+        "Render at 20px in the sidebar and 32px in the dialog, with an accessible name of 'Drift'",
+        "Keep the embedded c2pa provenance metadata in the file"
+      ],
+      "role": "logo",
+      "sectionIds": [
+        "shell",
+        "default-browser"
+      ],
+      "aspectRatio": "1:1",
+      "composition": "The square app mark, centred in its slot, with no tile, circle or background behind it, on the stone frame or on the white dialog.",
+      "source": {
+        "kind": "project",
+        "reference": "assets/icon/icon-small.svg"
+      },
+      "destination": "assets/icon/icon-small.svg"
+    },
+    {
+      "id": "font-inter-variable",
+      "kind": "font",
+      "status": "existing",
+      "purpose": "Inter Variable: the interface typeface for every surface, at weights 400, 500 and 600, with tabular figures for counts, sizes and match numbers.",
+      "requirements": [
+        "Already loaded in src/renderer/style.css via @font-face (format woff2-variations); the file's magic bytes are wOF2",
+        "Variable weight axis covers 400, 500 and 600",
+        "Licensed under the SIL OFL 1.1 (src/renderer/fonts/OFL.txt, Inter Project Authors)",
+        "Build must check document.fonts.check('500 14px \"Inter Variable\"') after document.fonts.ready, and confirm tabular-nums changes the digit widths"
+      ],
+      "role": "font",
+      "sectionIds": [
+        "shell",
+        "browse-page",
+        "new-tab",
+        "split-view",
+        "compact-mode",
+        "menus",
+        "downloads",
+        "passwords",
+        "shields",
+        "extensions",
+        "workspaces",
+        "updates",
+        "default-browser",
+        "import",
+        "settings"
+      ],
+      "aspectRatio": "1:1",
+      "composition": "Not applicable (typeface).",
+      "source": {
+        "kind": "project",
+        "reference": "src/renderer/fonts/inter-latin-wght-normal.woff2",
+        "license": "SIL Open Font License 1.1, Copyright 2016 The Inter Project Authors",
+        "contentType": "font/woff2"
+      },
+      "destination": "src/renderer/fonts/inter-latin-wght-normal.woff2"
+    },
+    {
+      "id": "font-junicode-italic",
+      "kind": "font",
+      "status": "existing",
+      "purpose": "Junicode Italic, used for the new-tab greeting only.",
+      "requirements": [
+        "The file's magic bytes are wOFF (WOFF 1.0)",
+        "Real italic, weight 400",
+        "Licensed under the SIL OFL 1.1 (src/renderer/fonts/OFL.txt, Peter S. Baker)",
+        "Used nowhere except the greeting"
+      ],
+      "role": "font",
+      "sectionIds": [
+        "new-tab"
+      ],
+      "aspectRatio": "1:1",
+      "composition": "Not applicable (typeface).",
+      "source": {
+        "kind": "project",
+        "reference": "src/renderer/fonts/junicode-italic.woff",
+        "license": "SIL Open Font License 1.1, Copyright (c) 2012 Peter S. Baker",
+        "contentType": "font/woff"
+      },
+      "destination": "src/renderer/fonts/junicode-italic.woff"
+    }
+  ]
+}

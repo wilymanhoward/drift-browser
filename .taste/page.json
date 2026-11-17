@@ -1,0 +1,903 @@
+{
+  "version": 1,
+  "page": {
+    "title": "Personal",
+    "route": "/",
+    "description": "A draft redesign of Drift's own interface, shown as a working static prototype at 1440x900. A warm stone frame holds the vertical tab sidebar and the 40px topbar, and every web page and built-in panel sits on one white sheet. The default view is the Personal workspace with a page open; each built-in surface (new tab, split view, compact mode, menus, downloads, passwords, Shields, extensions, workspaces, updates, default browser, import, settings) is its own hash view in the same shell."
+  },
+  "architecture": {
+    "contract": "This screen answers: which tab am I on in this workspace, and where do I go next? Face: the warm stone frame (#f7f6f2) tinted from Ember. Signature element: the Ember wick on the active tab row, continuing as the load line on the sheet's top edge.",
+    "mode": "operate_monitor",
+    "novelty": "medium",
+    "grid": "Window 1440x900. The frame is a 228px sidebar plus a 40px topbar. The sheet is 1440 - 228 - 8 = 1204px wide and 900 - 40 - 8 = 852px tall. With 24px padding the content is 1204 - 2x24 = 1156px wide. Settings: label column 420 + gap 24 + panel 712 = 1156. Panel lists (Downloads, Passwords, Extensions): 760px list + 24 + 372px detail column = 1156. Split view: two sheets of (1204 - 8) / 2 = 598px each, with an 8px divider gap. Popovers (Shields, Updates, browser menu) float at 360px or 280px wide from their trigger. One gap value, 24px, horizontally and vertically.",
+    "signatureRule": "One tinted L-frame (sidebar and topbar, no rule between them) and a white sheet inset 8px from the window's right and bottom edges, with a 1px #e6e4df edge, 16px radius and no shadow. The active tab carries a 2px var(--highlight) wick inside its left edge, and the loading sheet carries the same 2px line on its top edge. Everything else in the chrome is grey.",
+    "rhythm": "Medium density: 34px tab rows on a 34px pitch, 32px controls, 48px one-line and 64px two-line list rows, 24px sheet padding, 14px body, 12px labels, 16px section titles, a 22px h1 and 28px only for the one lead figure on a panel."
+  },
+  "navigation": [
+    {
+      "label": "Browse",
+      "target": "#/browse"
+    },
+    {
+      "label": "New tab",
+      "target": "#/new-tab"
+    },
+    {
+      "label": "Split view",
+      "target": "#/split"
+    },
+    {
+      "label": "Compact mode",
+      "target": "#/compact"
+    },
+    {
+      "label": "Menus",
+      "target": "#/menus"
+    },
+    {
+      "label": "Downloads",
+      "target": "#/downloads"
+    },
+    {
+      "label": "Passwords",
+      "target": "#/passwords"
+    },
+    {
+      "label": "Shields",
+      "target": "#/shields"
+    },
+    {
+      "label": "Extensions",
+      "target": "#/extensions"
+    },
+    {
+      "label": "Workspaces",
+      "target": "#/workspaces"
+    },
+    {
+      "label": "Updates",
+      "target": "#/updates"
+    },
+    {
+      "label": "Default browser",
+      "target": "#/default-browser"
+    },
+    {
+      "label": "Import",
+      "target": "#/import"
+    },
+    {
+      "label": "Settings",
+      "target": "#/settings"
+    }
+  ],
+  "navigationDesign": {
+    "layoutCase": "app-shell",
+    "layout": "Inside the prototype, the browser's own controls are the navigation. The sidebar tab rows switch the open page in #/browse. The browser menu (top right kebab) lists Downloads, Passwords, Extensions, Workspaces, Updates, Default browser, Import and Settings, as in Drift today. The Shields icon in the URL pill opens #/shields, and the workspace switcher opens #/workspaces. The New tab row opens #/new-tab, the split icon opens #/split and the sidebar pin opens #/compact. A quiet 12px 'Draft views' select at the foot of the sidebar lists all 14 views for review. All views share one shell; none scrolls the shell itself.",
+    "behavior": [
+      "The hash route sets the view; the back and forward buttons in the topbar follow the history.",
+      "The active view's entry in the browser menu shows a check and aria-current='page'.",
+      "Menus open on click or Enter, close on Escape or an outside click, and return focus to their trigger.",
+      "The workspace switcher cycles Personal, Work and Reading with Ctrl+1 to Ctrl+3, and the sidebar's tab list swaps with stable row identity.",
+      "Every control has a visible 2px ink focus ring at 2px offset."
+    ],
+    "transformation": {
+      "compact": "Under 640px (a narrow window): the frame folds. A 48px stone topbar holds the menu button, the URL pill and the browser kebab; the sidebar opens as a full-height sheet from the menu button. The page sheet takes the full width with no inset.",
+      "medium": "641-1100px: the sidebar defaults to compact mode (the collapsed edge with a hover preview), and the sheet runs from the window's left edge plus 8px. Panel lists stack the detail column under the list once either would be under 340px.",
+      "expanded": "Over 1100px: the full 228px sidebar (resizable from 180 to 360px), a 40px topbar and the 8px inset sheet."
+    }
+  },
+  "sections": [
+    {
+      "id": "shell",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-shell"
+      ],
+      "purpose": "The framed shell that every view shares: the stone L-frame with the vertical tab sidebar and the auto-hiding topbar.",
+      "userQuestion": "Which workspace am I in, which tab is open, and how do I get to another one?",
+      "stage": "orient",
+      "dependencies": [],
+      "evidence": [
+        "Sample data: the Personal workspace has 12 tabs: 4 Essentials, 2 pinned and 6 in Today.",
+        "Sample data: the active tab is 'Continental drift', en.wikipedia.org."
+      ],
+      "copy": {
+        "heading": "Personal",
+        "body": [
+          "Sample data: Personal workspace, 12 tabs, 1 download running.",
+          "Essentials: Mail, Calendar, GitHub, Music.",
+          "Sample data: Pinned: Q4 roadmap (docs), Design review (Figma file).",
+          "Sample data: Today: Continental drift (en.wikipedia.org, active, loading), Electron BrowserWindow (electronjs.org), Train times Leeds to York (nationalrail.co.uk), Sourdough starter guide (playing audio), Flat 3B lease (PDF), Weather (Met Office).",
+          "Sample data: Topbar: back, forward and reload at the left; the URL pill 'en.wikipedia.org/wiki/Continental_drift' with a lock and the Shields count 14; the bookmark star filled in Ember; split, extensions and the browser kebab; window controls at the right."
+        ],
+        "callsToAction": [
+          {
+            "label": "New tab",
+            "target": "#/new-tab"
+          },
+          {
+            "label": "Switch workspace",
+            "target": "#/workspaces"
+          },
+          {
+            "label": "Search tabs",
+            "target": "#rail-search"
+          }
+        ]
+      },
+      "layout": "Sidebar 228px on the stone ground, from the top: the Drift mark (assets/icon/icon-small.svg, 20px) and 'Personal' 14/600 with a chevron switcher (32px row). Rail search: 32px raised field 'Search tabs' with a Ctrl+K hint. Essentials: a 4-column grid of 40px tiles, the active Essential with an 18% highlight tint. Pinned: 2 rows. A 12px muted label 'Today', then 6 tab rows of 34px (16px favicon, 14/400 title truncated with an ellipsis, a 16px audio slot and a 16px close slot at the right). Active row: the active fill, a 600 title and the 2px Ember wick. Then a '+ New tab' row; the foot holds the pin, the sidebar menu kebab and the Draft views select. A 4px resize handle on the right edge shows a 1px control-colour line on hover. Topbar 40px on the same ground with no rule; the URL pill is centred on the sheet, up to 548x32. States: tab row hover #0000000a; selected; focus ring; dragging (the row lifts with the menu shadow and the gap opens); playing audio (speaker icon, muted state crossed); loading (spinner replaces the favicon); crashed tab (favicon replaced by a negative-ink warning glyph and the title in muted text). Empty Today: one sentence 'No open tabs in Personal' with '+ New tab'. Empty Essentials: a 40px dashed drop well 'Drag a tab here to keep it'.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "state_change",
+        "behavior": "The wick and active fill move to the newly selected row; new rows grow from 0 to 34px; closed rows collapse; reordered rows shift by FLIP; the topbar slides down from the hot zone; the sidebar collapse and the sheet's left edge move together.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Every change applies instantly in its final state; the reorder shows the drop position with no shifting."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [
+        "drift-mark-small"
+      ],
+      "transformation": {
+        "compact": "The sidebar becomes a full-height sheet behind a 44px menu button in a 48px topbar; tab rows grow to 44px tall.",
+        "medium": "The sidebar collapses to compact mode; the hover preview shows the full sidebar as a floating panel.",
+        "expanded": "The full 228px sidebar and 40px topbar as above."
+      }
+    },
+    {
+      "id": "browse-page",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The default view: the open web page on the white sheet with the loading wick, the address bar states and the find bar.",
+      "userQuestion": "Is this page loading, secure, and where is my search term on it?",
+      "stage": "orient",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: the page is loading at 68%, then complete.",
+        "Sample data: the find bar shows 'plate' as 3 of 14 matches."
+      ],
+      "copy": {
+        "heading": "Continental drift",
+        "body": [
+          "Sample data: a representative article page written for the prototype: the title 'Continental drift', an intro of three paragraphs on how continents move a few centimetres a year, and a 'Plate tectonics' section. The term 'plate' appears 14 times.",
+          "Sample data: Find bar: 'plate', 3 of 14, with previous, next and close.",
+          "URL pill states shown by the address-state switch: Secure (lock, host in ink, path in muted), Not secure (the words 'Not secure' in negative ink for an http page), Loading (a spinner in place of the lock), Error ('This site can't be reached' on the sheet, with Try again)."
+        ],
+        "callsToAction": [
+          {
+            "label": "Find on page",
+            "target": "#find"
+          },
+          {
+            "label": "Bookmark",
+            "target": "#bookmark"
+          },
+          {
+            "label": "Reload",
+            "target": "#reload"
+          }
+        ]
+      },
+      "layout": "The sheet is 1204x852 with the representative page in a 720px reading column centred inside it. The 2px Ember load line runs along the sheet's top edge at the real load ratio, clipped to the 16px corner. Find bar: a 32px raised strip, 360px wide, inset 16px from the sheet's top right: a field, the '3 of 14' count in muted tabular figures, up and down arrows, and a close button. Matches show a pale #fde68a mark, and the current match a var(--highlight) 2px outline. Error state: the sheet keeps its frame; a centred block with a 16px title 'This site can't be reached', one 14px muted line 'en.wikipedia.org took too long to respond.' and a secondary 'Try again' button. Zero matches: the count reads '0 of 0' in muted text and the field gets a 1px negative edge. Disabled previous and next at 0 matches.",
+      "motion": {
+        "purpose": "status",
+        "trigger": "state_change",
+        "behavior": "The load line advances with progress and fades out at 100%. The find bar slides 8px down and fades in with the field focused. Match navigation jumps with no animation.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "The load line shows a static fill at its current ratio; the find bar appears in place."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "The sheet is the screen; the find bar spans the full width under the topbar.",
+        "medium": "The sheet runs from the left edge plus 8px; the reading column stays 720px or the sheet width minus 48px.",
+        "expanded": "As above, with the 720px column centred on the sheet."
+      }
+    },
+    {
+      "id": "new-tab",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The new-tab page: a search entry and the workspace's frequent sites on the white sheet, with the user's own wallpaper when one is set.",
+      "userQuestion": "Where do I want to go from a blank tab?",
+      "stage": "act",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 6 frequent sites in Personal."
+      ],
+      "copy": {
+        "heading": "New tab",
+        "body": [
+          "The greeting 'Good evening' in Junicode italic, the one use of the second face.",
+          "Sample data: a search field 'Search or type a URL' with suggestions as you type: 'continental drift' from history, 'en.wikipedia.org/wiki/Plate_tectonics', 'Search for continental dri...'.",
+          "Sample data: frequent sites as 6 favicon tiles with their names: Mail, Calendar, GitHub, Wikipedia, National Rail, Met Office.",
+          "Wallpaper: off by default; when the user sets one it fills the sheet behind a white search panel."
+        ],
+        "callsToAction": [
+          {
+            "label": "Search",
+            "target": "#ntp-search"
+          },
+          {
+            "label": "Change wallpaper",
+            "target": "#/settings"
+          }
+        ]
+      },
+      "layout": "On the white sheet, a 560px column centred horizontally whose top sits 30% down the sheet: the 22px greeting, 24px, a 44px search field, 24px, then a 6-column row of 64px site tiles (favicon 24px over a 12px label). Suggestions open as a popover under the field, 6 rows of 40px, the selected row in the active fill. Empty frequent sites: one muted sentence 'Sites you visit often will show here.' with no frame change. Wallpaper set: the image fills the sheet within its 16px radius; the search sits on a white 8px-radius panel with 16px padding.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "state_change",
+        "behavior": "The suggestions popover fades and scales from 0.98 to 1 as you type; the selection moves with the arrow keys. The page itself does not animate in.",
+        "durationMs": 150,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "The suggestions appear in place."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "The column is full width with 16px margins; the tiles form a 3x2 grid.",
+        "medium": "A 480px column; tiles in one row of 6.",
+        "expanded": "A 560px column as above."
+      }
+    },
+    {
+      "id": "split-view",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "Two pages side by side as two sheets on the frame, with a focused pane and a split divider.",
+      "userQuestion": "Which of the two panes am I typing into, and how do I close one?",
+      "stage": "evaluate",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: the left pane is 'Continental drift' and the right pane is 'Train times Leeds to York'."
+      ],
+      "copy": {
+        "heading": "Split view",
+        "body": [
+          "Left pane: Continental drift, focused, with the Ember wick on its top edge and a highlight-tinted edge.",
+          "Sample data: Right pane: Train times Leeds to York, next trains 18:04, 18:22 and 18:37 from platform 16, with a plain edge.",
+          "Each pane shows a 'Close pane' control in its top right on hover or focus."
+        ],
+        "callsToAction": [
+          {
+            "label": "Close pane",
+            "target": "#split-close"
+          },
+          {
+            "label": "Swap panes",
+            "target": "#split-swap"
+          }
+        ]
+      },
+      "layout": "Two sheets of 598x852 with an 8px divider gap on the stone frame. The gap is the drag zone; on hover it shows a 1px x 32px control-colour grip at its centre, and during a drag a 2px ink line. Panes have a minimum width of 320px. The URL pill shows the focused pane's address. Focus moves on click or Ctrl+Alt+Left and Right.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "state_change",
+        "behavior": "Opening or closing split resizes both sheets together; the focus edge and wick move to the other pane.",
+        "durationMs": 200,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "The panes jump to their final widths."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Split view is unavailable under 640px; the focused pane fills the screen and a two-pane toggle in the topbar switches between them.",
+        "medium": "Panes stack only when either would be under 320px; otherwise side by side.",
+        "expanded": "Two equal sheets as above."
+      }
+    },
+    {
+      "id": "compact-mode",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The collapsed sidebar: the compact edge and the hover preview.",
+      "userQuestion": "How do I reach my tabs when the sidebar is hidden?",
+      "stage": "orient",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [],
+      "copy": {
+        "heading": "Compact mode",
+        "body": [
+          "The sheet runs almost to the window's left edge. A thin hot edge on the left shows the sidebar as a floating panel on hover or on Ctrl+S.",
+          "Sample data: the preview panel lists the same 12 tabs as the sidebar, in the same order, with the wick on the active one."
+        ],
+        "callsToAction": [
+          {
+            "label": "Pin sidebar",
+            "target": "#sidebar-pin"
+          }
+        ]
+      },
+      "layout": "The hot edge is 8px wide. The floating preview is 228px wide, the window height minus 16px, inset 8px, on white with a 12px radius and the menu shadow (0 8px 24px #0000001f), the only chrome surface with a shadow. It closes 150ms after the pointer leaves, or on Escape.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "hover",
+        "behavior": "The preview slides 12px in and fades from 0 to 1, and reverses on leave after the grace delay.",
+        "durationMs": 170,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "The preview appears and disappears in place."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Same as the narrow-window menu sheet.",
+        "medium": "This is the default sidebar mode in the medium band.",
+        "expanded": "Optional, through the pin toggle."
+      }
+    },
+    {
+      "id": "menus",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The browser menu and the sidebar menu as floating menus.",
+      "userQuestion": "Where do I find a browser action I don't use every day?",
+      "stage": "act",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [],
+      "copy": {
+        "heading": "Menus",
+        "body": [
+          "Sample data: Browser menu: New tab Ctrl+T, New window Ctrl+N, then Find on page Ctrl+F, Zoom with minus, 100% and plus, then Downloads Ctrl+J, Passwords, Extensions, Workspaces, then Settings, Check for updates, Set as default browser, Import from another browser.",
+          "Sidebar menu: Sort tabs by last used, Close Today's tabs, Collapse sidebar, Move Today to Work."
+        ],
+        "callsToAction": [
+          {
+            "label": "Open browser menu",
+            "target": "#browser-menu"
+          },
+          {
+            "label": "Open sidebar menu",
+            "target": "#sidebar-menu"
+          }
+        ]
+      },
+      "layout": "The browser menu is 280px wide and the sidebar menu 240px. Menus are white with a 12px radius, 6px padding and the menu shadow. Rows are 32px with a 6px-radius hover in the active fill; shortcuts are right-aligned in muted text; groups are split by 1px rule lines with 6px of air. Zoom is one row with a 3-part segmented control and the value in tabular figures. Disabled rows (for example 'Close Today's tabs' when there are none) are at 40% opacity with no hover.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "press",
+        "behavior": "The menu fades and scales from 0.98 to 1 from its trigger corner; Escape closes it in 120ms and focus returns to the trigger. Arrow keys move the highlighted row.",
+        "durationMs": 150,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Menus appear and close in place."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Menus open as a bottom sheet with 44px rows.",
+        "medium": "As desktop.",
+        "expanded": "Anchored popovers as above."
+      }
+    },
+    {
+      "id": "downloads",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "table-filter-bar"
+      ],
+      "purpose": "The Downloads panel: what is finished, what is still running and what failed.",
+      "userQuestion": "Has my file finished, and did anything fail?",
+      "stage": "evaluate",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 5 downloads today: 3 complete, 1 in progress, 1 failed.",
+        "Sample data: photos-october.zip is at 251.3 of 412.0 MB (61%), about 2 min left."
+      ],
+      "copy": {
+        "heading": "Downloads",
+        "body": [
+          "Sample data. Finding: photos-october.zip is 61% done, and font-pack.zip failed.",
+          "Sample data: photos-october.zip: 251.3 of 412.0 MB, about 2 min left, from drive.example-cloud.app. In progress, with an Ember progress bar.",
+          "Sample data: font-pack.zip: Failed, network error at 18.6 MB, from fonts.dev.",
+          "Sample data: Drift-Setup-0.9.5.exe: 98.2 MB, Done, from github.com.",
+          "Sample data: quarterly-report.pdf: 2.4 MB, Done, from docs.work.",
+          "Sample data: invoice-2291.pdf: 184 KB, Done, from billing.energy.",
+          "Sample data: Tabs: All 5, In progress 1, Failed 1."
+        ],
+        "callsToAction": [
+          {
+            "label": "Retry",
+            "target": "#retry-font-pack"
+          },
+          {
+            "label": "Show in folder",
+            "target": "#show-in-folder"
+          },
+          {
+            "label": "Clear finished",
+            "target": "#clear-finished"
+          }
+        ]
+      },
+      "layout": "In the sheet: the title row (h1 'Downloads' 22/600; the secondary 'Clear finished' at the right). Underline tabs All, In progress and Failed with counts, on a full-width 1px rule with a 2px ink indicator. A toolbar with a 280x32 search 'Search downloads' at the left and the count '5 downloads' at the right. A 760px list of 64px two-line rows: a 20px outline file glyph; line 1 the file name 14/500 in ink; line 2 size, state and source in 12px muted text, with tabular figures. In-progress rows carry a 4px Ember bar under line 2 at the true ratio, with Pause and Cancel. The failed row has a 'Failed' negative pill and a Retry text button. Rules between rows. The 372px right column shows the selected file's details as key-value rows on a 30px pitch (Saved to, Size, Source, Started 17:52). Empty tab: 'No failed downloads today.' in a 38px dashed box. Loading: grey bars at row size. Error: 'Couldn't read the downloads list.' with Retry.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "state_change",
+        "behavior": "The tab indicator slides to the chosen tab; filtered rows collapse and the rest close the gap with stable identity; the progress bar width follows real progress.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "The tab switch and filter apply instantly; progress updates without tweening."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "One-column two-line rows with the action at the right; the detail opens as a pushed view with Back.",
+        "medium": "The detail column moves under the list.",
+        "expanded": "760px list and 372px detail column."
+      }
+    },
+    {
+      "id": "passwords",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "inbox-triage"
+      ],
+      "purpose": "The password manager: saved logins, the ones that need attention, and the Drift-styled save prompt.",
+      "userQuestion": "Which saved passwords should I fix first?",
+      "stage": "de_risk",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 8 saved logins; 3 need attention: 2 reused (github.com and npmjs.com share one password) and 1 weak (news.ycombinator.com)."
+      ],
+      "copy": {
+        "heading": "Passwords",
+        "body": [
+          "Sample data. Finding: 3 of 8 logins need attention.",
+          "Sample data: github.com, hollis.wren, Reused on npmjs.com.",
+          "Sample data: npmjs.com, hollis.wren, Reused on github.com.",
+          "Sample data: news.ycombinator.com, hwren, Weak.",
+          "Sample data: mail.fastmail.com, hollis@fastmail.com.",
+          "Sample data: nationalrail.co.uk, hollis.wren@fastmail.com.",
+          "Sample data: figma.com, hollis@studio.work.",
+          "Sample data: billing.energy, account 30418822.",
+          "Sample data: bank.example-coop.uk, customer 5501 2290.",
+          "Sample data: Save prompt under the URL pill: 'Save password for figma.com?' Username hollis@studio.work, the password hidden with a show toggle. Buttons: Save (primary), Never for this site (secondary)."
+        ],
+        "callsToAction": [
+          {
+            "label": "Change password",
+            "target": "#change-password"
+          },
+          {
+            "label": "Copy password",
+            "target": "#copy-password"
+          },
+          {
+            "label": "Add login",
+            "target": "#add-login"
+          }
+        ]
+      },
+      "layout": "Inbox pattern inside the sheet: a 384px list column with its own toolbar (underline tabs All 8 and Needs attention 3, a 32px search, the count), then 64px two-line rows: line 1 the site 14/500 with a 20px favicon; line 2 the username in 13px ink; the status is one pale pill at the right ('Reused' warning pair, 'Weak' warning pair). The selected row takes the active fill and the 2px Ember wick. The remaining width (748px) shows the open login: the site title 16/600; key-value rows on a 32px pitch (Username, Password as dots with show and copy, Website, Last used 12 Nov, Saved 3 Mar); the warning notice strip 'This password is also used on npmjs.com.' with 'Change password'; and 'Delete login' last, in negative text. The password is never shown without a press on Show; the copy button confirms with 'Copied' for 2s. Empty Needs attention: 'All 8 passwords are strong and unique.' Locked state: the list hidden behind 'Unlock with Windows Hello' with a primary button.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "state_change",
+        "behavior": "The selected fill and wick move to the chosen row; the save prompt fades and scales from 0.98 from the URL pill and returns focus on Escape; 'Copied' swaps in place.",
+        "durationMs": 160,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "State changes apply instantly."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "The list fills the screen; choosing a row pushes the login detail with Back to the list at the same scroll position.",
+        "medium": "The list is 306px and the detail fills the rest.",
+        "expanded": "384px list and the detail in the remaining 748px."
+      }
+    },
+    {
+      "id": "shields",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The Shields popover for the current site.",
+      "userQuestion": "Is this site being blocked from tracking me, and is anything broken by it?",
+      "stage": "de_risk",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 14 blocked on en.wikipedia.org: 9 trackers and 5 ads."
+      ],
+      "copy": {
+        "heading": "Shields",
+        "body": [
+          "Sample data: en.wikipedia.org. Shields on. 14 blocked: 9 trackers, 5 ads.",
+          "Switches: Block trackers (on), Block ads (on), Block cookie banners (off).",
+          "If the site looks broken, turn Shields off for en.wikipedia.org only."
+        ],
+        "callsToAction": [
+          {
+            "label": "Turn off for this site",
+            "target": "#shields-site-toggle"
+          },
+          {
+            "label": "Shields settings",
+            "target": "#/settings"
+          }
+        ]
+      },
+      "layout": "A 360px popover from the Shields icon in the URL pill: the host 14/600 and a switch for this site at the right. The lead figure '14' at 28/400 in tabular figures with 'blocked' in muted 14px. A 100% stacked bar, 8px tall, with Ember for trackers (9) and chart-2 for ads (5) and a 2px seam, each part labelled under it. Three switch rows of 40px with the toggle in var(--highlight) when on. Shields off: the figure prints '0 blocked' in muted text and the bar becomes an empty track.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "press",
+        "behavior": "The popover opens from the icon; switches slide their knob; the count updates without counting up.",
+        "durationMs": 150,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Switches and the popover change state instantly."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "A bottom sheet with the same content.",
+        "medium": "As desktop.",
+        "expanded": "A 360px popover as above."
+      }
+    },
+    {
+      "id": "extensions",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "table-filter-bar"
+      ],
+      "purpose": "Installed extensions and the extension actions menu.",
+      "userQuestion": "Which extensions are on, and which can read this site?",
+      "stage": "evaluate",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 4 extensions installed, 3 on and 1 off."
+      ],
+      "copy": {
+        "heading": "Extensions",
+        "body": [
+          "Sample data: 4 extensions installed, 3 on.",
+          "Sample data: Reader view 2.3.1: On, can read this site when clicked.",
+          "Sample data: JSON formatter 0.9.0: On, can read all sites.",
+          "Sample data: Colour picker 1.4.2: On, no site access.",
+          "Sample data: Grammar check 5.0.4: Off.",
+          "Sample data: the extension actions menu in the topbar lists the 3 that are on, each with Pin to toolbar."
+        ],
+        "callsToAction": [
+          {
+            "label": "Get extensions",
+            "target": "#web-store"
+          },
+          {
+            "label": "Remove",
+            "target": "#remove-extension"
+          }
+        ]
+      },
+      "layout": "The title row with 'Get extensions' as the one secondary. A 760px list of 64px rows: a 20px extension icon, the name 14/500 and the version in muted tabular figures, the site access in 12px muted text on line 2, and a toggle at the right. An 'Off' neutral pill on the off row. The kebab per row opens Details, Site access and Remove (negative text, with a confirmation naming the extension). Empty: 'No extensions installed.' with Get extensions.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "press",
+        "behavior": "Toggles slide; the kebab menu opens as a popover.",
+        "durationMs": 150,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Instant state changes."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Two-line rows at full width with the toggle at the right.",
+        "medium": "A full-width list.",
+        "expanded": "760px list, with the 372px column holding the selected extension's permissions."
+      }
+    },
+    {
+      "id": "workspaces",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "table-filter-bar"
+      ],
+      "purpose": "Manage workspaces and switch between them.",
+      "userQuestion": "Which workspace holds which tabs?",
+      "stage": "orient",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: 3 workspaces holding 22 tabs: Personal 12, Work 7, Reading 3."
+      ],
+      "copy": {
+        "heading": "Workspaces",
+        "body": [
+          "Sample data: 22 tabs in 3 workspaces.",
+          "Sample data: Personal: 12 tabs, current.",
+          "Sample data: Work: 7 tabs, last used today 14:20.",
+          "Sample data: Reading: 3 tabs, last used 9 Nov."
+        ],
+        "callsToAction": [
+          {
+            "label": "New workspace",
+            "target": "#new-workspace"
+          },
+          {
+            "label": "Switch",
+            "target": "#switch-workspace"
+          }
+        ]
+      },
+      "layout": "A 760px list of 48px rows: a 20px workspace symbol (a letter on a pale tint of the workspace's own hue, hues at least 60 degrees apart), the name 14/500, the tab count right-aligned in tabular figures, last used in muted text, and a kebab with Rename, Change symbol and Delete. The current row has the active fill and the wick. 'New workspace' is the primary. The switcher popover in the sidebar shows the same 3 rows at 40px.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "press",
+        "behavior": "Switching swaps the sidebar tab list and moves the wick; the list keeps row identity.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Instant swap."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "Full-width rows.",
+        "medium": "Full-width list.",
+        "expanded": "760px list, with the 372px column showing the selected workspace's tabs."
+      }
+    },
+    {
+      "id": "updates",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The update popover.",
+      "userQuestion": "Is Drift up to date, and do I need to restart?",
+      "stage": "act",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: version 0.9.5 downloaded and ready; the current version is 0.9.4."
+      ],
+      "copy": {
+        "heading": "Updates",
+        "body": [
+          "Sample data: Drift 0.9.5 is ready. Restart to update; your tabs will reopen.",
+          "Sample data: States: Checking for updates (spinner), Downloading 0.9.5 (Ember bar, 38.0 of 98.2 MB), Ready to restart (warning notice), Up to date (positive text 'Drift 0.9.4 is up to date'), Couldn't check (with Try again)."
+        ],
+        "callsToAction": [
+          {
+            "label": "Restart to update",
+            "target": "#restart"
+          },
+          {
+            "label": "Later",
+            "target": "#later"
+          }
+        ]
+      },
+      "layout": "A 320px popover from the browser menu: the state line, a progress bar with both ends labelled during download, and the primary 'Restart to update' with 'Later' as a secondary. A 6px Ember dot on the browser kebab while an update is ready.",
+      "motion": {
+        "purpose": "status",
+        "trigger": "state_change",
+        "behavior": "The progress bar follows real progress; the popover opens from the kebab.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Static progress updates."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "A bottom sheet.",
+        "medium": "As desktop.",
+        "expanded": "A 320px popover."
+      }
+    },
+    {
+      "id": "default-browser",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "app-screen"
+      ],
+      "purpose": "The default-browser prompt.",
+      "userQuestion": "Should Drift open my links?",
+      "stage": "act",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [],
+      "copy": {
+        "heading": "Make Drift your default browser",
+        "body": [
+          "Links from mail, chat and documents will open in Drift.",
+          "Windows opens its Default apps settings to confirm.",
+          "Status after the change: 'Drift is your default browser' in positive text."
+        ],
+        "callsToAction": [
+          {
+            "label": "Make Drift default",
+            "target": "#make-default"
+          },
+          {
+            "label": "Not now",
+            "target": "#not-now"
+          }
+        ]
+      },
+      "layout": "A 420px dialog centred on the sheet, white with a 12px radius and the menu shadow, 24px padding: the Drift mark, the 16/600 title, one 14px muted line, then the primary and secondary at the bottom right. The rest of the sheet dims with a #00000033 scrim. Escape closes it and returns focus.",
+      "motion": {
+        "purpose": "feedback",
+        "trigger": "state_change",
+        "behavior": "The dialog fades and scales from 0.98; the scrim fades.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Appears in place."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [
+        "drift-mark-small"
+      ],
+      "transformation": {
+        "compact": "A full-width bottom sheet.",
+        "medium": "As desktop.",
+        "expanded": "A 420px dialog."
+      }
+    },
+    {
+      "id": "import",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "settings-two-column"
+      ],
+      "purpose": "Import from another browser.",
+      "userQuestion": "What will come across from my old browser?",
+      "stage": "act",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Sample data: Chrome profile 'Default' with 86 bookmarks, 1,240 history entries and 8 passwords."
+      ],
+      "copy": {
+        "heading": "Import",
+        "body": [
+          "Sample data: from Chrome, profile 'Default': 86 bookmarks, 1,240 history entries, 8 passwords, 3 extensions found.",
+          "Choose what to bring: Bookmarks, History, Passwords (checked); Extensions (unchecked, opens their store pages).",
+          "Sample data: after import: 'Imported 86 bookmarks, 1,240 history entries and 8 passwords from Chrome.'"
+        ],
+        "callsToAction": [
+          {
+            "label": "Import",
+            "target": "#run-import"
+          },
+          {
+            "label": "Choose another browser",
+            "target": "#choose-browser"
+          }
+        ]
+      },
+      "layout": "Two-column layout: the 420px label column with the 'From Chrome' title and the browser select (Chrome, Edge, Arc, Firefox); the 712px raised panel with 4 checkbox rows, each showing its count right-aligned in tabular figures, and the primary 'Import' at the bottom right. In progress: an Ember bar with 'Importing history, 620 of 1,240'. Error: 'Couldn't read Chrome's profile. Close Chrome and try again.' with Try again. No browser found: 'No other browsers found on this PC.'",
+      "motion": {
+        "purpose": "status",
+        "trigger": "state_change",
+        "behavior": "Progress follows real counts; checkboxes toggle.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Static updates."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "The label stacks above the panel.",
+        "medium": "Stacked when the panel would be under 340px.",
+        "expanded": "420 + 24 + 712."
+      }
+    },
+    {
+      "id": "settings",
+      "layoutFamily": "dashboard",
+      "layoutCases": [
+        "settings-two-column"
+      ],
+      "purpose": "Settings, starting with Look and feel, which controls this redesign's own tokens.",
+      "userQuestion": "How do I make Drift look the way I want?",
+      "stage": "continue",
+      "dependencies": [
+        "shell"
+      ],
+      "evidence": [
+        "Current values in the prototype: theme Light, highlight Ember, glass Off, accent #5856d6."
+      ],
+      "copy": {
+        "heading": "Settings",
+        "body": [
+          "Areas in a settings sub-nav inside the sheet: Look and feel, Tabs and workspaces, Privacy and Shields, Passwords, Downloads, Search, Shortcuts, Updates, About. Each area is its own view with its name as the heading.",
+          "Sample data: Look and feel: Theme (Light, Dark, Black, System as a segmented control); Highlight (Ember, Champagne, Glacier, Aurora, Sunrise as named swatches, Ember selected); Accent (the colour field, #5856d6); Glass (a switch, Off, described as 'Frosted chrome on supported Windows versions').",
+          "A live preview beside the controls: a miniature frame with tab rows, the wick and a sheet, redrawn with the chosen theme and highlight.",
+          "Every control saves itself and shows a quiet 'Saved' stamp."
+        ],
+        "callsToAction": [
+          {
+            "label": "Reset look and feel",
+            "target": "#reset-look"
+          }
+        ]
+      },
+      "layout": "Inside the sheet: the h1 'Settings', a 200px sub-nav (34px rows, the active row in the active fill), then the 932px area column: a label column of 300px beside a 608px raised panel with a 16px radius and 16px padding, 24px apart (300 + 24 + 608 = 932). Sections are split by full-width rules with 32px above and below. Switch rows: a 14/500 title, a 14px muted description, and a 28x16 toggle 16px from the right, in var(--highlight) when on. The label column of the Look and feel section holds the live preview (300x180). The reset action comes last, as a text button.",
+      "motion": {
+        "purpose": "state_change",
+        "trigger": "state_change",
+        "behavior": "Theme and highlight changes cross-fade the token colours across the whole shell; the segmented control's thumb slides; 'Saved' fades in for 2s.",
+        "durationMs": 180,
+        "easing": "cubic-bezier(0.33, 1, 0.68, 1)",
+        "reducedMotion": "Tokens swap instantly."
+      },
+      "componentNeeds": [],
+      "assetNeeds": [],
+      "transformation": {
+        "compact": "The sub-nav becomes a select at the top; each section stacks its label above its panel.",
+        "medium": "The sub-nav stays at 180px; the sections stack.",
+        "expanded": "200 + 24 + 932 = 1156."
+      }
+    }
+  ],
+  "responsive": [
+    "1440x900: every block of the default view (sidebar with all 12 tab rows, the topbar with the URL pill, the page sheet with the load line and the find bar) is visible without scrolling.",
+    "1100px: the sidebar folds to compact mode with the hover preview; the sheet starts 8px from the left edge.",
+    "Under 640px: the frame folds into a 48px stone topbar; the sheet takes the full screen with no inset; panels become pushed views; menus and popovers become bottom sheets with 44px rows.",
+    "The page never scrolls sideways at any width; long tab titles and URLs truncate with an ellipsis and show in full in a tooltip."
+  ],
+  "interactions": [
+    "Tab rows: hover shows the #0000000a fill and the close button; click selects (the wick and active fill move); middle-click or the close button closes; drag reorders with FLIP; drag to Essentials pins; F2 or double-click renames.",
+    "Workspace switcher: click or Ctrl+1 to Ctrl+3 swaps the tab list; the switcher popover closes on Escape and returns focus.",
+    "Rail search filters the tab rows live and shows the count 'n of 12'; Escape clears it; zero results show 'No tabs match \"term\"'.",
+    "The URL pill's address-state switch in the prototype cycles Secure, Not secure, Loading and Error so each state can be reviewed.",
+    "Topbar: auto-hides; moving the pointer to the top 4px or pressing Ctrl+L reveals it; Escape with focus in the pill hides it again.",
+    "Find bar: Ctrl+F opens it with the field focused; Enter and Shift+Enter step through matches; Escape closes it and returns focus to the page.",
+    "Split view: drag the divider (min 320px a pane); click a pane or Ctrl+Alt+Left and Right moves focus; the close control closes that pane.",
+    "Compact mode: the pin toggles it; hovering the left edge or Ctrl+S shows the preview; leaving or Escape hides it.",
+    "Downloads: the tabs filter rows; Pause, Cancel and Retry change a row's state; Clear finished removes the 3 done rows and leaves the in-progress and failed ones.",
+    "Passwords: Show reveals one password; Copy shows 'Copied' for 2s; the Needs attention tab filters to 3 rows; Delete asks for confirmation naming the site.",
+    "Settings: theme, highlight and glass changes apply live across the whole shell, including the dark and black token sets.",
+    "Every row and control has hover, selected, focus-visible (2px ink ring, 2px offset) and disabled (40% opacity, no hover) states.",
+    "Every overlay closes on Escape and returns focus to its trigger; menus support the arrow keys and Home and End."
+  ],
+  "acceptanceCriteria": [
+    "Sample dataset in one data file: workspaces Personal 12, Work 7 and Reading 3 tabs (sum 22, asserted). Personal = 4 Essentials + 2 pinned + 6 Today = 12 (asserted). Downloads: 5 = 3 done + 1 in progress + 1 failed (asserted); photos-october.zip 251.3 / 412.0 MB = 61% (asserted). Passwords: 8 logins, 3 need attention = 2 reused + 1 weak (asserted). Shields: 14 = 9 trackers + 5 ads (asserted). Import: 86 bookmarks, 1,240 history entries, 8 passwords. Tab counts on tabs and in the Workspaces view are computed from the rows.",
+    "Each figure appears from one variable: the Shields count in the URL pill and the popover, the download progress in the sidebar ring and the Downloads row, and the workspace tab counts in the switcher and the Workspaces view.",
+    "One quiet 'Sample data' notice per view (12px warning ink on #fffbeb with a #fde68a border), never on every block.",
+    "The shell names the product (the Drift mark from assets/icon/icon-small.svg) and the scope (the 'Personal' workspace switcher) at the top of the sidebar.",
+    "No rule between the sidebar and the topbar; the sheet is inset 8px from the right and bottom, with a 1px #e6e4df edge, 16px radius and no shadow; only menus, popovers, dialogs and the compact preview cast a shadow.",
+    "The Ember wick appears only on the active tab row and on the loading or focused sheet, always as var(--highlight); changing the highlight setting recolours it.",
+    "No white text on Ember anywhere; the primary button is near-black (#1d1d1f) and inverts in dark mode.",
+    "Colour covers under 3% of the default view's chrome pixels.",
+    "Inter Variable is really loaded: document.fonts.check('500 14px \"Inter Variable\"') is true after document.fonts.ready, and tabular-nums changes its digit widths. Junicode is used only for the new-tab greeting. Bricolage is not used.",
+    "Every text colour reaches 4.5:1 on its surface in light, dark and black modes, including placeholders and muted meta.",
+    "Every control is at least 32px tall (44px under 640px), and every focusable element shows the 2px ink focus ring.",
+    "States are shown and reachable for review: tab row hover, selected, focus, dragging, loading, playing audio and crashed; URL pill secure, not secure, loading and error; empty Today, empty Essentials, zero find matches, empty Downloads tab, a failed download, Needs attention empty, Shields off, update states and import error.",
+    "Loading states use flat grey bars at the real row and value sizes with no shimmer and no layout shift when data arrives.",
+    "Every transition uses 120-220ms with cubic-bezier(0.33, 1, 0.68, 1), is interruptible, and is instant under prefers-reduced-motion; nothing animates in on view load.",
+    "Tested in the browser: tab select, close, reorder and workspace switch; rail search; find bar navigation and Escape; split divider drag and pane focus; compact preview hover and Escape; menu keyboard operation; download filtering, retry and clear; password show, copy and filter; settings theme and highlight switching; all at 1440, 1024 and 390 wide, and with reduced motion. Rapid repeated input leaves no stuck state."
+  ]
+}

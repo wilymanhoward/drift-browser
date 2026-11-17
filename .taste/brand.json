@@ -1,0 +1,340 @@
+{
+  "version": 1,
+  "foundation": {
+    "strategy": "extend",
+    "existingAssets": [
+      "assets/icon/icon.svg",
+      "assets/icon/icon-small.svg",
+      "assets/icon/icon.png",
+      "assets/icon/icon.ico",
+      "src/renderer/fonts/inter-latin-wght-normal.woff2",
+      "src/renderer/fonts/junicode-italic.woff",
+      "src/renderer/fonts/bricolage-latin-wdth.woff2",
+      "src/renderer/fonts/OFL.txt",
+      "src/renderer/style.css",
+      "src/shared/settings.ts (themeCSS, HIGHLIGHTS)"
+    ],
+    "assetActions": [
+      {
+        "asset": "assets/icon/icon.svg and icon-small.svg",
+        "action": "protect",
+        "reason": "This is Drift's existing app mark. It stays the product mark at the top of the sidebar, with no new logo invented."
+      },
+      {
+        "asset": "src/renderer/fonts/inter-latin-wght-normal.woff2",
+        "action": "preserve",
+        "reason": "Inter Variable is the existing interface typeface. An existing brand typeface outranks the sheet's IBM Plex Sans."
+      },
+      {
+        "asset": "src/renderer/fonts/junicode-italic.woff",
+        "action": "preserve",
+        "reason": "Kept for one job, the new-tab greeting, which the rules allow as a second face."
+      },
+      {
+        "asset": "src/renderer/fonts/bricolage-latin-wdth.woff2",
+        "action": "retire",
+        "reason": "A third face would break the one-grotesk rule. It is no longer used in the chrome, but the file stays until Build confirms nothing else references it."
+      },
+      {
+        "asset": "src/shared/settings.ts themeCSS token set",
+        "action": "evolve",
+        "reason": "Remap its light, dark and black values onto the framed-sheet roles (tinted frame, white sheet, three line steps, no shadow at rest). Keep the user's theme, accent, highlight and glass settings working."
+      },
+      {
+        "asset": "--wallpaper-image and the accent radial-gradient backdrop",
+        "action": "evolve",
+        "reason": "The gradient wash goes against the no-gradient rule. The frame becomes a solid tint; a wallpaper the user chooses still shows on the new-tab page only."
+      }
+    ],
+    "lockedDecisions": [
+      "Contrast UI (progress, on-states, the bookmarked star, active Essential tint, toggles, drop outlines) uses var(--highlight), with Ember as the default (#c2410c light, #f4a26b dark). Never hard-code a palette hex, so the user's highlight choice still applies.",
+      "Never put white text on Ember. Filled controls with text keep the near-black primary or the user's --accent.",
+      "--accent stays a user setting (default #5856d6 in settings.ts). The redesign does not move it onto data or chrome.",
+      "Inter Variable is the interface typeface.",
+      "Theme modes light, dark, black and system, plus the glass and highlight settings, all keep working.",
+      "No new features and no main-process changes. Current component structure stays; changes are CSS tokens, the stylesheet and small TSX class changes.",
+      "Hit targets stay at least 32px; keyboard focus stays visible; prefers-reduced-motion is respected.",
+      "Avoid purple or pink gradients for highlights (user preference)."
+    ],
+    "assumptions": [
+      "Face chosen: a warm stone frame tinted from Ember (#f7f6f2) in place of #f9fbfc. The web page or panel is the white sheet.",
+      "The topbar stays at 40px, not the sheet's 48px, because the main process may compute web-view bounds from it and the brief rules out main-process changes.",
+      "Tab rows stay at 34px (the existing --tab-height) because they are navigation rows, not table rows. The 48px row height applies to lists in Downloads, Passwords and Extensions.",
+      "IBM Plex Mono is not added. The Inter tabular figures handle counts, sizes and match numbers, and hosts in the URL pill stay in Inter.",
+      "With glass on, the frame becomes translucent at the same tone; the sheet stays opaque white. Glass is never the default look.",
+      "The dark and black themes map the same roles: #15161b and #000 frames, a #1e1f23 sheet, lines 22-31 levels above the ground, and Ember #f4a26b as the data hue."
+    ]
+  },
+  "creativeDirection": {
+    "summary": "Framed sheet, warm. One solid Ember-stone frame holds the vertical tab sidebar and the topbar as a single L with no rule between them. The web page sits in it as a white sheet inset 8px from the right and bottom, with a 1px edge, 16px corners and no shadow. Ember is the only colour the chrome itself owns.",
+    "traits": [
+      {
+        "quality": "Quiet chrome",
+        "boundary": "not invisible: the product mark, the workspace name and the active tab always read at a glance"
+      },
+      {
+        "quality": "Warm",
+        "boundary": "not beige or vintage: one low-chroma stone step, never a tinted gradient"
+      },
+      {
+        "quality": "Exact",
+        "boundary": "not technical: Inter at three weights, sentence case, tabular figures only where numbers change"
+      }
+    ],
+    "productiveTension": "A browser has to disappear behind the page, yet the brief asks Drift to feel like its own product. The frame recedes into one warm tone, and identity comes from a single Ember thread: the active tab's bar, which continues as the load line along the sheet's top edge.",
+    "signatureDevice": {
+      "description": "The Ember wick: the active tab row has a 2px var(--highlight) bar inside its left edge. While a page loads, a 2px var(--highlight) line runs along the top edge of the white sheet, clipped to its 16px corner, and fades when loading finishes. In split view only the focused pane's sheet carries the line and a 1px highlight-tinted edge.",
+      "status": "candidate",
+      "invariants": [
+        "Always var(--highlight), never a palette hex or the accent",
+        "Exactly 2px, on one active tab and the loading or focused sheet only",
+        "Never on hover or focus. Focus keeps its own 2px ring.",
+        "With reduced motion, the load line shows as a static line with no sweep"
+      ]
+    },
+    "restraint": "Under 3% colour in the chrome: the app mark, the Ember wick, the bookmarked star, progress and on-states. Everything else is greys on stone and white. Frame, sheet and card are the only three levels; menus and popovers are the only things that cast shadows.",
+    "avoid": [
+      "Frosted glass and blur as the default look",
+      "Accent radial-gradient backdrop washes",
+      "Indigo-tinted shadows under the sheet or cards",
+      "A rule between the sidebar and the topbar",
+      "Saturated fill on the active tab or selected rows",
+      "Icons in tinted circles or squares",
+      "Uppercase tracked labels",
+      "A fourth nesting level inside panels"
+    ]
+  },
+  "colorPalette": [
+    {
+      "name": "ground",
+      "value": "#f7f6f2",
+      "usage": "The L-frame: sidebar and topbar on one warm stone tint, taken from Ember (the chosen face) in place of the sheet's cool #f9fbfc."
+    },
+    {
+      "name": "surface",
+      "value": "#ffffff",
+      "usage": "The sheet: web-view surround, overlay panels, dialogs and the new-tab page."
+    },
+    {
+      "name": "raised",
+      "value": "#f2f1ec",
+      "usage": "Grouped fills inside a sheet: settings panels, the find bar and URL pill fields on the frame, the empty Essentials well."
+    },
+    {
+      "name": "active",
+      "value": "#e9e7e1",
+      "usage": "The active tab row and selected list rows (the neutral pill), plus pressed controls. Ink stays at least 4.5:1 on it."
+    },
+    {
+      "name": "border",
+      "value": "#e6e4df",
+      "usage": "The sheet's 1px edge and card edges, about 1.2:1 on white. It is the heaviest line in the chrome."
+    },
+    {
+      "name": "rule",
+      "value": "#efeee9",
+      "usage": "Row rules in Downloads, Passwords and Extensions lists, and section splits in Settings."
+    },
+    {
+      "name": "control",
+      "value": "#cdccc6",
+      "usage": "1px border on inputs, secondary buttons, checkboxes and the split divider handle."
+    },
+    {
+      "name": "text",
+      "value": "#1d1d1f",
+      "usage": "Primary ink, kept from Drift's existing --text: tab titles, URLs, labels. 16:1 on white and 15:1 on the frame."
+    },
+    {
+      "name": "muted",
+      "value": "#5d5f60",
+      "usage": "Meta and secondary text: hosts, times, match counts, descriptions, placeholders. 6.4:1 on white and 5.9:1 on the frame."
+    },
+    {
+      "name": "accent",
+      "value": "#c2410c",
+      "usage": "Set to var(--highlight), Ember light by default, for the wick, progress, on-states, the bookmarked star and the tab-group drop outline. 5.2:1 on white. Never a fill under text. The user's --accent setting is unchanged and is used only where text sits on a filled colour."
+    },
+    {
+      "name": "positive",
+      "value": "#1e7b4f",
+      "usage": "Text for done states: download complete, 'Up to date', Shields protecting. 5.3:1 on white."
+    },
+    {
+      "name": "negative",
+      "value": "#c4242a",
+      "usage": "Error text and the URL pill's not-secure state; replaces the old #d70015 for one consistent red. 5.6:1 on white."
+    },
+    {
+      "name": "warning",
+      "value": "#92400e",
+      "usage": "Notice text: an update waiting for restart, a weak or reused password."
+    },
+    {
+      "name": "chart-1",
+      "value": "#c2410c",
+      "usage": "The main data mark, as var(--highlight): download progress rings and bars, the Shields blocked count, the update progress bar."
+    },
+    {
+      "name": "chart-2",
+      "value": "#2f70bb",
+      "usage": "Second series only where a panel needs two, such as Shields trackers against ads blocked."
+    },
+    {
+      "name": "chart-3",
+      "value": "#a86f0c",
+      "usage": "Third series, rare; amber kept apart from Ember by lightness. 3:1 on white."
+    },
+    {
+      "name": "pill-positive-bg",
+      "value": "#dcfae5",
+      "usage": "Background of the 'Complete', 'Protected' and 'Saved' pills."
+    },
+    {
+      "name": "pill-positive-ink",
+      "value": "#04250e",
+      "usage": "Ink on pill-positive-bg."
+    },
+    {
+      "name": "pill-negative-bg",
+      "value": "#ffedea",
+      "usage": "Background of the 'Failed', 'Blocked', 'Breached' and 'Not secure' pills."
+    },
+    {
+      "name": "pill-negative-ink",
+      "value": "#831c1e",
+      "usage": "Ink on pill-negative-bg."
+    },
+    {
+      "name": "pill-warning-bg",
+      "value": "#fffbeb",
+      "usage": "Background of the 'Restart to update' and 'Reused password' notices, with a #fde68a border on strip notices."
+    },
+    {
+      "name": "pill-warning-ink",
+      "value": "#92400e",
+      "usage": "Ink on pill-warning-bg."
+    },
+    {
+      "name": "pill-neutral-bg",
+      "value": "#e9e7e1",
+      "usage": "Background of the 'Paused', 'Off', 'Pinned' and 'Default' pills, and of count badges on the frame."
+    },
+    {
+      "name": "pill-neutral-ink",
+      "value": "#353736",
+      "usage": "Ink on pill-neutral-bg."
+    }
+  ],
+  "typefaces": [
+    {
+      "family": "Inter Variable",
+      "source": "Bundled (src/renderer/fonts, OFL)",
+      "roles": [
+        "interface",
+        "tab titles",
+        "URL pill",
+        "panels",
+        "tabular figures for counts, sizes and match numbers"
+      ],
+      "weights": [
+        400,
+        500,
+        600
+      ]
+    },
+    {
+      "family": "Junicode",
+      "source": "Bundled (src/renderer/fonts, OFL)",
+      "roles": [
+        "new-tab greeting only, italic"
+      ],
+      "weights": [
+        400
+      ]
+    }
+  ],
+  "interfaceDirection": "Shell: a framed sheet. Sidebar (default 228px, resizable) and the 40px auto-hiding topbar share the #f7f6f2 frame with no rule between them. The web view or panel is the white sheet: 16px radius, 1px border, no shadow, butting against the sidebar and topbar and inset 8px from the window's right and bottom edges. The old content-shadow is replaced by the edge. In split view, two sheets sit 8px apart on the frame; the 8px gap is the divider hit zone with a 1px control-colour grip on hover. The focused pane carries the wick, the other a plain edge. Compact mode: the sidebar collapses and the sheet takes the full width minus the 8px inset. The hover preview slides in as a white floating panel, the only chrome surface with a shadow (0 8px 24px #0000001f), radius 12px. Sidebar, top to bottom: the Drift mark (icon-small.svg) and the workspace name at 14/600 with a chevron switcher; rail search as a 32px raised field; Essentials as a grid of 40px favicon tiles on raised, with the active Essential as an 18% highlight tint fill; pinned tabs; a 'Today' group of 34px tab rows (16px favicon, 14/400 title, audio and close icons in 16px slots at the right, close shown on hover and on the active row); the new-tab row; pin and menu triggers at the foot. Active tab: active fill, 600 title and the 2px Ember wick inside its left edge. Hover: #0000000a. Navigation recedes: icons are 16px outline at 1.5px in muted grey. Topbar: window controls at the right, back, forward and reload at the left, and a centred URL pill (up to 548px wide, 32px high, raised fill, 6px radius). It shows the host in ink and the path in muted, a lock or 'Not secure' in negative text, the bookmark star in var(--highlight) when saved, and a 2px spinner. Labels: one style, 12px Inter 500 sentence case in muted, no tracking. Controls are 32px high with a 6px radius and 8px cards. Focus: a 2px ring in the text colour at 2px offset on every focusable element. Disabled: 40% opacity and no hover. Lists in Downloads, Passwords and Extensions use 48px rows, with 64px for two-line rows such as a file name over 'Done · 4.2 MB · github.com'. Settings uses the two-column settings layout inside the sheet; Shields, Updates, Default browser and the menus are popovers with a radius of 12px and the menu shadow. Find bar: a 32px raised strip at the top right of the sheet with field, 'n of m' counts in tabular figures, previous and next, and close. Status pills: 20px high, 11-12px, 999px radius, using the pill pairs. Dark mode keeps the same roles: #15161b frame, #1e1f23 sheet, a #2e2e33 edge, text #f5f5f7, muted #a1a1a6, Ember #f4a26b. Black mode: #000 frame and a #111 sheet.",
+  "designTokens": {
+    "typeScale": {
+      "display": "22px",
+      "h1": "22px",
+      "h2": "16px",
+      "h3": "28px",
+      "body": "14px",
+      "small": "12px",
+      "label": "12px"
+    },
+    "radius": {
+      "scale": [
+        "6px",
+        "8px",
+        "16px"
+      ],
+      "pill": "999px"
+    },
+    "spacing": {
+      "section": "24px",
+      "gutter": "24px",
+      "stack": "24px"
+    },
+    "buttons": {
+      "primary": "Near-black #1d1d1f fill with a white 14/500 label, 32px high, 6px radius, 12px horizontal padding. It inverts in dark mode (#f5f5f7 fill, #1d1d1f label). Used once per panel for the main action: 'Save', 'Import', 'Restart to update', 'Make Drift default'.",
+      "secondary": "White surface fill with a 1px #cdccc6 control border, 14/500 ink label, 32px high, 6px radius. Hover is a raised fill; pressed is the active fill."
+    },
+    "surfaces": "Two grounds: the warm stone frame (#f7f6f2) for all chrome and the white sheet for the page and panels, with raised (#f2f1ec) as the only fill inside a sheet. Lines come in three steps: sheet and card edges #e6e4df, row rules #efeee9, control borders #cdccc6. Nothing casts a shadow at rest. Only things that float (menus, popovers, the compact-mode preview, dialogs and password prompts) use 0 8px 24px #0000001f. No glass blur by default."
+  },
+  "imageDirection": {
+    "summary": "The browser shows only real imagery from the web: favicons, the pages themselves, extension icons and the user's own new-tab wallpaper. There is no decorative imagery.",
+    "subjects": [
+      "Site favicons at 16px in tab rows and 20-24px in Essentials tiles, Passwords rows and import lists",
+      "Extension icons at 16-20px in the extensions list and action menu",
+      "File-type glyphs for downloads as outline icons, or the file's own thumbnail where the OS provides one",
+      "The user's chosen wallpaper behind the new-tab sheet only",
+      "People as initials on pale tints of their own hue, only where an account or profile appears (Google sign-in)"
+    ],
+    "treatment": "Favicons sit as they are on the surface with no tile or circle; a missing favicon falls back to the site's first letter in muted text on a raised 4px-radius square. The wallpaper fills the new-tab page with no overlay gradient; the search field sits on a white sheet above it.",
+    "avoid": [
+      "Stock photography",
+      "Illustrations or mascots in empty states",
+      "Icons in tinted circles",
+      "Gradient washes or blurred colour blobs",
+      "Decorative patterns on the frame"
+    ]
+  },
+  "motionDirection": {
+    "summary": "Motion is feedback for the chrome's own state changes, using one shared pair: 180ms with cubic-bezier(0.33,1,0.68,1) (the existing --ease-out), and up to 220ms for the larger topbar and sidebar moves. Nothing performs an entrance, and every motion is interruptible.",
+    "principles": [
+      "Topbar reveal: when the pointer enters the hot zone or the address shortcut fires, the topbar slides down from the frame edge over the sheet's top; 220ms, strong ease-out on show, 160ms ease-in on hide.",
+      "Sidebar collapse and expand: on the pin toggle or compact-mode shortcut, the sidebar's width and the sheet's left edge move together so the page never jumps; 200-220ms, ease-out.",
+      "Compact preview: on hover at the compact edge, the floating sidebar slides 12px in and fades from 0 to 1; on leave it reverses after a 150ms grace delay; 160-180ms, ease-out.",
+      "Tab open and close: a new row grows from 0 to 34px and fades in; a closed row collapses its height and the rows below close the gap, keeping their identity; 150-180ms, ease-out.",
+      "Tab reorder: during a drag, neighbouring rows shift to make room using FLIP transforms; 150ms, ease-out. The dropped row settles without a bounce.",
+      "Active tab change: the Ember wick and active fill move from the old row to the new one; 120-150ms, ease-out.",
+      "Page loading: the 2px Ember line on the sheet's top edge advances with real load progress, then fades out on completion; 180ms, linear progress with an ease-out fade.",
+      "Menus, popovers and dialogs: on open they fade and scale from 0.98 to 1 from their trigger; on Escape or an outside click they close in 120ms and focus returns to the trigger; 120-180ms, ease-out.",
+      "Find bar: on Ctrl+F it slides 8px down and fades in with the field focused; match navigation jumps instantly; 150ms, ease-out.",
+      "Split view: on open or close, the two sheets resize together while the divider keeps its 8px gap; 200ms, ease-out.",
+      "Reduced motion: every transition above is replaced by an instant final state, and the load line shows as static progress."
+    ],
+    "avoid": [
+      "Entrance animations on panels or the new-tab page",
+      "Perpetual shimmer, pulse or glow",
+      "Bouncy or spring overshoot",
+      "Counting up numbers",
+      "Animating the blur of glass",
+      "Replaying motion on every data refresh"
+    ]
+  },
+  "voice": {
+    "summary": "Plain, short browser words in sentence case. Labels name the user's own things (tabs, sites, downloads, passwords), and statuses say what is happening now and what to do.",
+    "avoid": [
+      "Generic template nouns such as 'Items', 'Records' or 'Status'",
+      "Marketing phrases like 'Supercharge your browsing'",
+      "Exclamation marks and emoji",
+      "'Welcome back' with a waving hand",
+      "Uppercase tracked labels",
+      "Blaming the user ('Invalid input')"
+    ]
+  }
+}
